@@ -4,6 +4,19 @@ import type { Locale } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "Services digitaux",
+  description:
+    "Développement logiciel, transformation digitale et marketing digital pour accélérer vos opérations B2B.",
+  openGraph: {
+    title: "Services digitaux | BARANE INVEST",
+    description:
+      "Développement logiciel, transformation digitale et marketing digital pour accélérer vos opérations B2B.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Services digitaux | BARANE INVEST",
+    description:
+      "Développement logiciel, transformation digitale et marketing digital pour accélérer vos opérations B2B.",
+  },
 };
 
 export default function ServicesPage({

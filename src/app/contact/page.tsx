@@ -15,6 +15,19 @@ import type { Locale } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "Contact",
+  description:
+    "Contactez BARANE INVEST pour un cadrage de besoin, une proposition technique ou un accompagnement projet.",
+  openGraph: {
+    title: "Contact | BARANE INVEST",
+    description:
+      "Contactez BARANE INVEST pour un cadrage de besoin, une proposition technique ou un accompagnement projet.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Contact | BARANE INVEST",
+    description:
+      "Contactez BARANE INVEST pour un cadrage de besoin, une proposition technique ou un accompagnement projet.",
+  },
 };
 
 export default function ContactPage({

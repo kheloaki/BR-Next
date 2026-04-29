@@ -15,6 +15,19 @@ import type { Locale } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "À propos",
+  description:
+    "Découvrez BARANE INVEST, son positionnement industriel B2B, ses expertises terrain et son approche orientée exécution.",
+  openGraph: {
+    title: "À propos | BARANE INVEST",
+    description:
+      "Découvrez BARANE INVEST, son positionnement industriel B2B, ses expertises terrain et son approche orientée exécution.",
+  },
+  twitter: {
+    card: "summary",
+    title: "À propos | BARANE INVEST",
+    description:
+      "Découvrez BARANE INVEST, son positionnement industriel B2B, ses expertises terrain et son approche orientée exécution.",
+  },
 };
 
 export default function AboutPage({

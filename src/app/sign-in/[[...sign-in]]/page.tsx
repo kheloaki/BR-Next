@@ -1,4 +1,14 @@
+import type { Metadata } from "next";
 import { SignIn } from "@clerk/nextjs";
+
+export const metadata: Metadata = {
+  title: "Connexion",
+  description: "Accédez à votre espace BARANE INVEST.",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default function SignInPage() {
   return (

@@ -15,6 +15,19 @@ import type { Locale } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "Projets",
+  description:
+    "Exemples de projets B2B accompagnés par BARANE INVEST dans les secteurs industriels et infrastructures.",
+  openGraph: {
+    title: "Projets | BARANE INVEST",
+    description:
+      "Exemples de projets B2B accompagnés par BARANE INVEST dans les secteurs industriels et infrastructures.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Projets | BARANE INVEST",
+    description:
+      "Exemples de projets B2B accompagnés par BARANE INVEST dans les secteurs industriels et infrastructures.",
+  },
 };
 
 export default function ProjetsPage({

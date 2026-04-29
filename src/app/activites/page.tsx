@@ -15,6 +15,19 @@ import type { Locale } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "Activités",
+  description:
+    "Activités BARANE INVEST: logistique industrielle, import-export et solutions opérationnelles pour projets B2B.",
+  openGraph: {
+    title: "Activités | BARANE INVEST",
+    description:
+      "Activités BARANE INVEST: logistique industrielle, import-export et solutions opérationnelles pour projets B2B.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Activités | BARANE INVEST",
+    description:
+      "Activités BARANE INVEST: logistique industrielle, import-export et solutions opérationnelles pour projets B2B.",
+  },
 };
 
 export default function ActivitesPage({

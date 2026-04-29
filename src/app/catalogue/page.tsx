@@ -15,6 +15,19 @@ import type { Locale } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "Catalogue",
+  description:
+    "Catalogue d'équipements, composants et solutions techniques pour besoins industriels et projets B2B.",
+  openGraph: {
+    title: "Catalogue | BARANE INVEST",
+    description:
+      "Catalogue d'équipements, composants et solutions techniques pour besoins industriels et projets B2B.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Catalogue | BARANE INVEST",
+    description:
+      "Catalogue d'équipements, composants et solutions techniques pour besoins industriels et projets B2B.",
+  },
 };
 
 export default function CataloguePage({

@@ -3,6 +3,19 @@ import type { Locale } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "Mentions légales",
+  description:
+    "Informations légales de BARANE INVEST: éditeur, hébergement, propriété intellectuelle, responsabilité et droit applicable.",
+  openGraph: {
+    title: "Mentions légales | BARANE INVEST",
+    description:
+      "Informations légales de BARANE INVEST: éditeur, hébergement, propriété intellectuelle, responsabilité et droit applicable.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Mentions légales | BARANE INVEST",
+    description:
+      "Informations légales de BARANE INVEST: éditeur, hébergement, propriété intellectuelle, responsabilité et droit applicable.",
+  },
 };
 
 export default function LegalPage({ locale = "fr" }: { locale?: Locale }) {
