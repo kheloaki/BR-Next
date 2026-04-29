@@ -5,9 +5,12 @@ import AboutPage from "@/app/about/page";
 import ActivitesPage from "@/app/activites/page";
 import CataloguePage from "@/app/catalogue/page";
 import ContactPage from "@/app/contact/page";
+import LegalPage from "@/app/legal/page";
 import PartenairesPage from "@/app/partenaires/page";
+import PrivacyPage from "@/app/privacy/page";
 import PourquoiPage from "@/app/pourquoi/page";
 import ProjetsPage from "@/app/projets/page";
+import ServicesPage from "@/app/services/page";
 import SecteursPage from "@/app/secteurs/page";
 import ActivitesLogistiquePage from "@/app/activites/logistique-industrielle/page";
 import ActivitesLogistiqueDelaisPage from "@/app/activites/logistique-industrielle/delais-livraison-projets-industriels/page";
@@ -26,9 +29,12 @@ const routeMap = {
   activites: true,
   catalogue: true,
   contact: true,
+  legal: true,
   partenaires: true,
+  privacy: true,
   pourquoi: true,
   projets: true,
+  services: true,
   secteurs: true,
   "activites/logistique-industrielle": true,
   "activites/logistique-industrielle/delais-livraison-projets-industriels": true,
@@ -131,6 +137,20 @@ const localizedMeta: Partial<
         "Contacte a BARANE INVEST para definicion de necesidades, propuesta tecnica o acompanamiento de proyecto.",
     },
   },
+  legal: {
+    fr: {
+      title: "Mentions légales | BARANE INVEST",
+      description: "Informations légales concernant l'éditeur, l'hébergement et les droits du site BARANE INVEST.",
+    },
+    en: {
+      title: "Legal Notice | BARANE INVEST",
+      description: "Legal information about the website publisher, hosting and rights for BARANE INVEST.",
+    },
+    es: {
+      title: "Aviso legal | BARANE INVEST",
+      description: "Informacion legal sobre el editor del sitio, el alojamiento y los derechos de BARANE INVEST.",
+    },
+  },
   partenaires: {
     fr: {
       title: "Partenaires | BARANE INVEST",
@@ -146,6 +166,20 @@ const localizedMeta: Partial<
       title: "Socios | BARANE INVEST",
       description:
         "Socios industriales y tecnicos al servicio del rendimiento operativo de proyectos B2B.",
+    },
+  },
+  privacy: {
+    fr: {
+      title: "Confidentialité | BARANE INVEST",
+      description: "Politique de confidentialité de BARANE INVEST sur la collecte et l'usage des données du formulaire.",
+    },
+    en: {
+      title: "Privacy | BARANE INVEST",
+      description: "BARANE INVEST privacy policy on collection and use of contact form data.",
+    },
+    es: {
+      title: "Privacidad | BARANE INVEST",
+      description: "Politica de privacidad de BARANE INVEST sobre recopilacion y uso de datos del formulario.",
     },
   },
   pourquoi: {
@@ -180,6 +214,23 @@ const localizedMeta: Partial<
       title: "Proyectos | BARANE INVEST",
       description:
         "Ejemplos de proyectos B2B acompanados por BARANE INVEST en sectores industriales e infraestructura.",
+    },
+  },
+  services: {
+    fr: {
+      title: "Services digitaux | BARANE INVEST",
+      description:
+        "Développement logiciel, transformation digitale et marketing digital pour accélérer vos opérations B2B.",
+    },
+    en: {
+      title: "Digital Services | BARANE INVEST",
+      description:
+        "Software development, digital transformation and growth marketing services for B2B operations.",
+    },
+    es: {
+      title: "Servicios digitales | BARANE INVEST",
+      description:
+        "Desarrollo de software, transformacion digital y marketing digital para impulsar operaciones B2B.",
     },
   },
   secteurs: {
@@ -406,12 +457,18 @@ export default async function LocalePage(props: {
       return <CataloguePage locale={currentLocale} pathPrefix={pathPrefix} />;
     case "contact":
       return <ContactPage locale={currentLocale} pathPrefix={pathPrefix} />;
+    case "legal":
+      return <LegalPage locale={currentLocale} />;
     case "partenaires":
       return <PartenairesPage locale={currentLocale} pathPrefix={pathPrefix} />;
+    case "privacy":
+      return <PrivacyPage locale={currentLocale} />;
     case "pourquoi":
       return <PourquoiPage locale={currentLocale} pathPrefix={pathPrefix} />;
     case "projets":
       return <ProjetsPage locale={currentLocale} pathPrefix={pathPrefix} />;
+    case "services":
+      return <ServicesPage locale={currentLocale} pathPrefix={pathPrefix} />;
     case "secteurs":
       return <SecteursPage locale={currentLocale} pathPrefix={pathPrefix} />;
     case "activites/logistique-industrielle":

@@ -20,6 +20,7 @@ export function Footer() {
         offer: "Offer",
         about: "About",
         activities: "Activities",
+        services: "Services",
         sectors: "Sectors",
         catalogue: "Catalogue",
         mines: "Mining",
@@ -38,6 +39,7 @@ export function Footer() {
           offer: "Oferta",
           about: "Nosotros",
           activities: "Actividades",
+          services: "Servicios",
           sectors: "Sectores",
           catalogue: "Catalogo",
           mines: "Mineria",
@@ -55,6 +57,7 @@ export function Footer() {
         offer: "Offre",
         about: "À propos",
         activities: "Activités",
+        services: "Services",
         sectors: "Secteurs",
         catalogue: "Catalogue",
         mines: "Mines",
@@ -115,6 +118,11 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href={localizedHref("/services")} className="hover:text-[var(--gold)] transition-colors">
+                  {t.services}
+                </Link>
+              </li>
+              <li>
                 <Link href={localizedHref("/secteurs/mines-carrieres")} className="hover:text-[var(--gold)] transition-colors">
                   {t.mines}
                 </Link>
@@ -162,8 +170,12 @@ export function Footer() {
             © {new Date().getFullYear()} BARANE INVEST
           </p>
           <div className="flex items-center gap-6 text-xs eyebrow text-[var(--ivory)]/40">
-            <a href="#" className="hover:text-[var(--gold)]">{t.legal}</a>
-            <a href="#" className="hover:text-[var(--gold)]">{t.privacy}</a>
+            <Link href={localizedHref("/legal")} className="hover:text-[var(--gold)]">
+              {t.legal}
+            </Link>
+            <Link href={localizedHref("/privacy")} className="hover:text-[var(--gold)]">
+              {t.privacy}
+            </Link>
             <a
               href="https://www.linkedin.com/company/baraneinvest"
               target="_blank"
@@ -174,6 +186,19 @@ export function Footer() {
               LinkedIn <ArrowUpRight className="h-3 w-3" />
             </a>
           </div>
+        </div>
+        <div className="max-w-[1400px] mx-auto pb-6 text-center">
+          <p className="text-xs text-[var(--ivory)]/40">
+            Website developed by{" "}
+            <a
+              href="https://www.itagroupe.com"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-[var(--gold)] underline underline-offset-2"
+            >
+              ITA GROUPE
+            </a>
+          </p>
         </div>
       </div>
     </footer>

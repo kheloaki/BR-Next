@@ -10,6 +10,7 @@ import logoHeader from "@/assets/barane-logo-horizontal-transparent.png";
 
 const nav = [
   { key: "activities", href: "/activites" },
+  { key: "services", href: "/services" },
   { key: "catalogue", href: "/catalogue" },
   { key: "sectors", href: "/secteurs" },
   { key: "about", href: "/about" },
@@ -50,6 +51,7 @@ export function Header() {
   const labels = isEnglish
     ? {
         activities: "Activities",
+        services: "Services",
         catalogue: "Catalogue",
         sectors: "Sectors",
         about: "About",
@@ -60,6 +62,7 @@ export function Header() {
     : isSpanish
       ? {
           activities: "Actividades",
+          services: "Servicios",
           catalogue: "Catalogo",
           sectors: "Sectores",
           about: "Nosotros",
@@ -69,6 +72,7 @@ export function Header() {
         }
       : {
           activities: "Activités",
+          services: "Services",
           catalogue: "Catalogue",
           sectors: "Secteurs",
           about: "À propos",
