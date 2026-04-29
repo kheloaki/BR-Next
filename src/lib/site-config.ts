@@ -1,4 +1,5 @@
 const DEFAULT_SITE_URL = "https://www.baraneinvest.com";
 
-export const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ?? DEFAULT_SITE_URL;
+const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "");
+
+export const siteUrl = configuredSiteUrl && configuredSiteUrl.length > 0 ? configuredSiteUrl : DEFAULT_SITE_URL;
