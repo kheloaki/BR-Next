@@ -16,17 +16,17 @@ import type { Locale } from "@/lib/i18n";
 export const metadata: Metadata = {
   title: "Catalogue",
   description:
-    "Catalogue d'équipements, composants et solutions techniques pour besoins industriels et projets B2B.",
+    "Consultez le catalogue BARANE INVEST: équipements industriels, composants techniques et solutions d'approvisionnement adaptées aux besoins B2B en production, infrastructure et maintenance.",
   openGraph: {
     title: "Catalogue | BARANE INVEST",
     description:
-      "Catalogue d'équipements, composants et solutions techniques pour besoins industriels et projets B2B.",
+      "Consultez le catalogue BARANE INVEST: équipements industriels, composants techniques et solutions d'approvisionnement adaptées aux besoins B2B en production, infrastructure et maintenance.",
   },
   twitter: {
     card: "summary",
     title: "Catalogue | BARANE INVEST",
     description:
-      "Catalogue d'équipements, composants et solutions techniques pour besoins industriels et projets B2B.",
+      "Consultez le catalogue BARANE INVEST: équipements industriels, composants techniques et solutions d'approvisionnement adaptées aux besoins B2B en production, infrastructure et maintenance.",
   },
 };
 

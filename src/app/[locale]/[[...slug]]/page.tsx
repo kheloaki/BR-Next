@@ -416,7 +416,11 @@ export async function generateMetadata(props: {
   const metaForRoute = localizedMeta[key as keyof typeof routeMap]?.[locale as Locale];
 
   return {
-    title: metaForRoute?.title,
+    title: metaForRoute?.title
+      ? {
+          absolute: metaForRoute.title,
+        }
+      : undefined,
     description: metaForRoute?.description,
     alternates: {
       canonical: `${siteUrl}${canonicalPath}`,

@@ -20,3 +20,13 @@ export function getSupabaseAdminClient() {
     },
   );
 }
+
+export async function ensureAdminUserRow(userId: string) {
+  const supabase = getSupabaseAdminClient();
+  const { error } = await supabase
+    .from("admin_users")
+    .upsert({ id: userId }, { onConflict: "id" });
+  if (error) {
+    throw new Error(error.message);
+  }
+}

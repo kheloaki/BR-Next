@@ -16,17 +16,17 @@ import type { Locale } from "@/lib/i18n";
 export const metadata: Metadata = {
   title: "Secteurs",
   description:
-    "Secteurs d'intervention BARANE INVEST: mines, carrières, infrastructures et opérations industrielles multisites.",
+    "Découvrez les secteurs d'intervention BARANE INVEST: mines, carrières, infrastructures et opérations industrielles multisites avec une approche B2B orientée performance opérationnelle.",
   openGraph: {
     title: "Secteurs | BARANE INVEST",
     description:
-      "Secteurs d'intervention BARANE INVEST: mines, carrières, infrastructures et opérations industrielles multisites.",
+      "Découvrez les secteurs d'intervention BARANE INVEST: mines, carrières, infrastructures et opérations industrielles multisites avec une approche B2B orientée performance opérationnelle.",
   },
   twitter: {
     card: "summary",
     title: "Secteurs | BARANE INVEST",
     description:
-      "Secteurs d'intervention BARANE INVEST: mines, carrières, infrastructures et opérations industrielles multisites.",
+      "Découvrez les secteurs d'intervention BARANE INVEST: mines, carrières, infrastructures et opérations industrielles multisites avec une approche B2B orientée performance opérationnelle.",
   },
 };
 

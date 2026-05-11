@@ -4,17 +4,17 @@ import type { Locale } from "@/lib/i18n";
 export const metadata: Metadata = {
   title: "Politique de confidentialité",
   description:
-    "Politique de confidentialité BARANE INVEST: collecte, finalités, conservation, destinataires et droits sur vos données personnelles.",
+    "Politique de confidentialité BARANE INVEST: modalités de collecte, finalités de traitement, conservation, destinataires et droits relatifs à vos données personnelles.",
   openGraph: {
     title: "Confidentialité | BARANE INVEST",
     description:
-      "Politique de confidentialité BARANE INVEST: collecte, finalités, conservation, destinataires et droits sur vos données personnelles.",
+      "Politique de confidentialité BARANE INVEST: modalités de collecte, finalités de traitement, conservation, destinataires et droits relatifs à vos données personnelles.",
   },
   twitter: {
     card: "summary",
     title: "Confidentialité | BARANE INVEST",
     description:
-      "Politique de confidentialité BARANE INVEST: collecte, finalités, conservation, destinataires et droits sur vos données personnelles.",
+      "Politique de confidentialité BARANE INVEST: modalités de collecte, finalités de traitement, conservation, destinataires et droits relatifs à vos données personnelles.",
   },
 };
 

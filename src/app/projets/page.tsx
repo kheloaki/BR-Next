@@ -16,17 +16,17 @@ import type { Locale } from "@/lib/i18n";
 export const metadata: Metadata = {
   title: "Projets",
   description:
-    "Exemples de projets B2B accompagnés par BARANE INVEST dans les secteurs industriels et infrastructures.",
+    "Découvrez des projets B2B accompagnés par BARANE INVEST dans l'industrie et l'infrastructure, avec un pilotage opérationnel centré sur qualité, délais et continuité d'exécution.",
   openGraph: {
     title: "Projets | BARANE INVEST",
     description:
-      "Exemples de projets B2B accompagnés par BARANE INVEST dans les secteurs industriels et infrastructures.",
+      "Découvrez des projets B2B accompagnés par BARANE INVEST dans l'industrie et l'infrastructure, avec un pilotage opérationnel centré sur qualité, délais et continuité d'exécution.",
   },
   twitter: {
     card: "summary",
     title: "Projets | BARANE INVEST",
     description:
-      "Exemples de projets B2B accompagnés par BARANE INVEST dans les secteurs industriels et infrastructures.",
+      "Découvrez des projets B2B accompagnés par BARANE INVEST dans l'industrie et l'infrastructure, avec un pilotage opérationnel centré sur qualité, délais et continuité d'exécution.",
   },
 };
 

@@ -16,17 +16,17 @@ import type { Locale } from "@/lib/i18n";
 export const metadata: Metadata = {
   title: "À propos",
   description:
-    "Découvrez BARANE INVEST, son positionnement industriel B2B, ses expertises terrain et son approche orientée exécution.",
+    "Découvrez BARANE INVEST, groupe industriel B2B marocain, sa vision opérationnelle, ses expertises sectorielles et sa méthode d'accompagnement orientée performance durable.",
   openGraph: {
     title: "À propos | BARANE INVEST",
     description:
-      "Découvrez BARANE INVEST, son positionnement industriel B2B, ses expertises terrain et son approche orientée exécution.",
+      "Découvrez BARANE INVEST, groupe industriel B2B marocain, sa vision opérationnelle, ses expertises sectorielles et sa méthode d'accompagnement orientée performance durable.",
   },
   twitter: {
     card: "summary",
     title: "À propos | BARANE INVEST",
     description:
-      "Découvrez BARANE INVEST, son positionnement industriel B2B, ses expertises terrain et son approche orientée exécution.",
+      "Découvrez BARANE INVEST, groupe industriel B2B marocain, sa vision opérationnelle, ses expertises sectorielles et sa méthode d'accompagnement orientée performance durable.",
   },
 };
 

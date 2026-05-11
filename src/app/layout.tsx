@@ -33,6 +33,10 @@ function isLocalePrefixedPath(pathname: string): boolean {
   return /^\/(fr|en|es)(\/|$)/.test(pathname);
 }
 
+function isAdminPath(pathname: string): boolean {
+  return /^\/((fr|en|es)\/)?admin(\/|$)/.test(pathname);
+}
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -40,6 +44,7 @@ export default async function RootLayout({
 }>) {
   const pathname = (await headers()).get("x-barane-pathname") ?? "";
   const showDefaultFrGlobalSchema = !isLocalePrefixedPath(pathname);
+  const showWebsiteChrome = !isAdminPath(pathname);
 
   return (
     <ClerkProvider>
@@ -51,7 +56,7 @@ export default async function RootLayout({
               <JsonLd id="website-schema" data={buildWebsiteSchema("fr")} />
             </>
           ) : null}
-          <PageLayout>{children}</PageLayout>
+          {showWebsiteChrome ? <PageLayout>{children}</PageLayout> : children}
         </body>
       </html>
     </ClerkProvider>

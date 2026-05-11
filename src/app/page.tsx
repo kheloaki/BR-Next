@@ -12,14 +12,22 @@ import { ContactCTA } from "@/components/site/ContactCTA";
 import type { Locale } from "@/lib/i18n";
 
 export const metadata: Metadata = {
-  title:
-    "BARANE INVEST — Groupe industriel marocain · Construction, infrastructure & équipement",
+  title: "BARANE INVEST | Groupe industriel marocain B2B",
   description:
-    "BARANE INVEST : partenaire B2B pour la construction, l'infrastructure, la logistique, l'équipement industriel et le support mines & carrières au Maroc et en Afrique.",
+    "BARANE INVEST accompagne les entreprises en construction, infrastructure, logistique et équipement industriel avec une exécution terrain orientée résultats au Maroc et en Afrique.",
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
-    title: "BARANE INVEST — Groupe industriel marocain",
+    title: "BARANE INVEST | Groupe industriel marocain B2B",
     description:
-      "Construction, infrastructure, équipement industriel, mines & carrières.",
+      "BARANE INVEST accompagne les entreprises en construction, infrastructure, logistique et équipement industriel avec une exécution terrain orientée résultats au Maroc et en Afrique.",
+  },
+  twitter: {
+    card: "summary",
+    title: "BARANE INVEST | Groupe industriel marocain B2B",
+    description:
+      "BARANE INVEST accompagne les entreprises en construction, infrastructure, logistique et équipement industriel avec une exécution terrain orientée résultats au Maroc et en Afrique.",
   },
 };
 

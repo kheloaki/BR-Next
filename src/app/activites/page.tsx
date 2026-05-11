@@ -16,17 +16,17 @@ import type { Locale } from "@/lib/i18n";
 export const metadata: Metadata = {
   title: "Activités",
   description:
-    "Activités BARANE INVEST: logistique industrielle, import-export et solutions opérationnelles pour projets B2B.",
+    "Explorez les activités BARANE INVEST en logistique industrielle, import-export, fourniture technique et exécution multisectorielle pour projets B2B à fortes exigences opérationnelles.",
   openGraph: {
     title: "Activités | BARANE INVEST",
     description:
-      "Activités BARANE INVEST: logistique industrielle, import-export et solutions opérationnelles pour projets B2B.",
+      "Explorez les activités BARANE INVEST en logistique industrielle, import-export, fourniture technique et exécution multisectorielle pour projets B2B à fortes exigences opérationnelles.",
   },
   twitter: {
     card: "summary",
     title: "Activités | BARANE INVEST",
     description:
-      "Activités BARANE INVEST: logistique industrielle, import-export et solutions opérationnelles pour projets B2B.",
+      "Explorez les activités BARANE INVEST en logistique industrielle, import-export, fourniture technique et exécution multisectorielle pour projets B2B à fortes exigences opérationnelles.",
   },
 };
 

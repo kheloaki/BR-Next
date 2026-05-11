@@ -4,17 +4,17 @@ import type { Locale } from "@/lib/i18n";
 export const metadata: Metadata = {
   title: "Mentions légales",
   description:
-    "Informations légales de BARANE INVEST: éditeur, hébergement, propriété intellectuelle, responsabilité et droit applicable.",
+    "Consultez les mentions légales BARANE INVEST: informations éditeur, hébergement du site, propriété intellectuelle, responsabilité et cadre juridique applicable.",
   openGraph: {
     title: "Mentions légales | BARANE INVEST",
     description:
-      "Informations légales de BARANE INVEST: éditeur, hébergement, propriété intellectuelle, responsabilité et droit applicable.",
+      "Consultez les mentions légales BARANE INVEST: informations éditeur, hébergement du site, propriété intellectuelle, responsabilité et cadre juridique applicable.",
   },
   twitter: {
     card: "summary",
     title: "Mentions légales | BARANE INVEST",
     description:
-      "Informations légales de BARANE INVEST: éditeur, hébergement, propriété intellectuelle, responsabilité et droit applicable.",
+      "Consultez les mentions légales BARANE INVEST: informations éditeur, hébergement du site, propriété intellectuelle, responsabilité et cadre juridique applicable.",
   },
 };
 

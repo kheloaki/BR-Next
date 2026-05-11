@@ -16,17 +16,17 @@ import type { Locale } from "@/lib/i18n";
 export const metadata: Metadata = {
   title: "Contact",
   description:
-    "Contactez BARANE INVEST pour un cadrage de besoin, une proposition technique ou un accompagnement projet.",
+    "Contactez BARANE INVEST pour qualifier votre besoin industriel, obtenir une proposition technique claire et structurer un plan d'exécution adapté à vos délais et contraintes terrain.",
   openGraph: {
     title: "Contact | BARANE INVEST",
     description:
-      "Contactez BARANE INVEST pour un cadrage de besoin, une proposition technique ou un accompagnement projet.",
+      "Contactez BARANE INVEST pour qualifier votre besoin industriel, obtenir une proposition technique claire et structurer un plan d'exécution adapté à vos délais et contraintes terrain.",
   },
   twitter: {
     card: "summary",
     title: "Contact | BARANE INVEST",
     description:
-      "Contactez BARANE INVEST pour un cadrage de besoin, une proposition technique ou un accompagnement projet.",
+      "Contactez BARANE INVEST pour qualifier votre besoin industriel, obtenir une proposition technique claire et structurer un plan d'exécution adapté à vos délais et contraintes terrain.",
   },
 };
 
