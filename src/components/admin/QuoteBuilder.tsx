@@ -6,9 +6,11 @@ import Image from "next/image";
 import { downloadDevisPdf } from "@/components/admin/devis-pdf";
 import {
   DEFAULT_PRODUCTS,
+  DOCUMENT_LABELS,
   type Customer,
   defaultTemplate,
   type DevisTemplate,
+  type DocumentType,
   type Product,
   type QuoteDraft,
   type LineItem,
@@ -26,6 +28,37 @@ function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function NumberField({
+  value,
+  onChange,
+  className,
+  placeholder,
+}: {
+  value: number;
+  onChange: (next: number) => void;
+  className?: string;
+  placeholder?: string;
+}) {
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      className={className}
+      placeholder={placeholder ?? "0"}
+      value={value === 0 ? "" : String(value)}
+      onChange={(event) => {
+        const cleaned = event.target.value.replace(/[^0-9.,]/g, "").replace(",", ".");
+        if (cleaned === "") {
+          onChange(0);
+          return;
+        }
+        const parsed = Number(cleaned);
+        onChange(Number.isFinite(parsed) ? parsed : 0);
+      }}
+    />
+  );
+}
+
 export function QuoteBuilder() {
   const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
   const [template, setTemplate] = useState<DevisTemplate>(defaultTemplate);
@@ -38,8 +71,10 @@ export function QuoteBuilder() {
   const [newCustomerName, setNewCustomerName] = useState("");
   const [newCustomerIce, setNewCustomerIce] = useState("");
 
+  const [documentType, setDocumentType] = useState<DocumentType>("devis");
   const [clientName, setClientName] = useState("STE CEMOS-CIMENT");
   const [clientIce, setClientIce] = useState("00033383000065");
+  const [clientAddress, setClientAddress] = useState("");
   const [quoteNumber, setQuoteNumber] = useState("39");
   const [reference, setReference] = useState("N38");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -106,7 +141,10 @@ export function QuoteBuilder() {
   }, [template]);
 
   const totals = useMemo(() => {
-    const totalHt = items.reduce((acc, item) => acc + item.qty * item.unitPrice, 0);
+    const totalHt = items.reduce(
+      (acc, item) => (item.isNote ? acc : acc + item.qty * item.unitPrice),
+      0,
+    );
     const netHt = Math.max(0, totalHt - discount);
     const vatAmount = (netHt * vatRate) / 100;
     const totalTtc = netHt + vatAmount;
@@ -150,12 +188,28 @@ export function QuoteBuilder() {
     ]);
   }
 
+  function addNoteItem() {
+    setItems((prev) => [
+      ...prev,
+      {
+        productId: uid("note"),
+        reference: "",
+        designation: "Mode de paiement: 5 jours apres chaque fin de mois",
+        qty: 0,
+        unitPrice: 0,
+        isNote: true,
+      },
+    ]);
+  }
+
   function onSelectCustomer(customerId: string) {
     setSelectedCustomerId(customerId);
     const c = customers.find((x) => x.id === customerId);
     if (!c) return;
     setClientName(c.name);
     setClientIce(c.ice);
+    const composedAddress = [c.address, c.city].filter(Boolean).join(" - ");
+    setClientAddress(composedAddress);
   }
 
   async function createCustomerFromBuilder() {
@@ -186,8 +240,10 @@ export function QuoteBuilder() {
     return {
       id: uid("qte"),
       createdAt: new Date().toISOString(),
+      documentType,
       clientName,
       clientIce,
+      clientAddress,
       quoteNumber,
       reference,
       date,
@@ -197,6 +253,8 @@ export function QuoteBuilder() {
       items,
     };
   }
+
+  const documentLabel = DOCUMENT_LABELS[documentType];
 
   function saveDraft() {
     const draft = currentDraft();
@@ -213,23 +271,36 @@ export function QuoteBuilder() {
     });
   }
 
-  function downloadPdf() {
-    downloadDevisPdf(currentDraft(), template);
+  async function downloadPdf() {
+    await downloadDevisPdf(currentDraft(), template);
   }
 
   return (
     <div className="rounded-md border border-border bg-[#fbfbfb] p-4 lg:p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-        <h2 className="text-3xl font-semibold text-[var(--navy)]">Creer un devis</h2>
-        <div className="flex gap-2">
-          <button type="button" className="rounded-md border border-border px-3 py-2 text-sm hover:bg-white">
-            Plus de details
+        <h2 className="text-3xl font-semibold text-[var(--navy)]">{`Creer un ${documentLabel.toLowerCase()}`}</h2>
+        <div className="inline-flex rounded-md border border-border bg-white p-1 text-sm">
+          <button
+            type="button"
+            onClick={() => setDocumentType("devis")}
+            className={`rounded-md px-3 py-1.5 transition ${
+              documentType === "devis"
+                ? "bg-[#de7a3a] text-white"
+                : "text-[var(--graphite)]/80 hover:bg-[#f7f7f7]"
+            }`}
+          >
+            Devis
           </button>
-          <button type="button" className="rounded-md border border-border px-3 py-2 text-sm hover:bg-white">
-            Masquer l'apercu
-          </button>
-          <button type="button" className="rounded-md border border-[#de7a3a] bg-[#de7a3a] px-3 py-2 text-sm text-white hover:opacity-90">
-            Verifier le devis
+          <button
+            type="button"
+            onClick={() => setDocumentType("bon_commande")}
+            className={`rounded-md px-3 py-1.5 transition ${
+              documentType === "bon_commande"
+                ? "bg-[#de7a3a] text-white"
+                : "text-[var(--graphite)]/80 hover:bg-[#f7f7f7]"
+            }`}
+          >
+            Bon de commande
           </button>
         </div>
       </div>
@@ -239,10 +310,10 @@ export function QuoteBuilder() {
           <div className="rounded-md border border-border bg-white p-4 lg:p-5">
             <h3 className="text-2xl font-semibold text-[var(--navy)]">Entete</h3>
             <div className="mt-4 grid md:grid-cols-2 gap-3">
-              <input className="rounded-md border border-border bg-[#f9f9f9] p-3" value={quoteNumber} onChange={(e) => setQuoteNumber(e.target.value)} placeholder="Numero devis (ex: 39)" />
+              <input className="rounded-md border border-border bg-[#f9f9f9] p-3" value={quoteNumber} onChange={(e) => setQuoteNumber(e.target.value)} placeholder={`Numero ${documentLabel.toLowerCase()} (ex: 001/2026)`} />
               <input className="rounded-md border border-border bg-[#f9f9f9] p-3" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Reference (ex: N38)" />
               <input type="date" className="rounded-md border border-border bg-[#f9f9f9] p-3" value={date} onChange={(e) => setDate(e.target.value)} />
-              <input type="number" className="rounded-md border border-border bg-[#f9f9f9] p-3" value={vatRate} onChange={(e) => setVatRate(Number(e.target.value) || 0)} placeholder="TVA % (ex: 20)" />
+              <NumberField className="rounded-md border border-border bg-[#f9f9f9] p-3" value={vatRate} onChange={setVatRate} placeholder="TVA % (ex: 20)" />
             </div>
           </div>
 
@@ -277,6 +348,13 @@ export function QuoteBuilder() {
               </div>
               <input className="mt-3 rounded-md border border-border bg-[#f9f9f9] p-3 w-full" value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Client / Societe" />
               <input className="mt-3 rounded-md border border-border bg-[#f9f9f9] p-3 w-full" value={clientIce} onChange={(e) => setClientIce(e.target.value)} placeholder="ICE client" />
+              <textarea
+                className="mt-3 rounded-md border border-border bg-[#f9f9f9] p-3 w-full"
+                rows={2}
+                value={clientAddress}
+                onChange={(e) => setClientAddress(e.target.value)}
+                placeholder="Adresse client (ex: N130 Bloc 25, Av. Mimosa, Agadir)"
+              />
             </div>
           </div>
 
@@ -285,7 +363,10 @@ export function QuoteBuilder() {
               <h3 className="text-2xl font-semibold text-[var(--navy)]">Articles</h3>
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={addEmptyItem} className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[#f7f7f7]">
-                  + nn
+                  + Article vide
+                </button>
+                <button type="button" onClick={addNoteItem} className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[#f7f7f7]">
+                  + Note / commentaire
                 </button>
                 <button type="button" onClick={() => setPickerOpen(true)} className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[#f7f7f7]">
                   Choisir produit
@@ -302,16 +383,40 @@ export function QuoteBuilder() {
             <div className="mt-3 space-y-3">
               {items.map((item, idx) => (
                 <div key={`${item.productId}-${idx}`} className="grid lg:grid-cols-12 gap-2 rounded-md border border-border p-3">
-                  <input className="rounded-md border border-border bg-[#f9f9f9] p-2 lg:col-span-2" value={item.reference} onChange={(e) => updateItem(idx, { reference: e.target.value })} />
-                  <input className="rounded-md border border-border bg-[#f9f9f9] p-2 lg:col-span-5" value={item.designation} onChange={(e) => updateItem(idx, { designation: e.target.value })} />
-                  <input type="number" className="rounded-md border border-border bg-[#f9f9f9] p-2 lg:col-span-1" value={item.qty} onChange={(e) => updateItem(idx, { qty: Math.max(1, Number(e.target.value) || 1) })} />
-                  <input type="number" className="rounded-md border border-border bg-[#f9f9f9] p-2 lg:col-span-2" value={item.unitPrice} onChange={(e) => updateItem(idx, { unitPrice: Math.max(0, Number(e.target.value) || 0) })} />
-                  <div className="lg:col-span-2 flex items-center justify-between rounded-md border border-border px-3">
-                    <span className="text-sm font-medium">{money(item.qty * item.unitPrice)}</span>
-                    <button className="text-rose-700 text-sm" onClick={() => removeItem(idx)} type="button">
-                      🗑
-                    </button>
-                  </div>
+                  {item.isNote ? (
+                    <>
+                      <div className="lg:col-span-10 flex items-start gap-2">
+                        <span className="mt-2 rounded-md bg-[#fff4e8] px-2 py-1 text-[10px] uppercase tracking-[0.08em] text-[#b04a09]">
+                          Note
+                        </span>
+                        <textarea
+                          rows={2}
+                          className="flex-1 rounded-md border border-border bg-[#f9f9f9] p-2 text-sm italic"
+                          value={item.designation}
+                          onChange={(e) => updateItem(idx, { designation: e.target.value })}
+                          placeholder="Ex: Mode de paiement: 5 jours apres chaque fin de mois"
+                        />
+                      </div>
+                      <div className="lg:col-span-2 flex items-center justify-end">
+                        <button className="text-rose-700 text-sm" onClick={() => removeItem(idx)} type="button">
+                          Supprimer
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <input className="rounded-md border border-border bg-[#f9f9f9] p-2 lg:col-span-2" value={item.reference} onChange={(e) => updateItem(idx, { reference: e.target.value })} />
+                      <input className="rounded-md border border-border bg-[#f9f9f9] p-2 lg:col-span-5" value={item.designation} onChange={(e) => updateItem(idx, { designation: e.target.value })} />
+                      <NumberField className="rounded-md border border-border bg-[#f9f9f9] p-2 lg:col-span-1" value={item.qty} onChange={(v) => updateItem(idx, { qty: v })} />
+                      <NumberField className="rounded-md border border-border bg-[#f9f9f9] p-2 lg:col-span-2" value={item.unitPrice} onChange={(v) => updateItem(idx, { unitPrice: v })} />
+                      <div className="lg:col-span-2 flex items-center justify-between rounded-md border border-border px-3">
+                        <span className="text-sm font-medium">{money(item.qty * item.unitPrice)}</span>
+                        <button className="text-rose-700 text-sm" onClick={() => removeItem(idx)} type="button">
+                          Supprimer
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
@@ -330,8 +435,8 @@ export function QuoteBuilder() {
             <div className="flex items-start justify-between gap-3">
               <Image src={logoHeader} alt="BARANE INVEST" width={120} height={30} className="h-8 w-auto object-contain" />
               <div className="text-right">
-                <p className="text-xs uppercase text-[var(--graphite)]/70">DEVIS PRO FORMA</p>
-                <p className="text-sm font-semibold">#{quoteNumber || "-"}</p>
+                <p className="text-xs uppercase text-[var(--graphite)]/70">{documentLabel.toUpperCase()}</p>
+                <p className="text-sm font-semibold">N° {quoteNumber || "-"}</p>
               </div>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-3 text-[11px] text-[var(--graphite)]/80">
@@ -348,6 +453,9 @@ export function QuoteBuilder() {
               <p className="uppercase text-[var(--graphite)]/60">Client</p>
               <p className="font-medium text-[var(--navy)] mt-1">{clientName || "-"}</p>
               <p className="text-[var(--graphite)]/80">ICE: {clientIce || "-"}</p>
+              {clientAddress ? (
+                <p className="text-[var(--graphite)]/80 mt-1 whitespace-pre-line">{clientAddress}</p>
+              ) : null}
             </div>
 
             <div className="mt-3 rounded-md border border-border overflow-hidden">
@@ -357,11 +465,19 @@ export function QuoteBuilder() {
                 <span className="text-right">Montant</span>
               </div>
               <div className="divide-y divide-border bg-white">
-                {items.slice(0, 3).map((item, idx) => (
+                {items.slice(0, 4).map((item, idx) => (
                   <div key={`${item.productId}-preview-${idx}`} className="grid grid-cols-[1fr_50px_90px] px-2 py-1.5 text-[11px]">
-                    <p className="truncate text-[var(--navy)]">{item.designation}</p>
-                    <p className="text-right text-[var(--graphite)]/80">{item.qty}</p>
-                    <p className="text-right font-medium text-[var(--navy)]">{money(item.qty * item.unitPrice)}</p>
+                    {item.isNote ? (
+                      <p className="col-span-3 italic text-[var(--graphite)]/80 truncate">
+                        {item.designation || "Note"}
+                      </p>
+                    ) : (
+                      <>
+                        <p className="truncate text-[var(--navy)]">{item.designation}</p>
+                        <p className="text-right text-[var(--graphite)]/80">{item.qty}</p>
+                        <p className="text-right font-medium text-[var(--navy)]">{money(item.qty * item.unitPrice)}</p>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
@@ -403,7 +519,7 @@ export function QuoteBuilder() {
           <button type="button" onClick={saveDraft} className="rounded-md border border-border px-4 py-2 hover:bg-[#f7f7f7]">
             Enregistrer brouillon
           </button>
-          <button type="button" onClick={downloadPdf} className="rounded-md border border-[#de7a3a] bg-[#de7a3a] text-white px-4 py-2 hover:opacity-90">
+          <button type="button" onClick={() => { void downloadPdf(); }} className="rounded-md border border-[#de7a3a] bg-[#de7a3a] text-white px-4 py-2 hover:opacity-90">
             Generer document
           </button>
         </div>

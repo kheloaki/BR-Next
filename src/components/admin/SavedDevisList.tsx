@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { downloadDevisPdf } from "@/components/admin/devis-pdf";
 import {
+  DOCUMENT_LABELS,
   defaultTemplate,
   type DevisTemplate,
   type QuoteDraft,
@@ -58,11 +59,13 @@ export function SavedDevisList() {
             Aucun devis sauvegardé.
           </p>
         ) : (
-          quotes.map((quote) => (
+          quotes.map((quote) => {
+            const docLabel = DOCUMENT_LABELS[quote.documentType ?? "devis"];
+            return (
             <div key={quote.id} className="rounded-md border border-border bg-white p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               <div>
                 <p className="font-medium text-[var(--navy)]">
-                  Devis #{quote.quoteNumber} - {quote.clientName}
+                  {docLabel} N° {quote.quoteNumber} - {quote.clientName}
                 </p>
                 <p className="text-xs text-[var(--graphite)]/70">
                   {new Date(quote.createdAt).toLocaleString()} | {quote.items.length} ligne(s)
@@ -71,7 +74,7 @@ export function SavedDevisList() {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => downloadDevisPdf(quote, template)}
+                  onClick={() => { void downloadDevisPdf(quote, template); }}
                   className="rounded-md border border-[#de7a3a] bg-[#de7a3a] px-3 py-2 text-sm text-white hover:opacity-90"
                 >
                   Télécharger PDF
@@ -85,7 +88,8 @@ export function SavedDevisList() {
                 </button>
               </div>
             </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

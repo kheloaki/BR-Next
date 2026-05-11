@@ -1,5 +1,26 @@
 import { jsPDF } from "jspdf";
-import type { DevisTemplate, QuoteDraft } from "@/components/admin/devis-types";
+import logoHeader from "@/assets/barane-logo-horizontal-transparent.png";
+import {
+  DOCUMENT_LABELS,
+  type DevisTemplate,
+  type QuoteDraft,
+} from "@/components/admin/devis-types";
+
+async function loadImageDataUrl(src: string): Promise<string | null> {
+  try {
+    const response = await fetch(src);
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
 
 function money(value: number) {
   return new Intl.NumberFormat("fr-MA", {
@@ -17,39 +38,60 @@ function formatDateShort(value: string) {
   return `${dd}/${mm}/${yy}`;
 }
 
-export function downloadDevisPdf(draft: QuoteDraft, template: DevisTemplate) {
+export async function downloadDevisPdf(draft: QuoteDraft, template: DevisTemplate) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const left = 10;
   const right = 200;
   const thin = 0.25;
   const medium = 0.4;
-  const totalHt = draft.items.reduce((acc, i) => acc + i.qty * i.unitPrice, 0);
+  const totalHt = draft.items.reduce(
+    (acc, i) => (i.isNote ? acc : acc + i.qty * i.unitPrice),
+    0,
+  );
   const netHt = Math.max(0, totalHt - draft.discount);
   const vatAmount = (netHt * draft.vatRate) / 100;
   const totalTtc = netHt + vatAmount;
   const netToPay = Math.max(0, totalTtc - draft.deposit);
   doc.setLineWidth(thin);
 
+  const logoDataUrl = await loadImageDataUrl(logoHeader.src);
+  if (logoDataUrl) {
+    try {
+      doc.addImage(logoDataUrl, "PNG", left, 6, 38, 14);
+    } catch {
+      // If image fails to embed, continue without logo
+    }
+  }
+
   doc.setFont("times", "bolditalic");
   doc.setFontSize(15);
   doc.text(template.sellerName, 105, 13, { align: "center" });
   doc.setLineWidth(medium);
-  doc.line(18, 16, 192, 16);
+  doc.line(18, 22, 192, 22);
   doc.setFont("times", "italic");
   doc.setFontSize(10);
-  doc.text(template.sellerActivity, 105, 21, { align: "center" });
+  doc.text(template.sellerActivity, 105, 27, { align: "center" });
 
   doc.setLineWidth(thin);
-  doc.roundedRect(106, 39, 94, 22, 2, 2);
+  doc.roundedRect(106, 39, 94, 28, 2, 2);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
-  doc.text(draft.clientName, 153, 49, { align: "center" });
+  doc.text(draft.clientName, 153, 47, { align: "center" });
   doc.setFont("helvetica", "normal");
-  doc.text(`ICE:${draft.clientIce || "-"}`, 153, 55, { align: "center" });
+  doc.text(`ICE: ${draft.clientIce || "-"}`, 153, 53, { align: "center" });
+  if (draft.clientAddress) {
+    doc.setFontSize(9);
+    const addrLines = doc.splitTextToSize(draft.clientAddress, 88);
+    doc.text(addrLines, 153, 59, { align: "center" });
+    doc.setFontSize(10);
+  }
 
+  const documentType = draft.documentType ?? "devis";
+  const documentLabel = DOCUMENT_LABELS[documentType];
+  const titleSuffix = draft.quoteNumber ? ` N° ${draft.quoteNumber}` : "";
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
-  doc.text("Devis", left, 76);
+  doc.text(`${documentLabel}${titleSuffix}`, left, 76);
 
   const hdrY = 84;
   doc.setLineWidth(medium);
@@ -74,16 +116,15 @@ export function downloadDevisPdf(draft: QuoteDraft, template: DevisTemplate) {
   const rowBottom = 214;
   const c0 = left;
   const c1 = c0 + 24;
-  const c2 = c1 + 82;
-  const c3 = c2 + 16;
-  const c4 = c3 + 20;
+  const c2 = c1 + 86;
+  const c3 = c2 + 18;
+  const c4 = c3 + 22;
   const c5 = c4 + 14;
-  const c6 = c5 + 22;
-  const c7 = right;
+  const c6 = right;
 
   doc.setLineWidth(medium);
   doc.rect(left, tableY, right - left, 8);
-  [c1, c2, c3, c4, c5, c6].forEach((x) => doc.line(x, tableY, x, tableY + 8));
+  [c1, c2, c3, c4, c5].forEach((x) => doc.line(x, tableY, x, tableY + 8));
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
   doc.text("Référence", (c0 + c1) / 2, tableY + 5, { align: "center" });
@@ -92,27 +133,41 @@ export function downloadDevisPdf(draft: QuoteDraft, template: DevisTemplate) {
   doc.text("Px unitaire", (c3 + c4) / 2, tableY + 5, { align: "center" });
   doc.text("Remise", (c4 + c5) / 2, tableY + 5, { align: "center" });
   doc.text("Montant HT", (c5 + c6) / 2, tableY + 5, { align: "center" });
-  doc.text("*", (c6 + c7) / 2, tableY + 5, { align: "center" });
 
   doc.rect(left, tableY + 8, right - left, rowBottom - (tableY + 8));
-  [c1, c2, c3, c4, c5, c6].forEach((x) => doc.line(x, tableY + 8, x, rowBottom));
+  [c1, c2, c3, c4, c5].forEach((x) => doc.line(x, tableY + 8, x, rowBottom));
 
-  // Render multiple lines (fixes "same devis even if line changes")
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   let y = tableY + 14;
   for (const item of draft.items) {
     if (y > rowBottom - 4) break;
+    const descY = Math.min(y, rowBottom - 4);
+    if (item.isNote) {
+      const noteText = item.designation || "";
+      const wrapped = doc.splitTextToSize(noteText, right - left - 6);
+      const noteHeight = Math.max(7, wrapped.length * 4.3 + 2);
+      const noteTop = descY - 4;
+      doc.setFillColor(252, 245, 235);
+      doc.rect(left + 0.4, noteTop, right - left - 0.8, noteHeight, "F");
+      doc.setFillColor(222, 122, 58);
+      doc.rect(left + 0.4, noteTop, 1.5, noteHeight, "F");
+      doc.setTextColor(60, 60, 60);
+      doc.setFont("helvetica", "bolditalic");
+      doc.text(wrapped, left + 3.5, descY);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "normal");
+      y += noteHeight;
+      continue;
+    }
     const amount = item.qty * item.unitPrice;
     const wrapped = doc.splitTextToSize(item.designation, c2 - c1 - 2.5);
-    const descY = Math.min(y, rowBottom - 4);
     doc.text(item.reference || "-", c0 + 1.5, descY);
     doc.text(wrapped, c1 + 1.5, descY);
     doc.text(money(item.qty), c2 + 1.5, descY);
     doc.text(money(item.unitPrice), c3 + 1.5, descY);
     doc.text(money(0), c4 + 1.5, descY);
     doc.text(money(amount), c5 + 1.5, descY);
-    doc.text(item.reference || "TVF", c6 + 1.5, descY);
     y += Math.max(8, wrapped.length * 4.3);
   }
 
@@ -121,27 +176,23 @@ export function downloadDevisPdf(draft: QuoteDraft, template: DevisTemplate) {
   const lvW = 69;
   doc.rect(lvX, bottomY, lvW, 36);
   doc.line(lvX, bottomY + 8, lvX + lvW, bottomY + 8);
-  const l1 = lvX + 18;
-  const l2 = lvX + 36;
-  const l3 = lvX + 50;
-  [l1, l2, l3].forEach((x) => doc.line(x, bottomY, x, bottomY + 36));
+  const l1 = lvX + 24;
+  const l2 = lvX + 42;
+  [l1, l2].forEach((x) => doc.line(x, bottomY, x, bottomY + 36));
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
-  doc.text("Code", lvX + 1.5, bottomY + 5);
-  doc.text("Base", l1 + 1.5, bottomY + 5);
-  doc.text("Taux", l2 + 1.5, bottomY + 5);
-  doc.text("Montant", l3 + 1.5, bottomY + 5);
+  doc.text("Base", lvX + 1.5, bottomY + 5);
+  doc.text("Taux", l1 + 1.5, bottomY + 5);
+  doc.text("Montant TVA", l2 + 1.5, bottomY + 5);
   doc.setFont("helvetica", "normal");
-  doc.text("TVF", lvX + 1.5, bottomY + 14);
-  doc.text(money(netHt), l1 + 1.5, bottomY + 14);
-  doc.text(`${draft.vatRate}%`, l2 + 1.5, bottomY + 14);
-  doc.text(money(vatAmount), l3 + 1.5, bottomY + 14);
+  doc.text(money(netHt), lvX + 1.5, bottomY + 14);
+  doc.text(`${draft.vatRate}%`, l1 + 1.5, bottomY + 14);
+  doc.text(money(vatAmount), l2 + 1.5, bottomY + 14);
   doc.line(lvX, bottomY + 28, lvX + lvW, bottomY + 28);
   doc.setFont("helvetica", "bold");
   doc.text("Total", lvX + 1.5, bottomY + 33);
-  doc.setFont("helvetica", "normal");
-  doc.text(money(netHt), l1 + 1.5, bottomY + 33);
-  doc.text(money(vatAmount), l3 + 1.5, bottomY + 33);
+  doc.text(money(netHt), l1 - 1.5, bottomY + 33, { align: "right" });
+  doc.text(money(vatAmount), lvX + lvW - 1.5, bottomY + 33, { align: "right" });
 
   const rvX = 80;
   const rvW = right - rvX;
@@ -171,5 +222,6 @@ export function downloadDevisPdf(draft: QuoteDraft, template: DevisTemplate) {
   doc.text(template.sellerAddress, 105, 262, { align: "center" });
   doc.text(template.sellerLegal, 105, 267, { align: "center" });
   doc.text(template.sellerContact, 105, 272, { align: "center" });
-  doc.save(`devis-${draft.quoteNumber || "draft"}.pdf`);
+  const fileSlug = documentType === "bon_commande" ? "bon-de-commande" : "devis";
+  doc.save(`${fileSlug}-${draft.quoteNumber || "draft"}.pdf`);
 }

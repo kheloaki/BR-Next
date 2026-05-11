@@ -19,13 +19,23 @@ export type LineItem = {
   designation: string;
   qty: number;
   unitPrice: number;
+  isNote?: boolean;
+};
+
+export type DocumentType = "devis" | "bon_commande";
+
+export const DOCUMENT_LABELS: Record<DocumentType, string> = {
+  devis: "Devis",
+  bon_commande: "Bon de commande",
 };
 
 export type QuoteDraft = {
   id: string;
   createdAt: string;
+  documentType?: DocumentType;
   clientName: string;
   clientIce: string;
+  clientAddress?: string;
   quoteNumber: string;
   reference: string;
   date: string;
