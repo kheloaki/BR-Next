@@ -72,6 +72,7 @@ export function QuoteBuilder() {
   const [newCustomerIce, setNewCustomerIce] = useState("");
 
   const [documentType, setDocumentType] = useState<DocumentType>("devis");
+  const [includeCachet, setIncludeCachet] = useState(false);
   const [clientName, setClientName] = useState("STE CEMOS-CIMENT");
   const [clientIce, setClientIce] = useState("00033383000065");
   const [clientAddress, setClientAddress] = useState("");
@@ -251,6 +252,7 @@ export function QuoteBuilder() {
       discount,
       deposit,
       items,
+      includeCachet,
     };
   }
 
@@ -370,6 +372,18 @@ export function QuoteBuilder() {
                 </button>
                 <button type="button" onClick={() => setPickerOpen(true)} className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[#f7f7f7]">
                   Choisir produit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIncludeCachet((value) => !value)}
+                  className={`rounded-md px-3 py-1.5 text-sm transition ${
+                    includeCachet
+                      ? "border border-[#de7a3a] bg-[#de7a3a] text-white"
+                      : "border border-border hover:bg-[#f7f7f7]"
+                  }`}
+                  aria-pressed={includeCachet}
+                >
+                  {includeCachet ? "✓ Cachet & signature" : "+ Cachet & signature"}
                 </button>
               </div>
             </div>
@@ -491,6 +505,11 @@ export function QuoteBuilder() {
                 <span>Total a payer</span><span className="font-bold text-base">{money(totals.netToPay)}</span>
               </p>
             </div>
+            {includeCachet ? (
+              <div className="mt-3 rounded-md border border-dashed border-[var(--gold)]/60 bg-[#fff8ef] p-2 text-right text-[10px] text-[var(--graphite)]/70">
+                Cachet et signature ajoutes au document
+              </div>
+            ) : null}
           </div>
 
           <details className="mt-3 rounded-md border border-border p-3 bg-white">

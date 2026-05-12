@@ -43,6 +43,7 @@ export type QuoteDraft = {
   discount: number;
   deposit: number;
   items: LineItem[];
+  includeCachet?: boolean;
 };
 
 export type DevisTemplate = {

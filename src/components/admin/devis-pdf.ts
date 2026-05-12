@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import logoHeader from "@/assets/barane-logo-horizontal-transparent.png";
+import cachetSignature from "@/assets/barane-cachet-signature.png";
 import {
   DOCUMENT_LABELS,
   type DevisTemplate,
@@ -217,11 +218,27 @@ export async function downloadDevisPdf(draft: QuoteDraft, template: DevisTemplat
   doc.setFont("helvetica", "bold");
   doc.text(money(netToPay), (rPos[4] + rPos[5]) / 2, bottomY + 14, { align: "center" });
 
+  const signatureTop = 258;
+  if (draft.includeCachet) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text("Cachet et signature", right - 1.5, signatureTop, { align: "right" });
+    const cachetDataUrl = await loadImageDataUrl(cachetSignature.src);
+    if (cachetDataUrl) {
+      try {
+        doc.addImage(cachetDataUrl, "PNG", right - 56, signatureTop + 1, 55, 32);
+      } catch {
+        // If image fails to embed, skip silently
+      }
+    }
+  }
+
+  const footerStart = draft.includeCachet ? 282 : 262;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
-  doc.text(template.sellerAddress, 105, 262, { align: "center" });
-  doc.text(template.sellerLegal, 105, 267, { align: "center" });
-  doc.text(template.sellerContact, 105, 272, { align: "center" });
+  doc.text(template.sellerAddress, 105, footerStart, { align: "center" });
+  doc.text(template.sellerLegal, 105, footerStart + 5, { align: "center" });
+  doc.text(template.sellerContact, 105, footerStart + 10, { align: "center" });
   const fileSlug = documentType === "bon_commande" ? "bon-de-commande" : "devis";
   doc.save(`${fileSlug}-${draft.quoteNumber || "draft"}.pdf`);
 }
