@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import type { QuoteDraft } from "@/components/admin/devis-types";
 import { ensureAdminUserRow, getSupabaseAdminClient } from "@/lib/supabase/admin";
 
-export async function GET() {
+export async function GET(request: Request) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -11,6 +11,30 @@ export async function GET() {
   await ensureAdminUserRow(userId);
 
   const supabase = getSupabaseAdminClient();
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id");
+
+  if (id) {
+    const { data, error } = await supabase
+      .from("admin_quotes")
+      .select("id, payload, created_at")
+      .eq("user_id", userId)
+      .eq("id", id)
+      .maybeSingle();
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    if (!data) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    const payload = data.payload as QuoteDraft;
+    return NextResponse.json({
+      ...payload,
+      id: data.id,
+      createdAt: payload.createdAt || data.created_at,
+    });
+  }
+
   const { data, error } = await supabase
     .from("admin_quotes")
     .select("id, payload, created_at")
@@ -53,6 +77,29 @@ export async function POST(request: Request) {
     createdAt: quote.createdAt || new Date().toISOString(),
   };
 
+  const { data: existing, error: lookupError } = await supabase
+    .from("admin_quotes")
+    .select("id")
+    .eq("id", quoteId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (lookupError) {
+    return NextResponse.json({ error: lookupError.message }, { status: 500 });
+  }
+
+  if (existing) {
+    const { error } = await supabase
+      .from("admin_quotes")
+      .update({ payload })
+      .eq("id", quoteId)
+      .eq("user_id", userId);
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, id: quoteId, updated: true });
+  }
+
   const { error } = await supabase.from("admin_quotes").insert({
     id: quoteId,
     user_id: userId,
@@ -63,7 +110,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, id: quoteId });
+  return NextResponse.json({ ok: true, id: quoteId, created: true });
 }
 
 export async function DELETE(request: Request) {

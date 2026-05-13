@@ -13,6 +13,17 @@ export type Customer = {
   address?: string;
 };
 
+export type Supplier = {
+  id: string;
+  name: string;
+  ice: string;
+  city?: string;
+  address?: string;
+  contact?: string;
+};
+
+export type CounterpartyKind = "client" | "supplier";
+
 export type LineItem = {
   productId: string;
   reference: string;
@@ -73,5 +84,5 @@ export const defaultTemplate: DevisTemplate = {
   sellerAddress: "SIEGE SOCIAL : N130 BLOC 25 AVENUE MIMOSA HAY EL FARAH - AGADIR",
   sellerLegal:
     "PATENTE : 55006289 - IF : 68729921 - RC : 65885 / AGADIR - ICE : 003827708000049 - CNSS : 6464449",
-  sellerContact: "EMAIL:Baraneinvest@gmail.com-GSM : 06.61.65.60.42",
+  sellerContact: "EMAIL: contact@baraneinvest.com - SITE WEB : www.baraneinvest.com - GSM : 06.61.65.60.42",
 };

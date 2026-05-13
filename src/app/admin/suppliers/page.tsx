@@ -3,37 +3,37 @@ import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin/AdminShell";
-import { SavedDevisList } from "@/components/admin/SavedDevisList";
+import { SuppliersManager } from "@/components/admin/SuppliersManager";
 
 export const metadata: Metadata = {
-  title: "Documents sauvegardés",
-  description: "Historique des devis et bons de commande générés depuis l'admin.",
+  title: "Fournisseurs",
+  description: "Gestion des fournisseurs pour les bons de commande.",
   robots: {
     index: false,
     follow: false,
   },
 };
 
-export default async function DevisSavedPage() {
+export default async function AdminSuppliersPage() {
   let userId: string | null = null;
   try {
     ({ userId } = await auth());
   } catch {
-    redirect("/sign-in?redirect_url=/admin/devis-saved");
+    redirect("/sign-in?redirect_url=/admin/suppliers");
   }
 
   if (!userId) {
-    redirect("/sign-in?redirect_url=/admin/devis-saved");
+    redirect("/sign-in?redirect_url=/admin/suppliers");
   }
 
   return (
-    <AdminShell active="saved">
-      <div className="mb-4 flex justify-end gap-2">
+    <AdminShell active="suppliers">
+      <div className="mb-4 flex justify-end">
         <Link href="/admin/devis-builder" className="inline-flex border border-border rounded-md px-4 py-2 text-sm hover:bg-[#f8f8f8]">
-          + Nouveau document
+          Retour au devis
         </Link>
       </div>
-      <SavedDevisList />
+      <SuppliersManager />
     </AdminShell>
   );
 }

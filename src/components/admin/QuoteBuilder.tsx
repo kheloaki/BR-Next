@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { downloadDevisPdf } from "@/components/admin/devis-pdf";
@@ -14,6 +15,7 @@ import {
   type Product,
   type QuoteDraft,
   type LineItem,
+  type Supplier,
 } from "@/components/admin/devis-types";
 import logoHeader from "@/assets/barane-logo-horizontal-transparent.png";
 
@@ -26,6 +28,33 @@ function money(value: number) {
 
 function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function computeNextNumber(quotes: QuoteDraft[], type: DocumentType): string {
+  const sameType = quotes.filter((q) => (q.documentType ?? "devis") === type);
+  if (sameType.length === 0) {
+    return `001/${new Date().getFullYear()}`;
+  }
+  let maxNum = 0;
+  let templateStr = sameType[0].quoteNumber || "";
+  for (const q of sameType) {
+    const numberMatch = (q.quoteNumber || "").match(/\d+/);
+    if (numberMatch) {
+      const n = parseInt(numberMatch[0], 10);
+      if (n > maxNum) {
+        maxNum = n;
+        templateStr = q.quoteNumber || "";
+      }
+    }
+  }
+  const next = maxNum + 1;
+  const formatMatch = templateStr.match(/^(\D*)(\d+)(.*)$/);
+  if (!formatMatch) return String(next);
+  const [, prefix, digits, suffix] = formatMatch;
+  const padded = String(next).padStart(digits.length, "0");
+  const currentYear = String(new Date().getFullYear());
+  const updatedSuffix = suffix.replace(/(19|20)\d{2}/, currentYear);
+  return `${prefix}${padded}${updatedSuffix}`;
 }
 
 function NumberField({
@@ -60,47 +89,55 @@ function NumberField({
 }
 
 export function QuoteBuilder() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const editingId = searchParams.get("id");
+
   const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
   const [template, setTemplate] = useState<DevisTemplate>(defaultTemplate);
   const [savedCount, setSavedCount] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [productModalOpen, setProductModalOpen] = useState(false);
+  const [newProductReference, setNewProductReference] = useState("");
+  const [newProductDesignation, setNewProductDesignation] = useState("");
+  const [newProductPrice, setNewProductPrice] = useState(0);
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const [newCustomerName, setNewCustomerName] = useState("");
   const [newCustomerIce, setNewCustomerIce] = useState("");
+  const [newCustomerAddress, setNewCustomerAddress] = useState("");
+  const [counterpartyMode, setCounterpartyMode] = useState<"saved" | "passager">("saved");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   const [documentType, setDocumentType] = useState<DocumentType>("devis");
   const [includeCachet, setIncludeCachet] = useState(false);
-  const [clientName, setClientName] = useState("STE CEMOS-CIMENT");
-  const [clientIce, setClientIce] = useState("00033383000065");
+  const [clientName, setClientName] = useState("");
+  const [clientIce, setClientIce] = useState("");
   const [clientAddress, setClientAddress] = useState("");
-  const [quoteNumber, setQuoteNumber] = useState("39");
-  const [reference, setReference] = useState("N38");
+  const [quoteNumber, setQuoteNumber] = useState("");
+  const [reference, setReference] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [vatRate, setVatRate] = useState(20);
   const [discount, setDiscount] = useState(0);
   const [deposit, setDeposit] = useState(0);
-  const [items, setItems] = useState<LineItem[]>([
-    {
-      productId: DEFAULT_PRODUCTS[0].id,
-      reference: DEFAULT_PRODUCTS[0].reference,
-      designation: DEFAULT_PRODUCTS[0].designation,
-      qty: 2,
-      unitPrice: DEFAULT_PRODUCTS[0].unitPrice,
-    },
-  ]);
+  const [items, setItems] = useState<LineItem[]>([]);
+  const [allQuotes, setAllQuotes] = useState<QuoteDraft[]>([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     async function loadData() {
       try {
-        const [productsRes, templateRes, quotesRes, customersRes] = await Promise.all([
+        const [productsRes, templateRes, quotesRes, customersRes, suppliersRes] = await Promise.all([
           fetch("/api/admin/products", { cache: "no-store" }),
           fetch("/api/admin/template", { cache: "no-store" }),
           fetch("/api/admin/quotes", { cache: "no-store" }),
           fetch("/api/admin/customers", { cache: "no-store" }),
+          fetch("/api/admin/suppliers", { cache: "no-store" }),
         ]);
         if (!mounted) return;
 
@@ -113,13 +150,20 @@ export function QuoteBuilder() {
         }
         if (quotesRes.ok) {
           const quotes = (await quotesRes.json()) as QuoteDraft[];
+          setAllQuotes(quotes);
           setSavedCount(quotes.length);
         }
         if (customersRes.ok) {
           setCustomers((await customersRes.json()) as Customer[]);
         }
+        if (suppliersRes.ok) {
+          setSuppliers((await suppliersRes.json()) as Supplier[]);
+        }
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setLoading(false);
+          setDataLoaded(true);
+        }
       }
     }
 
@@ -128,6 +172,34 @@ export function QuoteBuilder() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!editingId) return;
+    let mounted = true;
+    async function loadQuote() {
+      const res = await fetch(`/api/admin/quotes?id=${encodeURIComponent(editingId!)}`, {
+        cache: "no-store",
+      });
+      if (!res.ok || !mounted) return;
+      const draft = (await res.json()) as QuoteDraft;
+      setDocumentType(draft.documentType ?? "devis");
+      setIncludeCachet(Boolean(draft.includeCachet));
+      setClientName(draft.clientName ?? "");
+      setClientIce(draft.clientIce ?? "");
+      setClientAddress(draft.clientAddress ?? "");
+      setQuoteNumber(draft.quoteNumber ?? "");
+      setReference(draft.reference ?? "");
+      setDate(draft.date ?? new Date().toISOString().slice(0, 10));
+      setVatRate(typeof draft.vatRate === "number" ? draft.vatRate : 20);
+      setDiscount(typeof draft.discount === "number" ? draft.discount : 0);
+      setDeposit(typeof draft.deposit === "number" ? draft.deposit : 0);
+      setItems(Array.isArray(draft.items) ? draft.items : []);
+    }
+    void loadQuote();
+    return () => {
+      mounted = false;
+    };
+  }, [editingId]);
 
   useEffect(() => {
     if (loading) return;
@@ -140,6 +212,25 @@ export function QuoteBuilder() {
     }, 300);
     return () => clearTimeout(timeout);
   }, [template]);
+
+  useEffect(() => {
+    setSelectedCustomerId("");
+    setSelectedSupplierId("");
+  }, [documentType]);
+
+  const autoNumberInitRef = useRef(false);
+  const prevDocTypeRef = useRef(documentType);
+  useEffect(() => {
+    if (editingId) return;
+    if (!dataLoaded) return;
+    const isFirstInit = !autoNumberInitRef.current;
+    const docTypeChanged = prevDocTypeRef.current !== documentType;
+    if (isFirstInit || docTypeChanged) {
+      setQuoteNumber(computeNextNumber(allQuotes, documentType));
+      autoNumberInitRef.current = true;
+      prevDocTypeRef.current = documentType;
+    }
+  }, [dataLoaded, documentType, editingId, allQuotes]);
 
   const totals = useMemo(() => {
     const totalHt = items.reduce(
@@ -189,6 +280,39 @@ export function QuoteBuilder() {
     ]);
   }
 
+  async function createProductFromBuilder() {
+    if (!newProductDesignation.trim()) return;
+    const res = await fetch("/api/admin/products", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reference: newProductReference.trim() || "NN",
+        designation: newProductDesignation.trim(),
+        unitPrice: newProductPrice,
+      }),
+    });
+    if (!res.ok) return;
+    const created = (await res.json()) as Product;
+    const refreshed = await fetch("/api/admin/products", { cache: "no-store" });
+    if (refreshed.ok) {
+      setProducts((await refreshed.json()) as Product[]);
+    }
+    setItems((prev) => [
+      ...prev,
+      {
+        productId: created.id,
+        reference: created.reference,
+        designation: created.designation,
+        qty: 1,
+        unitPrice: created.unitPrice,
+      },
+    ]);
+    setNewProductReference("");
+    setNewProductDesignation("");
+    setNewProductPrice(0);
+    setProductModalOpen(false);
+  }
+
   function addNoteItem() {
     setItems((prev) => [
       ...prev,
@@ -203,43 +327,77 @@ export function QuoteBuilder() {
     ]);
   }
 
-  function onSelectCustomer(customerId: string) {
-    setSelectedCustomerId(customerId);
-    const c = customers.find((x) => x.id === customerId);
-    if (!c) return;
-    setClientName(c.name);
-    setClientIce(c.ice);
-    const composedAddress = [c.address, c.city].filter(Boolean).join(" - ");
-    setClientAddress(composedAddress);
+  const isPurchaseOrder = documentType === "bon_commande";
+  const counterpartyLabel = isPurchaseOrder ? "fournisseur" : "client";
+  const counterpartyApi = isPurchaseOrder ? "/api/admin/suppliers" : "/api/admin/customers";
+
+  function onSelectCounterparty(id: string) {
+    if (isPurchaseOrder) {
+      setSelectedSupplierId(id);
+      const s = suppliers.find((x) => x.id === id);
+      if (!s) return;
+      setClientName(s.name);
+      setClientIce(s.ice);
+      setClientAddress([s.address, s.city].filter(Boolean).join(" - "));
+    } else {
+      setSelectedCustomerId(id);
+      const c = customers.find((x) => x.id === id);
+      if (!c) return;
+      setClientName(c.name);
+      setClientIce(c.ice);
+      setClientAddress([c.address, c.city].filter(Boolean).join(" - "));
+    }
   }
 
-  async function createCustomerFromBuilder() {
+  function activatePassager() {
+    setCounterpartyMode("passager");
+    setSelectedCustomerId("");
+    setSelectedSupplierId("");
+    setClientName("");
+    setClientIce("");
+    setClientAddress("");
+  }
+
+  function backToSaved() {
+    setCounterpartyMode("saved");
+  }
+
+  async function createCounterpartyFromBuilder() {
     if (!newCustomerName.trim()) return;
-    const res = await fetch("/api/admin/customers", {
+    const res = await fetch(counterpartyApi, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: newCustomerName.trim(),
         ice: newCustomerIce.trim(),
+        address: newCustomerAddress.trim(),
       }),
     });
     if (!res.ok) return;
-    const created = (await res.json()) as Customer;
-    const customersRes = await fetch("/api/admin/customers", { cache: "no-store" });
-    if (customersRes.ok) {
-      setCustomers((await customersRes.json()) as Customer[]);
+    const created = (await res.json()) as Customer | Supplier;
+    const listRes = await fetch(counterpartyApi, { cache: "no-store" });
+    if (listRes.ok) {
+      if (isPurchaseOrder) {
+        setSuppliers((await listRes.json()) as Supplier[]);
+        setSelectedSupplierId(created.id);
+      } else {
+        setCustomers((await listRes.json()) as Customer[]);
+        setSelectedCustomerId(created.id);
+      }
     }
-    setSelectedCustomerId(created.id);
     setClientName(created.name);
     setClientIce(created.ice);
+    setClientAddress(newCustomerAddress.trim());
+    setCounterpartyMode("saved");
     setNewCustomerName("");
     setNewCustomerIce("");
+    setNewCustomerAddress("");
     setCustomerPickerOpen(false);
   }
 
   function currentDraft(): QuoteDraft {
     return {
-      id: uid("qte"),
+      id: editingId ?? uid("qte"),
       createdAt: new Date().toISOString(),
       documentType,
       clientName,
@@ -260,16 +418,28 @@ export function QuoteBuilder() {
 
   function saveDraft() {
     const draft = currentDraft();
+    setSaveStatus("saving");
     void fetch("/api/admin/quotes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(draft),
     }).then(async (res) => {
-      if (!res.ok) return;
+      if (!res.ok) {
+        setSaveStatus("error");
+        return;
+      }
+      const result = (await res.json()) as { id?: string; created?: boolean };
       const quotesRes = await fetch("/api/admin/quotes", { cache: "no-store" });
-      if (!quotesRes.ok) return;
-      const quotes = (await quotesRes.json()) as QuoteDraft[];
-      setSavedCount(quotes.length);
+      if (quotesRes.ok) {
+        const quotes = (await quotesRes.json()) as QuoteDraft[];
+        setAllQuotes(quotes);
+        setSavedCount(quotes.length);
+      }
+      if (!editingId && result.id) {
+        router.replace(`/admin/devis-builder?id=${encodeURIComponent(result.id)}`);
+      }
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 2500);
     });
   }
 
@@ -280,7 +450,16 @@ export function QuoteBuilder() {
   return (
     <div className="rounded-md border border-border bg-[#fbfbfb] p-4 lg:p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-        <h2 className="text-3xl font-semibold text-[var(--navy)]">{`Creer un ${documentLabel.toLowerCase()}`}</h2>
+        <div>
+          <h2 className="text-3xl font-semibold text-[var(--navy)]">
+            {editingId ? `Modifier ${documentLabel.toLowerCase()}` : `Creer un ${documentLabel.toLowerCase()}`}
+          </h2>
+          {editingId ? (
+            <p className="text-xs text-[var(--graphite)]/70 mt-1">
+              En modification — toute sauvegarde mettra à jour ce document.
+            </p>
+          ) : null}
+        </div>
         <div className="inline-flex rounded-md border border-border bg-white p-1 text-sm">
           <button
             type="button"
@@ -315,7 +494,33 @@ export function QuoteBuilder() {
               <input className="rounded-md border border-border bg-[#f9f9f9] p-3" value={quoteNumber} onChange={(e) => setQuoteNumber(e.target.value)} placeholder={`Numero ${documentLabel.toLowerCase()} (ex: 001/2026)`} />
               <input className="rounded-md border border-border bg-[#f9f9f9] p-3" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Reference (ex: N38)" />
               <input type="date" className="rounded-md border border-border bg-[#f9f9f9] p-3" value={date} onChange={(e) => setDate(e.target.value)} />
-              <NumberField className="rounded-md border border-border bg-[#f9f9f9] p-3" value={vatRate} onChange={setVatRate} placeholder="TVA % (ex: 20)" />
+              <div className="flex flex-col gap-2">
+                <label className="text-xs uppercase tracking-[0.08em] text-[var(--graphite)]/70">
+                  Taux de TVA
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[0, 7, 10, 14, 20].map((rate) => (
+                    <button
+                      key={rate}
+                      type="button"
+                      onClick={() => setVatRate(rate)}
+                      className={`rounded-md border px-2.5 py-1 text-sm transition ${
+                        vatRate === rate
+                          ? "border-[#de7a3a] bg-[#de7a3a] text-white"
+                          : "border-border bg-white hover:bg-[#f7f7f7]"
+                      }`}
+                    >
+                      {rate}%
+                    </button>
+                  ))}
+                  <NumberField
+                    className="w-20 rounded-md border border-border bg-[#f9f9f9] px-2 py-1 text-sm"
+                    value={vatRate}
+                    onChange={setVatRate}
+                    placeholder="Autre"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -326,52 +531,95 @@ export function QuoteBuilder() {
               <input className="mt-3 rounded-md border border-border bg-[#f9f9f9] p-3 w-full" value={template.sellerActivity} onChange={(e) => setTemplate((t) => ({ ...t, sellerActivity: e.target.value }))} placeholder="Activite entreprise" />
             </div>
             <div className="rounded-md border border-border bg-white p-4">
-              <p className="text-xs uppercase tracking-[0.1em] text-[var(--graphite)]/70">Facturer a</p>
-              <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
-                <select
-                  className="rounded-md border border-border bg-[#f9f9f9] p-3"
-                  value={selectedCustomerId}
-                  onChange={(e) => onSelectCustomer(e.target.value)}
-                >
-                  <option value="">Selectionner un client</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.ice || "Sans ICE"})
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setCustomerPickerOpen(true)}
-                  className="rounded-md border border-border px-3 text-sm hover:bg-[#f7f7f7]"
-                >
-                  + Nouveau
-                </button>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.1em] text-[var(--graphite)]/70">
+                    {isPurchaseOrder ? "Fournisseur" : "Facturer à"}
+                  </p>
+                  {counterpartyMode === "passager" ? (
+                    <p className="text-[10px] uppercase tracking-[0.08em] text-[#b04a09] mt-1">
+                      Mode passager — non enregistré
+                    </p>
+                  ) : null}
+                </div>
+                <div className="inline-flex rounded-md border border-border bg-white p-0.5 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={backToSaved}
+                    className={`rounded-md px-2 py-1 transition ${
+                      counterpartyMode === "saved"
+                        ? "bg-[#de7a3a] text-white"
+                        : "text-[var(--graphite)]/80 hover:bg-[#f7f7f7]"
+                    }`}
+                  >
+                    Enregistré
+                  </button>
+                  <button
+                    type="button"
+                    onClick={activatePassager}
+                    className={`rounded-md px-2 py-1 transition ${
+                      counterpartyMode === "passager"
+                        ? "bg-[#de7a3a] text-white"
+                        : "text-[var(--graphite)]/80 hover:bg-[#f7f7f7]"
+                    }`}
+                  >
+                    Passager
+                  </button>
+                </div>
               </div>
-              <input className="mt-3 rounded-md border border-border bg-[#f9f9f9] p-3 w-full" value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Client / Societe" />
-              <input className="mt-3 rounded-md border border-border bg-[#f9f9f9] p-3 w-full" value={clientIce} onChange={(e) => setClientIce(e.target.value)} placeholder="ICE client" />
+
+              {counterpartyMode === "saved" ? (
+                <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+                  <select
+                    className="rounded-md border border-border bg-[#f9f9f9] p-3"
+                    value={isPurchaseOrder ? selectedSupplierId : selectedCustomerId}
+                    onChange={(e) => onSelectCounterparty(e.target.value)}
+                  >
+                    <option value="">
+                      {isPurchaseOrder ? "Sélectionner un fournisseur" : "Sélectionner un client"}
+                    </option>
+                    {(isPurchaseOrder ? suppliers : customers).map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.ice || "Sans ICE"})
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setCustomerPickerOpen(true)}
+                    className="rounded-md border border-border px-3 text-sm hover:bg-[#f7f7f7]"
+                  >
+                    + Nouveau
+                  </button>
+                </div>
+              ) : null}
+              <input className="mt-3 rounded-md border border-border bg-[#f9f9f9] p-3 w-full" value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder={`${counterpartyLabel.charAt(0).toUpperCase() + counterpartyLabel.slice(1)} / Société`} />
+              <input className="mt-3 rounded-md border border-border bg-[#f9f9f9] p-3 w-full" value={clientIce} onChange={(e) => setClientIce(e.target.value)} placeholder={`ICE ${counterpartyLabel}`} />
               <textarea
                 className="mt-3 rounded-md border border-border bg-[#f9f9f9] p-3 w-full"
                 rows={2}
                 value={clientAddress}
                 onChange={(e) => setClientAddress(e.target.value)}
-                placeholder="Adresse client (ex: N130 Bloc 25, Av. Mimosa, Agadir)"
+                placeholder={`Adresse ${counterpartyLabel} (ex: N130 Bloc 25, Av. Mimosa, Agadir)`}
               />
             </div>
           </div>
 
           <div className="mt-4 rounded-md border border-border bg-white p-4 lg:p-5">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
               <h3 className="text-2xl font-semibold text-[var(--navy)]">Articles</h3>
               <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => setPickerOpen(true)} className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[#f7f7f7]">
+                  Choisir un produit
+                </button>
+                <button type="button" onClick={() => setProductModalOpen(true)} className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[#f7f7f7]">
+                  + Nouveau produit
+                </button>
                 <button type="button" onClick={addEmptyItem} className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[#f7f7f7]">
-                  + Article vide
+                  + Article passager
                 </button>
                 <button type="button" onClick={addNoteItem} className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[#f7f7f7]">
                   + Note / commentaire
-                </button>
-                <button type="button" onClick={() => setPickerOpen(true)} className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[#f7f7f7]">
-                  Choisir produit
                 </button>
                 <button
                   type="button"
@@ -419,7 +667,14 @@ export function QuoteBuilder() {
                     </>
                   ) : (
                     <>
-                      <input className="rounded-md border border-border bg-[#f9f9f9] p-2 lg:col-span-2" value={item.reference} onChange={(e) => updateItem(idx, { reference: e.target.value })} />
+                      <div className="lg:col-span-2 flex flex-col gap-1">
+                        <input className="rounded-md border border-border bg-[#f9f9f9] p-2" value={item.reference} onChange={(e) => updateItem(idx, { reference: e.target.value })} />
+                        {item.productId.startsWith("manual-") ? (
+                          <span className="rounded-md bg-[#fff4e8] px-2 py-0.5 text-[10px] uppercase tracking-[0.08em] text-[#b04a09] self-start">
+                            Passager
+                          </span>
+                        ) : null}
+                      </div>
                       <input className="rounded-md border border-border bg-[#f9f9f9] p-2 lg:col-span-5" value={item.designation} onChange={(e) => updateItem(idx, { designation: e.target.value })} />
                       <NumberField className="rounded-md border border-border bg-[#f9f9f9] p-2 lg:col-span-1" value={item.qty} onChange={(v) => updateItem(idx, { qty: v })} />
                       <NumberField className="rounded-md border border-border bg-[#f9f9f9] p-2 lg:col-span-2" value={item.unitPrice} onChange={(v) => updateItem(idx, { unitPrice: v })} />
@@ -464,7 +719,10 @@ export function QuoteBuilder() {
               </div>
             </div>
             <div className="mt-4 text-xs rounded-md border border-border bg-[#fcfcfc] p-3">
-              <p className="uppercase text-[var(--graphite)]/60">Client</p>
+              <p className="uppercase text-[var(--graphite)]/60">
+                {isPurchaseOrder ? "Fournisseur" : "Client"}
+                {counterpartyMode === "passager" ? " (passager)" : ""}
+              </p>
               <p className="font-medium text-[var(--navy)] mt-1">{clientName || "-"}</p>
               <p className="text-[var(--graphite)]/80">ICE: {clientIce || "-"}</p>
               {clientAddress ? (
@@ -522,21 +780,34 @@ export function QuoteBuilder() {
           </details>
 
           <Link href="/admin/devis-saved" className="mt-3 inline-flex w-full rounded-md border border-border px-4 py-2 text-sm hover:bg-white justify-center">
-            Devis enregistres ({savedCount})
+            Documents enregistrés ({savedCount})
           </Link>
         </aside>
       </div>
 
       <section className="mt-6 rounded-md border border-border p-4 flex flex-col md:flex-row gap-3 md:items-center md:justify-between bg-white">
-        <p className="text-sm text-[var(--graphite)]/80">
-          Enregistrez puis telechargez a tout moment depuis la page des devis enregistres.
-        </p>
-        <div className="flex gap-3">
+        <div className="text-sm text-[var(--graphite)]/80">
+          {saveStatus === "saving" ? (
+            <span>Enregistrement en cours…</span>
+          ) : saveStatus === "saved" ? (
+            <span className="text-emerald-700">Document enregistré.</span>
+          ) : saveStatus === "error" ? (
+            <span className="text-rose-700">Échec de l'enregistrement.</span>
+          ) : (
+            <span>Enregistrez puis téléchargez à tout moment depuis la page documents.</span>
+          )}
+        </div>
+        <div className="flex gap-3 flex-wrap">
           <Link href="/admin" className="rounded-md border border-border px-4 py-2 hover:bg-[#f7f7f7]">
             Annuler
           </Link>
+          {editingId ? (
+            <Link href="/admin/devis-builder" className="rounded-md border border-border px-4 py-2 hover:bg-[#f7f7f7]">
+              Nouveau document
+            </Link>
+          ) : null}
           <button type="button" onClick={saveDraft} className="rounded-md border border-border px-4 py-2 hover:bg-[#f7f7f7]">
-            Enregistrer brouillon
+            {editingId ? "Mettre à jour" : "Enregistrer"}
           </button>
           <button type="button" onClick={() => { void downloadPdf(); }} className="rounded-md border border-[#de7a3a] bg-[#de7a3a] text-white px-4 py-2 hover:opacity-90">
             Generer document
@@ -548,15 +819,27 @@ export function QuoteBuilder() {
         <div className="fixed inset-0 z-50 bg-black/30 p-4 flex items-center justify-center">
           <div className="w-full max-w-2xl rounded-md border border-border bg-white p-4">
             <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
-              <h4 className="text-lg font-semibold text-[var(--navy)]">Choisir un produit enregistre</h4>
-              <button type="button" onClick={() => setPickerOpen(false)} className="rounded-md border border-border px-3 py-1.5 text-sm">
-                Fermer
-              </button>
+              <h4 className="text-lg font-semibold text-[var(--navy)]">Choisir un produit enregistré</h4>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPickerOpen(false);
+                    setProductModalOpen(true);
+                  }}
+                  className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[#f7f7f7]"
+                >
+                  + Nouveau produit
+                </button>
+                <button type="button" onClick={() => setPickerOpen(false)} className="rounded-md border border-border px-3 py-1.5 text-sm">
+                  Fermer
+                </button>
+              </div>
             </div>
             <div className="mt-3 max-h-[380px] overflow-auto space-y-2">
               {products.length === 0 ? (
                 <p className="rounded-md border border-border p-3 text-sm text-[var(--graphite)]/80">
-                  Aucun produit enregistre. Ajoutez-les depuis la page produits.
+                  Aucun produit enregistré. Cliquez sur <strong>+ Nouveau produit</strong> pour en créer un, ou utilisez <strong>+ Article passager</strong> pour une saisie unique.
                 </p>
               ) : (
                 products.map((p) => (
@@ -583,37 +866,94 @@ export function QuoteBuilder() {
         </div>
       ) : null}
 
-      {customerPickerOpen ? (
+      {productModalOpen ? (
         <div className="fixed inset-0 z-50 bg-black/30 p-4 flex items-center justify-center">
           <div className="w-full max-w-xl rounded-md border border-border bg-white p-4">
             <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
-              <h4 className="text-lg font-semibold text-[var(--navy)]">Creer un client</h4>
-              <button type="button" onClick={() => setCustomerPickerOpen(false)} className="rounded-md border border-border px-3 py-1.5 text-sm">
+              <h4 className="text-lg font-semibold text-[var(--navy)]">Créer un produit</h4>
+              <button type="button" onClick={() => setProductModalOpen(false)} className="rounded-md border border-border px-3 py-1.5 text-sm">
                 Fermer
               </button>
             </div>
+            <p className="mt-2 text-xs text-[var(--graphite)]/70">
+              Le produit sera enregistré dans votre catalogue et ajouté à la ligne courante. Pour une saisie unique, utilisez <strong>+ Article passager</strong>.
+            </p>
             <div className="mt-3 grid gap-2">
               <input
                 className="rounded-md border border-border bg-[#f9f9f9] p-2.5"
-                placeholder="Nom du client"
-                value={newCustomerName}
-                onChange={(e) => setNewCustomerName(e.target.value)}
+                placeholder="Référence (ex: TVF, NN, …)"
+                value={newProductReference}
+                onChange={(e) => setNewProductReference(e.target.value)}
               />
               <input
                 className="rounded-md border border-border bg-[#f9f9f9] p-2.5"
-                placeholder="ICE client"
-                value={newCustomerIce}
-                onChange={(e) => setNewCustomerIce(e.target.value)}
+                placeholder="Désignation"
+                value={newProductDesignation}
+                onChange={(e) => setNewProductDesignation(e.target.value)}
+              />
+              <NumberField
+                className="rounded-md border border-border bg-[#f9f9f9] p-2.5"
+                value={newProductPrice}
+                onChange={setNewProductPrice}
+                placeholder="Prix unitaire"
               />
             </div>
             <button
               type="button"
               onClick={() => {
-                void createCustomerFromBuilder();
+                void createProductFromBuilder();
               }}
               className="mt-3 rounded-md border border-[#de7a3a] bg-[#de7a3a] px-4 py-2 text-sm text-white hover:opacity-90"
             >
-              Enregistrer client
+              Enregistrer et ajouter
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {customerPickerOpen ? (
+        <div className="fixed inset-0 z-50 bg-black/30 p-4 flex items-center justify-center">
+          <div className="w-full max-w-xl rounded-md border border-border bg-white p-4">
+            <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
+              <h4 className="text-lg font-semibold text-[var(--navy)]">
+                {`Créer un ${counterpartyLabel}`}
+              </h4>
+              <button type="button" onClick={() => setCustomerPickerOpen(false)} className="rounded-md border border-border px-3 py-1.5 text-sm">
+                Fermer
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-[var(--graphite)]/70">
+              Cette fiche sera enregistrée dans votre carnet pour réutilisation. Pour une saisie unique, utilisez le mode <strong>Passager</strong>.
+            </p>
+            <div className="mt-3 grid gap-2">
+              <input
+                className="rounded-md border border-border bg-[#f9f9f9] p-2.5"
+                placeholder={`Nom du ${counterpartyLabel}`}
+                value={newCustomerName}
+                onChange={(e) => setNewCustomerName(e.target.value)}
+              />
+              <input
+                className="rounded-md border border-border bg-[#f9f9f9] p-2.5"
+                placeholder={`ICE ${counterpartyLabel}`}
+                value={newCustomerIce}
+                onChange={(e) => setNewCustomerIce(e.target.value)}
+              />
+              <textarea
+                rows={2}
+                className="rounded-md border border-border bg-[#f9f9f9] p-2.5"
+                placeholder="Adresse (optionnel)"
+                value={newCustomerAddress}
+                onChange={(e) => setNewCustomerAddress(e.target.value)}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                void createCounterpartyFromBuilder();
+              }}
+              className="mt-3 rounded-md border border-[#de7a3a] bg-[#de7a3a] px-4 py-2 text-sm text-white hover:opacity-90"
+            >
+              {`Enregistrer le ${counterpartyLabel}`}
             </button>
           </div>
         </div>

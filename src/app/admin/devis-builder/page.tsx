@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
@@ -33,7 +34,9 @@ export default async function DevisBuilderPage() {
           Retour a l'accueil admin
         </Link>
       </div>
-      <QuoteBuilder />
+      <Suspense fallback={<div className="rounded-md border border-border bg-white p-6 text-sm text-[var(--graphite)]/70">Chargement…</div>}>
+        <QuoteBuilder />
+      </Suspense>
     </AdminShell>
   );
 }
