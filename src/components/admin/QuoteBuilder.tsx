@@ -3,10 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
+import { DocumentPreview } from "@/components/admin/DocumentPreview";
 import { downloadDevisPdf } from "@/components/admin/devis-pdf";
 import {
-  DEFAULT_PRODUCTS,
   DOCUMENT_LABELS,
   type Customer,
   defaultTemplate,
@@ -17,7 +16,6 @@ import {
   type LineItem,
   type Supplier,
 } from "@/components/admin/devis-types";
-import logoHeader from "@/assets/barane-logo-horizontal-transparent.png";
 
 function money(value: number) {
   return new Intl.NumberFormat("fr-MA", {
@@ -93,7 +91,7 @@ export function QuoteBuilder() {
   const searchParams = useSearchParams();
   const editingId = searchParams.get("id");
 
-  const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
   const [template, setTemplate] = useState<DevisTemplate>(defaultTemplate);
   const [savedCount, setSavedCount] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -142,8 +140,7 @@ export function QuoteBuilder() {
         if (!mounted) return;
 
         if (productsRes.ok) {
-          const nextProducts = (await productsRes.json()) as Product[];
-          setProducts(nextProducts.length > 0 ? nextProducts : DEFAULT_PRODUCTS);
+          setProducts((await productsRes.json()) as Product[]);
         }
         if (templateRes.ok) {
           setTemplate((await templateRes.json()) as DevisTemplate);
@@ -699,76 +696,26 @@ export function QuoteBuilder() {
           </div>
         </section>
 
-        <aside className="xl:col-span-4 rounded-md border border-border p-4 lg:p-5 bg-[#f4f4f4] xl:sticky xl:top-24">
-          <div className="bg-white rounded-md border border-border p-4">
-            <div className="flex items-start justify-between gap-3">
-              <Image src={logoHeader} alt="BARANE INVEST" width={120} height={30} className="h-8 w-auto object-contain" />
-              <div className="text-right">
-                <p className="text-xs uppercase text-[var(--graphite)]/70">{documentLabel.toUpperCase()}</p>
-                <p className="text-sm font-semibold">N° {quoteNumber || "-"}</p>
-              </div>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-3 text-[11px] text-[var(--graphite)]/80">
-              <div>
-                <p className="uppercase text-[10px] text-[var(--graphite)]/60">Date</p>
-                <p className="font-medium text-[var(--navy)]">{date || "-"}</p>
-              </div>
-              <div className="text-right">
-                <p className="uppercase text-[10px] text-[var(--graphite)]/60">Reference</p>
-                <p className="font-medium text-[var(--navy)]">{reference || "-"}</p>
-              </div>
-            </div>
-            <div className="mt-4 text-xs rounded-md border border-border bg-[#fcfcfc] p-3">
-              <p className="uppercase text-[var(--graphite)]/60">
-                {isPurchaseOrder ? "Fournisseur" : "Client"}
-                {counterpartyMode === "passager" ? " (passager)" : ""}
-              </p>
-              <p className="font-medium text-[var(--navy)] mt-1">{clientName || "-"}</p>
-              <p className="text-[var(--graphite)]/80">ICE: {clientIce || "-"}</p>
-              {clientAddress ? (
-                <p className="text-[var(--graphite)]/80 mt-1 whitespace-pre-line">{clientAddress}</p>
-              ) : null}
-            </div>
-
-            <div className="mt-3 rounded-md border border-border overflow-hidden">
-              <div className="grid grid-cols-[1fr_50px_90px] bg-[#f6f8fb] px-2 py-1 text-[10px] uppercase tracking-[0.08em] text-[var(--graphite)]/70">
-                <span>Article</span>
-                <span className="text-right">Qte</span>
-                <span className="text-right">Montant</span>
-              </div>
-              <div className="divide-y divide-border bg-white">
-                {items.slice(0, 4).map((item, idx) => (
-                  <div key={`${item.productId}-preview-${idx}`} className="grid grid-cols-[1fr_50px_90px] px-2 py-1.5 text-[11px]">
-                    {item.isNote ? (
-                      <p className="col-span-3 italic text-[var(--graphite)]/80 truncate">
-                        {item.designation || "Note"}
-                      </p>
-                    ) : (
-                      <>
-                        <p className="truncate text-[var(--navy)]">{item.designation}</p>
-                        <p className="text-right text-[var(--graphite)]/80">{item.qty}</p>
-                        <p className="text-right font-medium text-[var(--navy)]">{money(item.qty * item.unitPrice)}</p>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="mt-4 border-t border-border pt-3 text-xs space-y-1">
-              <p className="flex items-center justify-between"><span>Sous-total</span><span className="font-semibold">{money(totals.totalHt)}</span></p>
-              <p className="flex items-center justify-between"><span>Remise</span><span className="font-semibold">{money(discount)}</span></p>
-              <p className="flex items-center justify-between"><span>TVA</span><span className="font-semibold">{money(totals.vatAmount)}</span></p>
-              <p className="flex items-center justify-between"><span>Acompte</span><span className="font-semibold">{money(deposit)}</span></p>
-              <p className="pt-1 mt-1 border-t border-border text-[var(--navy)] flex items-center justify-between">
-                <span>Total a payer</span><span className="font-bold text-base">{money(totals.netToPay)}</span>
-              </p>
-            </div>
-            {includeCachet ? (
-              <div className="mt-3 rounded-md border border-dashed border-[var(--gold)]/60 bg-[#fff8ef] p-2 text-right text-[10px] text-[var(--graphite)]/70">
-                Cachet et signature ajoutes au document
-              </div>
-            ) : null}
-          </div>
+        <aside className="xl:col-span-4 xl:sticky xl:top-24 space-y-3">
+          <p className="text-xs uppercase tracking-[0.1em] text-[var(--graphite)]/70 px-1">
+            Aperçu du document
+          </p>
+          <DocumentPreview
+            documentType={documentType}
+            quoteNumber={quoteNumber}
+            reference={reference}
+            date={date}
+            clientName={clientName}
+            clientIce={clientIce}
+            isPurchaseOrder={isPurchaseOrder}
+            counterpartyMode={counterpartyMode}
+            items={items}
+            vatRate={vatRate}
+            discount={discount}
+            deposit={deposit}
+            includeCachet={includeCachet}
+            template={template}
+          />
 
           <details className="mt-3 rounded-md border border-border p-3 bg-white">
             <summary className="cursor-pointer text-xs uppercase tracking-[0.1em] text-[var(--graphite)]/70">Template pied de page entreprise</summary>

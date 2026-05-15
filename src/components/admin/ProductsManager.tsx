@@ -1,17 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  DEFAULT_PRODUCTS,
-  type Product,
-} from "@/components/admin/devis-types";
+import { type Product } from "@/components/admin/devis-types";
 
 function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 export function ProductsManager() {
-  const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
   const [newReference, setNewReference] = useState("");
   const [newDesignation, setNewDesignation] = useState("");
   const [newUnitPrice, setNewUnitPrice] = useState(0);
@@ -21,8 +18,7 @@ export function ProductsManager() {
     async function loadProducts() {
       const res = await fetch("/api/admin/products", { cache: "no-store" });
       if (!res.ok || !mounted) return;
-      const next = (await res.json()) as Product[];
-      setProducts(next.length > 0 ? next : DEFAULT_PRODUCTS);
+      setProducts((await res.json()) as Product[]);
     }
     void loadProducts();
     return () => {
@@ -33,8 +29,7 @@ export function ProductsManager() {
   async function refreshProducts() {
     const res = await fetch("/api/admin/products", { cache: "no-store" });
     if (!res.ok) return;
-    const next = (await res.json()) as Product[];
-    setProducts(next.length > 0 ? next : DEFAULT_PRODUCTS);
+    setProducts((await res.json()) as Product[]);
   }
 
   function addProduct() {
@@ -124,6 +119,11 @@ export function ProductsManager() {
       </div>
 
       <div className="mt-4 space-y-2">
+        {products.length === 0 ? (
+          <p className="rounded-md border border-border bg-white p-3 text-sm text-[var(--graphite)]/70">
+            Aucun produit enregistré. Ajoutez-en un avec le formulaire ci-dessus.
+          </p>
+        ) : null}
         {products.map((product) => (
           <div key={product.id} className="rounded-md border border-border bg-white p-3 grid md:grid-cols-12 gap-2">
             <input

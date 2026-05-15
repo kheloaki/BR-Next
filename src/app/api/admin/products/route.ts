@@ -1,6 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { DEFAULT_PRODUCTS } from "@/components/admin/devis-types";
 import { ensureAdminUserRow, getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
@@ -21,33 +20,8 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  if (!data || data.length === 0) {
-    const seedRows = DEFAULT_PRODUCTS.map((item) => ({
-      id: crypto.randomUUID(),
-      user_id: userId,
-      reference: item.reference,
-      designation: item.designation,
-      unit_price: item.unitPrice,
-    }));
-    const seeded = await supabase
-      .from("admin_products")
-      .insert(seedRows)
-      .select("id, reference, designation, unit_price");
-    if (seeded.error) {
-      return NextResponse.json({ error: seeded.error.message }, { status: 500 });
-    }
-    return NextResponse.json(
-      (seeded.data ?? []).map((row) => ({
-        id: row.id,
-        reference: row.reference,
-        designation: row.designation,
-        unitPrice: Number(row.unit_price ?? 0),
-      })),
-    );
-  }
-
   return NextResponse.json(
-    data.map((row) => ({
+    (data ?? []).map((row) => ({
       id: row.id,
       reference: row.reference,
       designation: row.designation,
