@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
+import { Analytics } from "@vercel/analytics/react";
 import { headers } from "next/headers";
 import "./globals.css";
 import { PageLayout } from "@/components/site/PageLayout";
@@ -57,6 +58,7 @@ export default async function RootLayout({
             </>
           ) : null}
           {showWebsiteChrome ? <PageLayout>{children}</PageLayout> : children}
+          {showWebsiteChrome ? <Analytics /> : null}
         </body>
       </html>
     </ClerkProvider>
