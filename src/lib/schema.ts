@@ -11,11 +11,8 @@ type FaqItem = {
   answer: string;
 };
 
-const organizationDescriptions: Record<Locale, string> = {
-  fr: "Groupe industriel marocain spécialisé en fourniture B2B, infrastructure, logistique et équipement industriel.",
-  en: "Moroccan industrial group focused on B2B supply, infrastructure, logistics and industrial equipment.",
-  es: "Grupo industrial marroqui especializado en suministro B2B, infraestructura, logistica y equipamiento industrial.",
-};
+const organizationDescription =
+  "Groupe industriel marocain spécialisé en fourniture B2B de pièces d'usure, roulements industriels, bandes convoyeuses, moteurs et équipements industriels pour les secteurs mines, BTP, infrastructure et logistique au Maroc et en Afrique.";
 
 const websiteLanguages: Record<Locale, string> = {
   fr: "fr-MA",
@@ -51,15 +48,50 @@ function absolutePublicPath(pathPrefix: string, path: string): string {
   return `${pathPrefix}${path}`;
 }
 
-export function buildOrganizationSchema(locale: Locale) {
+export function buildOrganizationSchema(_locale: Locale) {
+  const iconUrl = `${siteUrl}/icon.png`;
   return {
     "@context": "https://schema.org",
-    "@type": "Organization",
+    "@type": ["Organization", "LocalBusiness"],
     name: "BARANE INVEST",
+    alternateName: "Barane Invest",
     url: siteUrl,
-    logo: `${siteUrl}/favicon.ico`,
-    description: organizationDescriptions[locale],
-    areaServed: ["MA", "Africa"],
+    logo: iconUrl,
+    image: iconUrl,
+    description: organizationDescription,
+    telephone: "+212661656042",
+    email: "contact@baraneinvest.com",
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: "Agadir",
+      addressLocality: "Agadir",
+      addressRegion: "Souss-Massa",
+      postalCode: "80000",
+      addressCountry: "MA",
+    },
+    geo: {
+      "@type": "GeoCoordinates",
+      latitude: "30.4278",
+      longitude: "-9.5981",
+    },
+    areaServed: ["MA", "DZ", "SN", "CI", "CM", "GH", "TN", "EG", "ZA"],
+    knowsAbout: [
+      "pièces d'usure industrielles",
+      "roulements SKF FAG NSK Timken",
+      "bandes transporteuses Fenner ContiTech",
+      "convoyeurs industriels",
+      "moteurs Siemens ABB",
+      "hydraulique Parker Bosch",
+      "fourniture mines et carrières Maroc",
+      "équipement BTP Afrique",
+      "import-export industriel",
+    ],
+    openingHoursSpecification: {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      opens: "08:00",
+      closes: "18:00",
+    },
     sameAs: ["https://www.linkedin.com/company/baraneinvest"],
   };
 }
