@@ -20,6 +20,7 @@ import SecteursMinesPage from "@/app/secteurs/mines-carrieres/page";
 import SecteursMinesPiecesPage from "@/app/secteurs/mines-carrieres/pieces-usure-criblage/page";
 import SecteursInfrastructuresPage from "@/app/secteurs/infrastructures/page";
 import SecteursInfrastructuresApproPage from "@/app/secteurs/infrastructures/approvisionnement-chantier-multisite/page";
+import AgadirPage from "@/app/agadir/page";
 import { siteUrl } from "@/lib/site-config";
 import { isSupportedLocale, supportedLocales, type Locale } from "@/lib/i18n";
 
@@ -44,6 +45,7 @@ const routeMap = {
   "secteurs/mines-carrieres/pieces-usure-criblage": true,
   "secteurs/infrastructures": true,
   "secteurs/infrastructures/approvisionnement-chantier-multisite": true,
+  agadir: true,
 } as const;
 
 const localizedMeta: Partial<
@@ -105,19 +107,19 @@ const localizedMeta: Partial<
   },
   catalogue: {
     fr: {
-      title: "Catalogue | BARANE INVEST",
+      title: "Catalogue produits industriels PDF | BARANE INVEST",
       description:
-        "Catalogue d'équipements, composants et solutions techniques pour besoins industriels et projets B2B.",
+        "Consultez et téléchargez le catalogue BARANE INVEST : roulements, bandes, hydraulique, moteurs et pièces d'usure B2B.",
     },
     en: {
-      title: "Catalogue | BARANE INVEST",
+      title: "Industrial catalogue PDF | BARANE INVEST",
       description:
-        "Catalogue of equipment, components and technical solutions for industrial needs and B2B projects.",
+        "View and download the BARANE INVEST B2B catalogue: bearings, belts, hydraulics, motors and wear parts.",
     },
     es: {
-      title: "Catalogo | BARANE INVEST",
+      title: "Catalogo industrial PDF | BARANE INVEST",
       description:
-        "Catalogo de equipos, componentes y soluciones tecnicas para necesidades industriales y proyectos B2B.",
+        "Consulte y descargue el catalogo BARANE INVEST: rodamientos, bandas, hidraulica, motores y piezas de desgaste B2B.",
     },
   },
   contact: {
@@ -320,36 +322,36 @@ const localizedMeta: Partial<
   },
   "secteurs/mines-carrieres": {
     fr: {
-      title: "Mines et carrières",
+      title: "Fournisseur pièces d'usure mines Maroc | BARANE INVEST",
       description:
-        "Solutions d'approvisionnement et support terrain pour sites miniers et carrières: pièces, maintenance et continuité d'exploitation.",
+        "Approvisionnement sites miniers et carrières au Maroc et en Afrique : pièces d'usure, roulements SKF FAG, bandes Fenner ContiTech. Devis 24h — Agadir.",
     },
     en: {
-      title: "Mining and Quarries",
+      title: "Mining wear parts supplier Morocco | BARANE INVEST",
       description:
-        "Supply and field support solutions for mining and quarry sites: parts, maintenance and operational continuity.",
+        "B2B supply for mining and quarry sites in Morocco and Africa: wear parts, SKF FAG bearings, Fenner ContiTech belts. Quotes within 24h.",
     },
     es: {
-      title: "Mineria y Canteras",
+      title: "Proveedor piezas desgaste minas Marruecos | BARANE INVEST",
       description:
-        "Soluciones de abastecimiento y soporte en terreno para mineria y canteras: piezas, mantenimiento y continuidad operativa.",
+        "Suministro para minas y canteras en Marruecos y Africa: piezas de desgaste, rodamientos SKF FAG, bandas Fenner ContiTech. Cotizacion 24h.",
     },
   },
   "secteurs/mines-carrieres/pieces-usure-criblage": {
     fr: {
-      title: "Pièces d'usure et criblage",
+      title: "Pièces d'usure mines criblage Maroc | BARANE INVEST",
       description:
-        "Bonnes pratiques pour sélectionner pièces d'usure et solutions de criblage en environnement minier.",
+        "Guide revêtements concasseurs et grilles criblage carrières : choisir pièces d'usure mines. Fournisseur Agadir — devis sous 24h.",
     },
     en: {
-      title: "Wear Parts and Screening",
+      title: "Mining wear parts screening Morocco | BARANE INVEST",
       description:
-        "Best practices for selecting wear parts and screening solutions in mining environments.",
+        "Guide to crusher liners and screen grids for mines and quarries. Technical advice from Agadir — quotes within 24h.",
     },
     es: {
-      title: "Piezas de Desgaste y Cribado",
+      title: "Piezas desgaste minas cribado Marruecos | BARANE INVEST",
       description:
-        "Buenas practicas para seleccionar piezas de desgaste y soluciones de cribado en entorno minero.",
+        "Guia revestimientos trituradoras y mallas cribado. Asesoramiento tecnico desde Agadir — cotizacion 24h.",
     },
   },
   "secteurs/infrastructures": {
@@ -367,6 +369,23 @@ const localizedMeta: Partial<
       title: "Infraestructuras",
       description:
         "Acompanamiento de proyectos de infraestructura con soluciones tecnicas, coordinacion logistica y seguimiento de ejecucion.",
+    },
+  },
+  agadir: {
+    fr: {
+      title: "Fournisseur équipement industriel Agadir | BARANE INVEST",
+      description:
+        "Fourniture industrielle Agadir Maroc : pièces détachées, matériel BTP, équipement mines. Devis 24h, livraison J+1 — Barane Invest.",
+    },
+    en: {
+      title: "Industrial equipment supplier Agadir | BARANE INVEST",
+      description:
+        "Industrial supply Agadir Morocco: spare parts, construction equipment, mining gear. Quotes within 24h — Barane Invest.",
+    },
+    es: {
+      title: "Proveedor equipos industriales Agadir | BARANE INVEST",
+      description:
+        "Suministro industrial Agadir Marruecos: repuestos, obra civil, mineria. Cotizacion 24h — Barane Invest.",
     },
   },
   "secteurs/infrastructures/approvisionnement-chantier-multisite": {
@@ -491,6 +510,8 @@ export default async function LocalePage(props: {
       return <SecteursInfrastructuresPage locale={currentLocale} pathPrefix={pathPrefix} />;
     case "secteurs/infrastructures/approvisionnement-chantier-multisite":
       return <SecteursInfrastructuresApproPage locale={currentLocale} pathPrefix={pathPrefix} />;
+    case "agadir":
+      return <AgadirPage locale={currentLocale} pathPrefix={pathPrefix} />;
     default:
       notFound();
   }

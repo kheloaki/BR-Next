@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { FaqList } from "@/components/seo/SeoContentBlocks";
 import { Catalogue } from "@/components/site/Catalogue";
+import { CataloguePdfSection } from "@/components/site/CataloguePdfSection";
 import { Partners } from "@/components/site/Partners";
 import { Projects } from "@/components/site/Projects";
 import { ContactCTA } from "@/components/site/ContactCTA";
@@ -14,9 +15,10 @@ import {
 import type { Locale } from "@/lib/i18n";
 
 export const metadata: Metadata = {
-  title: "Catalogue",
+  title: "Catalogue produits industriels PDF | BARANE INVEST",
   description:
-    "Consultez le catalogue BARANE INVEST: équipements industriels, composants techniques et solutions d'approvisionnement adaptées aux besoins B2B en production, infrastructure et maintenance.",
+    "Téléchargez le catalogue BARANE INVEST : roulements SKF FAG, bandes Fenner ContiTech, hydraulique, moteurs, pièces d'usure — équipement B2B Maroc et Afrique.",
+  alternates: { canonical: "/catalogue" },
   openGraph: {
     title: "Catalogue | BARANE INVEST",
     description:
@@ -165,7 +167,8 @@ export default function CataloguePage({
         })}
       />
       <JsonLd id="faq-catalogue" data={buildFaqSchema(t.faq)} />
-      <Catalogue locale={locale} />
+      <CataloguePdfSection locale={locale} pathPrefix={pathPrefix} />
+      <Catalogue locale={locale} variant="below-pdf" />
       <section className="px-6 lg:px-16 pb-14 lg:pb-16">
         <div className="max-w-[1400px] mx-auto">
           <FaqList title={t.faqTitle} items={t.faq} />

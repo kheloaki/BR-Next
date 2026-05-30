@@ -48,6 +48,23 @@ function absolutePublicPath(pathPrefix: string, path: string): string {
   return `${pathPrefix}${path}`;
 }
 
+/** Page-specific LocalBusiness JSON-LD (e.g. /agadir landing). */
+export function buildLocalBusinessSchema(input: {
+  path: string;
+  pathPrefix?: string;
+  description?: string;
+}) {
+  const pathPrefix = input.pathPrefix ?? "";
+  const pageUrl = `${siteUrl}${absolutePublicPath(pathPrefix, input.path)}`;
+  const base = buildOrganizationSchema("fr");
+  return {
+    ...base,
+    "@id": `${pageUrl}#localbusiness`,
+    url: pageUrl,
+    ...(input.description ? { description: input.description } : {}),
+  };
+}
+
 export function buildOrganizationSchema(_locale: Locale) {
   const iconUrl = `${siteUrl}/icon.png`;
   return {

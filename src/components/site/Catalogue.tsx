@@ -1,17 +1,26 @@
 "use client";
 
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Download } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { CATALOG_PDF_FILENAME, CATALOG_PDF_PATH } from "@/lib/catalog-pdf";
 import catScreening from "@/assets/cat-screening.jpg";
 import catMotors from "@/assets/cat-motors.jpg";
 import catBearings from "@/assets/cat-bearings.jpg";
 import catHydraulic from "@/assets/cat-hydraulic.jpg";
 import type { Locale } from "@/lib/i18n";
 
-export function Catalogue({ locale = "fr" }: { locale?: Locale }) {
+export function Catalogue({
+  locale = "fr",
+  variant = "section",
+}: {
+  locale?: Locale;
+  /** section = homepage block; below-pdf = families grid under catalogue PDF page */
+  variant?: "section" | "below-pdf";
+}) {
   const prefix = locale === "en" ? "/en" : locale === "es" ? "/es" : "";
+  const pdfHref = `${prefix}${CATALOG_PDF_PATH}`;
 
   const featured =
     locale === "en"
@@ -76,8 +85,10 @@ export function Catalogue({ locale = "fr" }: { locale?: Locale }) {
           titleA: "Technical",
           titleB: "products",
           titleC: "for every chain.",
-          cta: "Full catalogue",
+          cta: "View catalogue",
+          ctaPdf: "Download PDF catalogue",
           families: "Other categories",
+          belowTitle: "Product families in the catalogue",
         }
       : locale === "es"
         ? {
@@ -85,43 +96,64 @@ export function Catalogue({ locale = "fr" }: { locale?: Locale }) {
             titleA: "Productos",
             titleB: "tecnicos",
             titleC: "para cada cadena de valor.",
-            cta: "Catalogo completo",
+            cta: "Ver catalogo",
+            ctaPdf: "Descargar catalogo PDF",
             families: "Otras familias",
+            belowTitle: "Familias de productos del catalogo",
           }
         : {
             eyebrow: "Catalogue B2B",
             titleA: "Des produits",
             titleB: "techniques",
             titleC: "pour chaque chaîne.",
-            cta: "Catalogue complet",
+            cta: "Voir le catalogue",
+            ctaPdf: "Télécharger le catalogue PDF",
             families: "Autres familles",
+            belowTitle: "Familles de produits du catalogue",
           };
 
+  const showHero = variant === "section";
+
   return (
-    <section id="catalogue" className="py-32 lg:py-40 bg-[var(--ivory)] overflow-hidden">
+    <section
+      id="catalogue"
+      className={`bg-[var(--ivory)] overflow-hidden ${showHero ? "py-32 lg:py-40" : "py-16 lg:py-24 border-t border-[var(--navy)]/10"}`}
+    >
       <div className="px-6 lg:px-16">
         <div className="max-w-[1400px] mx-auto">
-          <div className="grid lg:grid-cols-12 gap-12 mb-16">
-            <div className="lg:col-span-8">
-              <span className="eyebrow text-[var(--navy)]">{t.eyebrow}</span>
-              <h2 className="mt-6 display-xl text-5xl lg:text-7xl xl:text-8xl text-[var(--navy)]">
-                {t.titleA} <span className="text-[var(--gold)]">{t.titleB}</span> {t.titleC}
-              </h2>
+          {showHero ? (
+            <div className="grid lg:grid-cols-12 gap-12 mb-16">
+              <div className="lg:col-span-8">
+                <span className="eyebrow text-[var(--navy)]">{t.eyebrow}</span>
+                <h2 className="mt-6 display-xl text-5xl lg:text-7xl xl:text-8xl text-[var(--navy)]">
+                  {t.titleA} <span className="text-[var(--gold)]">{t.titleB}</span> {t.titleC}
+                </h2>
+              </div>
+              <div className="lg:col-span-4 flex flex-col items-stretch gap-3 lg:items-end">
+                <Button variant="navy" size="lg" asChild>
+                  <Link href={`${prefix}/catalogue`}>
+                    {t.cta} <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button variant="outline" size="lg" asChild className="border-[var(--navy)]">
+                  <a href={pdfHref} download={CATALOG_PDF_FILENAME}>
+                    <Download className="h-4 w-4" />
+                    {t.ctaPdf}
+                  </a>
+                </Button>
+              </div>
             </div>
-            <div className="lg:col-span-4 flex items-end lg:justify-end">
-              <Button variant="navy" size="lg" asChild>
-                <Link href={`${prefix}/catalogue`}>
-                  {t.cta} <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
-          </div>
+          ) : (
+            <h2 className="mb-10 display-xl text-2xl lg:text-3xl text-[var(--navy)]">{t.belowTitle}</h2>
+          )}
 
           <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 -mx-6 px-6 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-4 lg:overflow-visible lg:gap-0 lg:border lg:border-border">
             {featured.map((c, i) => (
               <Link
                 key={c.title}
-                href={`${prefix}/catalogue`}
+                href={pdfHref}
+                target="_blank"
+                rel="noopener noreferrer"
                 className={`group relative shrink-0 w-[78vw] sm:w-[45vw] lg:w-auto snap-center aspect-[2/3] overflow-hidden bg-[var(--navy)] ${
                   i < featured.length - 1 ? "lg:border-r border-border" : ""
                 }`}

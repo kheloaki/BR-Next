@@ -15,6 +15,7 @@ const coreRoutes = [
   "/projets",
   "/services",
   "/secteurs",
+  "/agadir",
 ] as const;
 
 const activityRoutes = [

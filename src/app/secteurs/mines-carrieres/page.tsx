@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { MinesCarrieresPageContent } from "@/components/site/sectors/MinesCarrieresPage";
 import {
   breadcrumbHomeLabel,
   buildBreadcrumbSchema,
@@ -10,10 +10,112 @@ import {
 import type { Locale } from "@/lib/i18n";
 
 export const metadata: Metadata = {
-  title: "Mines et carrières",
+  title: "Fournisseur pièces d'usure mines Maroc | BARANE INVEST",
   description:
-    "Solutions de fourniture et support technique pour mines et carrières: pièces d'usure, criblage et maintenance opérationnelle.",
+    "Approvisionnement sites miniers et carrières au Maroc et en Afrique : pièces d'usure, roulements SKF FAG, bandes Fenner ContiTech, convoyeurs. Devis sous 24h — Agadir.",
+  alternates: {
+    canonical: "/secteurs/mines-carrieres",
+  },
+  openGraph: {
+    title: "Fournisseur pièces d'usure mines Maroc | BARANE INVEST",
+    description:
+      "Fourniture B2B pour mines et carrières : pièces d'usure, criblage, convoyeurs. Support terrain depuis Agadir — Maroc et Afrique.",
+  },
 };
+
+function faqForLocale(locale: Locale) {
+  if (locale === "en") {
+    return [
+      {
+        question: "Are you a wear-parts supplier for mines in Morocco?",
+        answer:
+          "Yes. Barane Invest supplies wear parts, bearings, belts and maintenance references for mining and quarry sites in Morocco and Africa, with quotes within 24 business hours.",
+      },
+      {
+        question: "Which brands do you distribute for mining equipment?",
+        answer: "SKF, FAG, NSK, Timken, Fenner, ContiTech, Siemens, ABB, Parker and Bosch for bearings, conveying, electrical and hydraulic needs.",
+      },
+      {
+        question: "Do you deliver to remote mining sites?",
+        answer:
+          "Yes. We organise logistics to isolated sites in Morocco (Khouribga, Benguerir, Jerada) and West Africa, with import-export support when required.",
+      },
+      {
+        question: "How to request a quote for a mining site?",
+        answer:
+          "Use the contact form or WhatsApp +212 661 65 60 42 with references, volumes and deadlines for a structured proposal.",
+      },
+    ];
+  }
+  if (locale === "es") {
+    return [
+      {
+        question: "¿Son proveedor de piezas de desgaste para minas en Marruecos?",
+        answer:
+          "Si. Barane Invest suministra piezas de desgaste, rodamientos y bandas para minas y canteras en Marruecos y Africa, con cotizacion en 24h laborables.",
+      },
+      {
+        question: "¿Que marcas distribuyen para equipos mineros?",
+        answer: "SKF, FAG, NSK, Timken, Fenner, ContiTech, Siemens, ABB, Parker y Bosch.",
+      },
+      {
+        question: "¿Entregan en sitios mineros aislados?",
+        answer: "Si. Organizamos logistica a sitios remotos en Marruecos y Africa occidental.",
+      },
+      {
+        question: "¿Como solicitar cotizacion para un sitio minero?",
+        answer: "Formulario de contacto o WhatsApp +212 661 65 60 42 con referencias y plazos.",
+      },
+    ];
+  }
+  return [
+    {
+      question: "Êtes-vous fournisseur de pièces d'usure pour mines au Maroc ?",
+      answer:
+        "Oui. Barane Invest est fournisseur B2B de pièces d'usure, roulements, bandes transporteuses et références de maintenance pour sites miniers et carrières au Maroc et en Afrique, avec devis structuré sous 24 h ouvrées depuis Agadir.",
+    },
+    {
+      question: "Quelles marques proposez-vous pour l'équipement minier ?",
+      answer:
+        "Nous distribuons notamment SKF, FAG, NSK, Timken pour les roulements, Fenner et ContiTech pour les convoyeurs, ainsi que Siemens, ABB, Parker et Bosch pour l'électrique, l'hydraulique et la pneumatique.",
+    },
+    {
+      question: "Livrez-vous sur des sites miniers isolés ?",
+      answer:
+        "Oui. Nous organisons la logistique vers des sites éloignés au Maroc (Khouribga, Benguerir, Jerada, Bou Craa) et en Afrique de l'Ouest, avec appui import-export si nécessaire.",
+    },
+    {
+      question: "Comment demander un devis pour un site minier ou une carrière ?",
+      answer:
+        "Remplissez le formulaire sur la page contact ou contactez-nous par WhatsApp au +212 661 65 60 42 en précisant références, volumes et délais pour recevoir une proposition adaptée.",
+    },
+  ];
+}
+
+function serviceForLocale(locale: Locale) {
+  if (locale === "en") {
+    return {
+      name: "Mining and quarry industrial supply",
+      description:
+        "B2B supply and field support for mining and quarry sites: wear parts, bearings, conveying and maintenance.",
+      serviceType: "Mining wear parts supplier Morocco",
+    };
+  }
+  if (locale === "es") {
+    return {
+      name: "Suministro industrial mineria y canteras",
+      description:
+        "Suministro B2B y soporte en terreno para minas y canteras: piezas de desgaste, rodamientos y transportadores.",
+      serviceType: "Proveedor piezas desgaste minas Marruecos",
+    };
+  }
+  return {
+    name: "Fourniture industrielle mines et carrières",
+    description:
+      "Fournisseur pièces d'usure mines Maroc : approvisionnement sites miniers, roulements, convoyeurs et support terrain depuis Agadir.",
+    serviceType: "Fournisseur pièces d'usure mines et carrières",
+  };
+}
 
 export default function MinesCarrieresPage({
   locale = "fr",
@@ -22,87 +124,19 @@ export default function MinesCarrieresPage({
   locale?: Locale;
   pathPrefix?: string;
 }) {
-  const t =
-    locale === "en"
-      ? {
-          bcSecteurs: "Sectors",
-          bcMines: "Mining and quarries",
-          service: {
-            name: "Mining and quarry solutions",
-            description:
-              "Technical support and supply for mining and quarry operations focused on continuity and performance.",
-            serviceType: "Industrial mining and quarry support",
-          },
-          title: "Mining and quarries: supply and field support",
-          p1: "BARANE INVEST supports mining and quarry operations with supply and technical support solutions designed to reduce downtime and maintain performance.",
-          p2: "We intervene on critical needs including wear parts, screening components, handling equipment and maintenance references, with a continuity-first approach.",
-          related: "Related pages",
-          back: "Back to Sectors pillar",
-          read: "Read: Wear parts and screening in mining environments",
-          cta: "Request a proposal for mining site",
-          faq: [
-            { question: "Which mining and quarry needs do you cover?", answer: "Wear parts, conveying elements, screening solutions and industrial maintenance needs." },
-            { question: "Do you intervene on critical shutdowns?", answer: "Yes, we support urgent needs with coordination aligned to production constraints." },
-            { question: "Do you offer multiple technical options?", answer: "Yes, we propose alternatives by expected performance, budget and lead time." },
-            { question: "How to start a request for a mining site?", answer: "Share specs, volumes and timeline through contact for a site-adapted proposal." },
-          ],
-        }
-      : locale === "es"
-        ? {
-            bcSecteurs: "Sectores",
-            bcMines: "Mineria y canteras",
-            service: {
-              name: "Soluciones para mineria y canteras",
-              description:
-                "Soporte tecnico y abastecimiento para operaciones mineras y de canteras con foco en continuidad y rendimiento.",
-              serviceType: "Soporte industrial mineria y canteras",
-            },
-            title: "Mineria y canteras: abastecimiento y soporte en terreno",
-            p1: "BARANE INVEST acompana operaciones mineras y de canteras con soluciones de suministro y soporte tecnico para reducir paradas y mantener rendimiento.",
-            p2: "Intervenimos en necesidades criticas: piezas de desgaste, cribado, manipulacion y mantenimiento con enfoque en disponibilidad operativa.",
-            related: "Paginas relacionadas",
-            back: "Volver al pilar Sectores",
-            read: "Leer: Piezas de desgaste y cribado en entorno minero",
-            cta: "Solicitar propuesta para sitio minero",
-            faq: [
-              { question: "Que necesidades mineras y de canteras cubren?", answer: "Piezas de desgaste, sistemas de transporte, cribado y mantenimiento industrial." },
-              { question: "Intervienen en paradas criticas?", answer: "Si, acompanamos necesidades urgentes coordinadas con explotacion para limitar impacto productivo." },
-              { question: "Ofrecen varias opciones tecnicas?", answer: "Si, proponemos alternativas segun rendimiento esperado, presupuesto y plazo." },
-              { question: "Como iniciar una solicitud para un sitio minero?", answer: "Comparta especificaciones, volumenes y plazos por contacto para una propuesta adaptada." },
-            ],
-          }
-        : {
-            bcSecteurs: "Secteurs",
-            bcMines: "Mines et carrières",
-            service: {
-              name: "Solutions pour mines et carrières",
-              description:
-                "Support technique et approvisionnement pour opérations minières et carrières avec focus continuité et performance.",
-              serviceType: "Support industriel mines et carrières",
-            },
-            title: "Mines et carrières: approvisionnement et support terrain",
-            p1: "BARANE INVEST accompagne les opérations mines et carrières avec des solutions d'approvisionnement et de support technique conçues pour limiter les arrêts et maintenir la performance des installations.",
-            p2: "Nous intervenons sur les besoins critiques: pièces d'usure, composants de criblage, équipements de manutention et références de maintenance, avec une logique orientée disponibilité et fiabilité opérationnelle.",
-            related: "Pages liées",
-            back: "Retour au pilier Secteurs",
-            read: "Lire: Pièces d'usure et criblage en environnement minier",
-            cta: "Demander une proposition pour site minier",
-            faq: [
-              { question: "Quels besoins mines et carrières couvrez-vous ?", answer: "Nous couvrons les pièces d'usure, éléments de convoyage, solutions de criblage et besoins de maintenance industrielle." },
-              { question: "Intervenez-vous sur des arrêts critiques ?", answer: "Oui, nous accompagnons les besoins urgents en coordination avec l'exploitation pour limiter l'impact sur la production." },
-              { question: "Proposez-vous plusieurs options techniques ?", answer: "Oui, nous proposons des alternatives selon performance attendue, budget et délai pour sécuriser la meilleure décision opérationnelle." },
-              { question: "Comment lancer une demande pour un site minier ?", answer: "Partagez les spécifications, volumes et délais sur la page contact pour recevoir une proposition adaptée au site." },
-            ],
-          };
+  const bcMines =
+    locale === "en" ? "Mining and quarries" : locale === "es" ? "Mineria y canteras" : "Mines et carrières";
+  const bcSecteurs = locale === "en" ? "Sectors" : locale === "es" ? "Sectores" : "Secteurs";
+
   return (
-    <div className="pt-24 pb-16 px-6 lg:px-16">
+    <>
       <JsonLd
         id="breadcrumb-secteurs-mines"
         data={buildBreadcrumbSchema(
           [
             { name: breadcrumbHomeLabel(locale), path: "/" },
-            { name: t.bcSecteurs, path: "/secteurs" },
-            { name: t.bcMines, path: "/secteurs/mines-carrieres" },
+            { name: bcSecteurs, path: "/secteurs" },
+            { name: bcMines, path: "/secteurs/mines-carrieres" },
           ],
           { pathPrefix },
         )}
@@ -110,49 +144,14 @@ export default function MinesCarrieresPage({
       <JsonLd
         id="service-secteurs-mines"
         data={buildServiceSchema({
-          ...t.service,
+          ...serviceForLocale(locale),
           path: "/secteurs/mines-carrieres",
           pathPrefix,
           locale,
         })}
       />
-      <JsonLd id="faq-secteurs-mines" data={buildFaqSchema(t.faq)} />
-
-      <div className="max-w-4xl mx-auto space-y-6">
-        <h1 className="text-4xl lg:text-5xl font-semibold text-[var(--navy)]">
-          {t.title}
-        </h1>
-        <p className="text-lg text-[var(--graphite)]/85 leading-relaxed">
-          {t.p1}
-        </p>
-        <p className="text-[var(--graphite)]/80 leading-relaxed">
-          {t.p2}
-        </p>
-
-        <div className="pt-4 border-t border-border space-y-3">
-          <h2 className="text-xl font-medium text-[var(--navy)]">{t.related}</h2>
-          <ul className="list-disc pl-5 space-y-2 text-[var(--graphite)]/85">
-            <li>
-              <Link href="/secteurs" className="underline underline-offset-4">
-                {t.back}
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/secteurs/mines-carrieres/pieces-usure-criblage"
-                className="underline underline-offset-4"
-              >
-                {t.read}
-              </Link>
-            </li>
-            <li>
-              <Link href="/contact" className="underline underline-offset-4">
-                {t.cta}
-              </Link>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </div>
+      <JsonLd id="faq-secteurs-mines" data={buildFaqSchema(faqForLocale(locale))} />
+      <MinesCarrieresPageContent locale={locale} pathPrefix={pathPrefix} />
+    </>
   );
 }

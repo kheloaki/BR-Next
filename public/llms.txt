@@ -22,6 +22,7 @@ important_urls:
 - /pourquoi
 - /services
 - /contact
+- /agadir
 - /sitemap.xml
 
 contact:
