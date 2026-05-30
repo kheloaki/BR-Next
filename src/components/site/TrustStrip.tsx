@@ -24,7 +24,7 @@ export function TrustStrip({ locale = "fr" }: { locale?: Locale }) {
         ];
 
   return (
-    <section className="border-y border-[var(--gold)]/20 bg-[var(--navy-deep)] text-[var(--ivory)]">
+    <section className="border-y border-[var(--gold)]/30 bg-[var(--navy-deep)] text-[var(--ivory)] relative z-10">
       <div className="grid grid-cols-2 lg:grid-cols-4">
         {items.map((s, i) => (
           <div

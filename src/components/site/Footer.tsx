@@ -70,9 +70,9 @@ export function Footer() {
       };
 
   return (
-    <footer className="bg-[var(--navy-deep)] text-[var(--ivory)]/70 border-t border-[var(--gold)]/15">
-      <div className="px-6 lg:px-16 py-20">
-        <div className="max-w-[1400px] mx-auto grid lg:grid-cols-12 gap-12">
+    <footer className="bg-[var(--navy-deep)] text-[var(--ivory)]/70 border-t border-[var(--gold)]/20">
+      <div className="px-6 lg:px-16 py-20 lg:py-24">
+        <div className="max-w-[1400px] mx-auto grid md:grid-cols-2 lg:grid-cols-12 gap-12 lg:gap-16">
           <div className="lg:col-span-4">
             <div className="flex items-center">
               <Image

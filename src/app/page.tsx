@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Hero } from "@/components/site/Hero";
+import { Philosophy } from "@/components/site/Philosophy";
 import { TrustStrip } from "@/components/site/TrustStrip";
 import { About } from "@/components/site/About";
 import { Activities } from "@/components/site/Activities";
@@ -35,6 +36,7 @@ export default function HomePage({ locale = "fr" }: { locale?: Locale }) {
   return (
     <>
       <Hero locale={locale} />
+      <Philosophy locale={locale} />
       <TrustStrip locale={locale} />
       <About locale={locale} />
       <Activities locale={locale} />

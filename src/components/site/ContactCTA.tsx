@@ -2,10 +2,12 @@
 
 import type { LucideIcon } from "lucide-react";
 import { Phone, Mail, MapPin, MessageCircle, ArrowRight } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
+import heroIndustrial from "@/assets/hero-industrial.jpg";
 import type { Locale } from "@/lib/i18n";
 
 type ContactRow = {
@@ -33,6 +35,8 @@ export function ContactCTA({ locale = "fr" }: { locale?: Locale }) {
           eyebrow: "Let's discuss your project",
           intro:
             "Need a quote, technical brief or complex sourcing? Our teams reply within 24 business hours.",
+          manifesto:
+            "We deliver industrial supply with rigor — from sourcing to site, across Morocco and Africa.",
           titleA: "Tell us about",
           titleB: "your need.",
           formTitle: "Quote request",
@@ -55,6 +59,8 @@ export function ContactCTA({ locale = "fr" }: { locale?: Locale }) {
             eyebrow: "Hablemos de su proyecto",
             intro:
               "Necesita una cotizacion, un pliego tecnico o un sourcing complejo? Nuestro equipo responde en 24h laborables.",
+            manifesto:
+              "Aportamos rigor industrial — del sourcing al terreno, en Marruecos y Africa.",
             titleA: "Cuéntenos",
             titleB: "su necesidad.",
             formTitle: "Solicitud de cotizacion",
@@ -76,6 +82,8 @@ export function ContactCTA({ locale = "fr" }: { locale?: Locale }) {
           eyebrow: "Parlons projet",
           intro:
             "Une demande de devis, un cahier des charges, un sourcing complexe ? Nos équipes répondent sous 24h ouvrées.",
+          manifesto:
+            "Nous livrons l'exigence industrielle — du sourcing au chantier, au Maroc et en Afrique.",
           titleA: "Parlez-nous de",
           titleB: "votre besoin.",
           formTitle: "Demande de devis",
@@ -160,9 +168,25 @@ export function ContactCTA({ locale = "fr" }: { locale?: Locale }) {
       id="contact"
       className="relative bg-[var(--navy-deep)] text-[var(--ivory)] overflow-hidden"
     >
-      <div className="absolute inset-0 bg-topo opacity-[0.07] mix-blend-screen" />
+      <div className="relative min-h-[45vh] flex items-end overflow-hidden">
+        <Image src={heroIndustrial} alt="" fill sizes="100vw" className="object-cover opacity-40" />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(180deg, oklch(0.165 0.045 263 / 0.35) 0%, oklch(0.165 0.045 263) 100%)",
+          }}
+        />
+        <div className="relative z-10 px-6 lg:px-16 py-16 lg:py-24 w-full max-w-[1400px] mx-auto">
+          <p className="max-w-3xl font-display text-3xl md:text-4xl lg:text-5xl uppercase leading-[1.05]">
+            &ldquo;{t.manifesto}&rdquo;
+          </p>
+        </div>
+      </div>
 
-      <div className="relative px-6 lg:px-16 pt-32 lg:pt-40 pb-20">
+      <div className="absolute inset-0 pointer-events-none bg-topo opacity-[0.07] mix-blend-screen" />
+
+      <div className="relative px-6 lg:px-16 pt-20 lg:pt-24 pb-20">
         <div className="max-w-[1400px] mx-auto">
           <div className="grid lg:grid-cols-12 gap-12 mb-20">
             <div className="lg:col-span-3">

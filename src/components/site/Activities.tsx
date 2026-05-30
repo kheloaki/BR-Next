@@ -1,106 +1,113 @@
+"use client";
+
 import { ArrowUpRight } from "lucide-react";
+import type { StaticImageData } from "next/image";
+import sectorMining from "@/assets/sector-mining.jpg";
+import sectorConstruction from "@/assets/sector-construction.jpg";
+import sectorInfrastructure from "@/assets/sector-infrastructure.jpg";
+import sectorLogistics from "@/assets/sector-logistics.jpg";
+import sectorEquipment from "@/assets/sector-equipment.jpg";
+import catMotors from "@/assets/cat-motors.jpg";
+import catHydraulic from "@/assets/cat-hydraulic.jpg";
 import type { Locale } from "@/lib/i18n";
+import { FadeImage } from "@/components/site/motion";
+
+type Activity = { title: string; desc: string; img: StaticImageData; span: string };
+
+function activitiesData(locale: Locale): Activity[] {
+  if (locale === "en") {
+    return [
+      { title: "Construction & materials", desc: "Supply and support for civil and building projects.", img: sectorConstruction, span: "md:col-span-2 md:row-span-2" },
+      { title: "Infrastructure works", desc: "Road, urban and industrial infrastructure projects.", img: sectorInfrastructure, span: "md:col-span-2" },
+      { title: "Logistics & transport", desc: "Secured delivery to remote sites.", img: sectorLogistics, span: "md:col-span-1" },
+      { title: "Trade & distribution", desc: "Multi-brand industrial products.", img: sectorEquipment, span: "md:col-span-1" },
+      { title: "Import-export", desc: "International sourcing across Africa.", img: catHydraulic, span: "md:col-span-1" },
+      { title: "Public works", desc: "Support for TP contractors.", img: sectorConstruction, span: "md:col-span-1" },
+      { title: "Industrial equipment", desc: "Motors, conveyors, critical parts.", img: catMotors, span: "md:col-span-2" },
+      { title: "Mining support", desc: "Wear parts, screening, maintenance.", img: sectorMining, span: "md:col-span-2 md:row-span-1" },
+    ];
+  }
+  if (locale === "es") {
+    return [
+      { title: "Construccion y materiales", desc: "Suministro para obras civiles y edificacion.", img: sectorConstruction, span: "md:col-span-2 md:row-span-2" },
+      { title: "Infraestructura", desc: "Proyectos viales, urbanos e industriales.", img: sectorInfrastructure, span: "md:col-span-2" },
+      { title: "Logistica", desc: "Entregas seguras en sitios remotos.", img: sectorLogistics, span: "md:col-span-1" },
+      { title: "Comercio y distribucion", desc: "Productos industriales multimarca.", img: sectorEquipment, span: "md:col-span-1" },
+      { title: "Import-export", desc: "Sourcing internacional en Africa.", img: catHydraulic, span: "md:col-span-1" },
+      { title: "Obras publicas", desc: "Soporte para empresas de TP.", img: sectorConstruction, span: "md:col-span-1" },
+      { title: "Equipamiento industrial", desc: "Motores, transportadores, piezas criticas.", img: catMotors, span: "md:col-span-2" },
+      { title: "Soporte minero", desc: "Desgaste, cribado, mantenimiento.", img: sectorMining, span: "md:col-span-2" },
+    ];
+  }
+  return [
+    { title: "Construction & matériaux", desc: "Fourniture pour chantiers BTP et génie civil.", img: sectorConstruction, span: "md:col-span-2 md:row-span-2" },
+    { title: "Infrastructures", desc: "Projets routiers, urbains et industriels.", img: sectorInfrastructure, span: "md:col-span-2" },
+    { title: "Logistique & transport", desc: "Livraisons sécurisées sur sites distants.", img: sectorLogistics, span: "md:col-span-1" },
+    { title: "Commerce & distribution", desc: "Produits industriels multi-marques.", img: sectorEquipment, span: "md:col-span-1" },
+    { title: "Import-export", desc: "Sourcing international vers l'Afrique.", img: catHydraulic, span: "md:col-span-1" },
+    { title: "Travaux publics", desc: "Appui aux entreprises de TP.", img: sectorConstruction, span: "md:col-span-1" },
+    { title: "Équipement industriel", desc: "Moteurs, convoyeurs, pièces critiques.", img: catMotors, span: "md:col-span-2" },
+    { title: "Mines & carrières", desc: "Usure, criblage, maintenance lourde.", img: sectorMining, span: "md:col-span-2" },
+  ];
+}
+
+function sectionTitle(locale: Locale) {
+  if (locale === "en") {
+    return { eyebrow: "Business domains", titleA: "A", titleB: "multi-sector", titleC: "offer for industrial projects." };
+  }
+  if (locale === "es") {
+    return { eyebrow: "Areas de actividad", titleA: "Una oferta", titleB: "multisectorial", titleC: "para proyectos industriales." };
+  }
+  return { eyebrow: "Domaines d'activité", titleA: "Une offre", titleB: "multi-sectorielle", titleC: "au service des projets industriels." };
+}
 
 export function Activities({ locale = "fr" }: { locale?: Locale }) {
-  const activities =
-    locale === "en"
-      ? [
-          { title: "Construction & materials", desc: "Supply and support for civil and building projects." },
-          { title: "Infrastructure works", desc: "Support for road, urban and industrial infrastructure projects." },
-          { title: "Logistics & transport", desc: "Logistics coordination and secured delivery to remote sites." },
-          { title: "Trade & distribution", desc: "Multi-brand distribution of industrial and technical products." },
-          { title: "Import-export", desc: "International sourcing and export flows across Africa." },
-          { title: "Public works", desc: "Technical and material support for public works contractors." },
-          { title: "Industrial equipment", desc: "Motors, gearboxes, conveyors, transmission and critical parts." },
-          { title: "Mining support", desc: "Wear parts, screening, vibration, lifting and maintenance." },
-        ]
-      : locale === "es"
-        ? [
-            { title: "Construccion y materiales", desc: "Suministro y soporte para obras de construccion e ingenieria civil." },
-            { title: "Infraestructura y desarrollo", desc: "Apoyo a proyectos de infraestructura vial, urbana e industrial." },
-            { title: "Logistica y transporte", desc: "Coordinacion logistica y entregas seguras en sitios remotos." },
-            { title: "Comercio y distribucion", desc: "Distribucion multimarca de productos industriales y tecnicos." },
-            { title: "Import-export", desc: "Sourcing internacional y flujos de exportacion en Africa." },
-            { title: "Obras publicas", desc: "Soporte tecnico y material para empresas de obra publica." },
-            { title: "Equipamiento industrial", desc: "Motores, reductores, transportadores y piezas criticas." },
-            { title: "Soporte minero", desc: "Piezas de desgaste, cribado, vibracion e intervenciones de mantenimiento." },
-          ]
-      : [
-          {
-            title: "Construction & matériaux",
-            desc: "Fourniture et accompagnement pour chantiers de bâtiment et génie civil.",
-          },
-          {
-            title: "Infrastructures & aménagements",
-            desc: "Soutien aux projets d'infrastructure routière, urbaine et industrielle.",
-          },
-          { title: "Logistique & transport", desc: "Coordination logistique, livraisons sécurisées sur sites distants." },
-          { title: "Commerce & distribution", desc: "Distribution multi-marques de produits industriels et techniques." },
-          { title: "Import-export", desc: "Sourcing international et flux export vers l'Afrique de l'Ouest et au-delà." },
-          { title: "Travaux publics", desc: "Appui technique et matériel pour entreprises de TP et concessionnaires." },
-          { title: "Équipement industriel", desc: "Moteurs, réducteurs, convoyeurs, transmissions et pièces critiques." },
-          { title: "Support mines & carrières", desc: "Pièces d'usure, criblage, vibration, levage et maintenance industrielle." },
-        ];
-  const t =
-    locale === "en"
-      ? {
-          eyebrow: "Business domains",
-          titleA: "A",
-          titleB: "multi-sector",
-          titleC: "offer for industrial projects.",
-        }
-      : locale === "es"
-        ? {
-            eyebrow: "Areas de actividad",
-            titleA: "Una oferta",
-            titleB: "multisectorial",
-            titleC: "al servicio de proyectos industriales.",
-          }
-      : {
-          eyebrow: "Domaines d'activité",
-          titleA: "Une offre",
-          titleB: "multi-sectorielle",
-          titleC: "au service des projets industriels.",
-        };
+  const activities = activitiesData(locale);
+  const t = sectionTitle(locale);
 
   return (
-    <section
-      id="activites"
-      className="relative py-32 lg:py-40 bg-[var(--navy-deep)] text-[var(--ivory)] overflow-hidden"
-    >
+    <section id="activites" className="relative py-32 lg:py-40 bg-[var(--navy-deep)] text-[var(--ivory)] overflow-hidden">
       <div className="absolute inset-0 bg-topo opacity-[0.06] mix-blend-screen" />
-
       <div className="relative px-6 lg:px-16">
         <div className="max-w-[1400px] mx-auto">
-          <div className="grid lg:grid-cols-12 gap-12 mb-20">
-            <div className="lg:col-span-3">
-              <div className="flex items-center gap-3">
-                <span className="eyebrow text-[var(--gold)]">{t.eyebrow}</span>
-              </div>
-            </div>
-            <div className="lg:col-span-9">
-              <h2 className="display-xl text-5xl lg:text-7xl xl:text-8xl text-[var(--ivory)] max-w-4xl">
-                {t.titleA} <span className="text-[var(--gold)]">{t.titleB}</span> {t.titleC}
-              </h2>
-            </div>
+          <div className="mb-16">
+            <span className="eyebrow text-[var(--gold)]">{t.eyebrow}</span>
+            <h2 className="mt-6 display-xl text-5xl lg:text-7xl xl:text-8xl text-[var(--ivory)] max-w-4xl">
+              {t.titleA} <span className="text-[var(--gold)]">{t.titleB}</span> {t.titleC}
+            </h2>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 border-t border-[var(--gold)]/20">
-            {activities.map(({ title, desc }, i) => (
-              <div
-                key={title}
-                className={`group p-8 lg:p-10 border-b border-[var(--gold)]/20 cursor-pointer hover:bg-[var(--navy)] transition-colors duration-500 relative ${
-                  (i + 1) % 4 !== 0 ? "lg:border-r border-[var(--gold)]/20" : ""
-                } ${(i + 1) % 2 !== 0 ? "sm:border-r border-[var(--gold)]/20 lg:border-r" : ""}`}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 auto-rows-[minmax(180px,1fr)] md:auto-rows-[200px]">
+            {activities.map((item, i) => (
+              <article
+                key={item.title}
+                className={`group relative overflow-hidden border border-[var(--gold)]/15 ${item.span} min-h-[200px]`}
               >
-                <div className="flex items-start justify-between mb-12">
-                  <ArrowUpRight className="h-5 w-5 text-[var(--ivory)]/30 group-hover:text-[var(--gold)] group-hover:-translate-y-1 group-hover:translate-x-1 transition-all duration-500" />
+                <FadeImage
+                  src={item.img}
+                  alt={item.title}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 25vw"
+                  className="object-cover transition-transform duration-700 group-hover:scale-105"
+                  fadeDelay={i * 80}
+                />
+                <div
+                  className="absolute inset-0 z-10"
+                  style={{
+                    background:
+                      "linear-gradient(180deg, oklch(0.165 0.045 263 / 0.1) 0%, oklch(0.165 0.045 263 / 0.92) 100%)",
+                  }}
+                />
+                <div className="absolute inset-0 z-20 p-6 flex flex-col justify-between">
+                  <ArrowUpRight className="h-5 w-5 text-[var(--ivory)]/40 group-hover:text-[var(--gold)] transition-colors self-end" />
+                  <div>
+                    <h3 className="font-display text-xl lg:text-2xl text-[var(--ivory)] group-hover:text-[var(--gold)] transition-colors">
+                      {item.title}
+                    </h3>
+                    <p className="mt-2 text-sm text-[var(--ivory)]/60 leading-relaxed">{item.desc}</p>
+                  </div>
                 </div>
-                <h3 className="font-display text-2xl lg:text-3xl text-[var(--ivory)] mb-4 group-hover:text-[var(--gold)] transition-colors">
-                  {title}
-                </h3>
-                <p className="text-sm text-[var(--ivory)]/55 leading-relaxed">{desc}</p>
-              </div>
+              </article>
             ))}
           </div>
         </div>

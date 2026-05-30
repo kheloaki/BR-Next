@@ -1,3 +1,5 @@
+"use client";
+
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -9,6 +11,8 @@ import catHydraulic from "@/assets/cat-hydraulic.jpg";
 import type { Locale } from "@/lib/i18n";
 
 export function Catalogue({ locale = "fr" }: { locale?: Locale }) {
+  const prefix = locale === "en" ? "/en" : locale === "es" ? "/es" : "";
+
   const featured =
     locale === "en"
       ? [
@@ -24,12 +28,13 @@ export function Catalogue({ locale = "fr" }: { locale?: Locale }) {
             { img: catBearings, title: "Rodamientos y transmisiones", count: "Todas las marcas" },
             { img: catHydraulic, title: "Neumatica e hidraulica", count: "Valvulas · Racores · Cilindros" },
           ]
-      : [
-          { img: catScreening, title: "Criblage & convoyeurs", count: "Bandes · Rouleaux · Tambours" },
-          { img: catMotors, title: "Moteurs & réducteurs", count: "Électriques · Industriels" },
-          { img: catBearings, title: "Roulements & transmissions", count: "Toutes marques" },
-          { img: catHydraulic, title: "Pneumatique & hydraulique", count: "Vannes · Raccords · Vérins" },
-        ];
+        : [
+            { img: catScreening, title: "Criblage & convoyeurs", count: "Bandes · Rouleaux · Tambours" },
+            { img: catMotors, title: "Moteurs & réducteurs", count: "Électriques · Industriels" },
+            { img: catBearings, title: "Roulements & transmissions", count: "Toutes marques" },
+            { img: catHydraulic, title: "Pneumatique & hydraulique", count: "Vannes · Raccords · Vérins" },
+          ];
+
   const others =
     locale === "en"
       ? [
@@ -53,16 +58,17 @@ export function Catalogue({ locale = "fr" }: { locale?: Locale }) {
             "Filtracion y mantenimiento",
             "Productos tecnicos bajo demanda",
           ]
-      : [
-          "Matériel électrique",
-          "Vibration & levage",
-          "Graissage & étanchéité",
-          "Transmission mécanique",
-          "Outillage industriel",
-          "Pièces d'usure carrières",
-          "Filtration & maintenance",
-          "Produits techniques sur demande",
-        ];
+        : [
+            "Matériel électrique",
+            "Vibration & levage",
+            "Graissage & étanchéité",
+            "Transmission mécanique",
+            "Outillage industriel",
+            "Pièces d'usure carrières",
+            "Filtration & maintenance",
+            "Produits techniques sur demande",
+          ];
+
   const t =
     locale === "en"
       ? {
@@ -82,44 +88,41 @@ export function Catalogue({ locale = "fr" }: { locale?: Locale }) {
             cta: "Catalogo completo",
             families: "Otras familias",
           }
-      : {
-          eyebrow: "Catalogue B2B",
-          titleA: "Des produits",
-          titleB: "techniques",
-          titleC: "pour chaque chaîne.",
-          cta: "Catalogue complet",
-          families: "Autres familles",
-        };
+        : {
+            eyebrow: "Catalogue B2B",
+            titleA: "Des produits",
+            titleB: "techniques",
+            titleC: "pour chaque chaîne.",
+            cta: "Catalogue complet",
+            families: "Autres familles",
+          };
 
   return (
-    <section id="catalogue" className="py-32 lg:py-40 bg-[var(--ivory)]">
+    <section id="catalogue" className="py-32 lg:py-40 bg-[var(--ivory)] overflow-hidden">
       <div className="px-6 lg:px-16">
         <div className="max-w-[1400px] mx-auto">
-          <div className="grid lg:grid-cols-12 gap-12 mb-20">
-            <div className="lg:col-span-3">
-              <div className="flex items-center gap-3">
-                <span className="eyebrow text-[var(--navy)]">{t.eyebrow}</span>
-              </div>
-            </div>
-            <div className="lg:col-span-6">
-              <h2 className="display-xl text-5xl lg:text-7xl xl:text-8xl text-[var(--navy)]">
+          <div className="grid lg:grid-cols-12 gap-12 mb-16">
+            <div className="lg:col-span-8">
+              <span className="eyebrow text-[var(--navy)]">{t.eyebrow}</span>
+              <h2 className="mt-6 display-xl text-5xl lg:text-7xl xl:text-8xl text-[var(--navy)]">
                 {t.titleA} <span className="text-[var(--gold)]">{t.titleB}</span> {t.titleC}
               </h2>
             </div>
-            <div className="lg:col-span-3 flex lg:justify-end items-end">
+            <div className="lg:col-span-4 flex items-end lg:justify-end">
               <Button variant="navy" size="lg" asChild>
-                <Link href="/contact">
+                <Link href={`${prefix}/catalogue`}>
                   {t.cta} <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
             </div>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-0 border border-border">
+          <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 -mx-6 px-6 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-4 lg:overflow-visible lg:gap-0 lg:border lg:border-border">
             {featured.map((c, i) => (
-              <div
+              <Link
                 key={c.title}
-                className={`group relative aspect-[3/4] overflow-hidden bg-[var(--navy)] cursor-pointer ${
+                href={`${prefix}/catalogue`}
+                className={`group relative shrink-0 w-[78vw] sm:w-[45vw] lg:w-auto snap-center aspect-[2/3] overflow-hidden bg-[var(--navy)] ${
                   i < featured.length - 1 ? "lg:border-r border-border" : ""
                 }`}
               >
@@ -127,8 +130,8 @@ export function Catalogue({ locale = "fr" }: { locale?: Locale }) {
                   src={c.img}
                   alt={c.title}
                   fill
-                  sizes="(max-width: 1024px) 100vw, 25vw"
-                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  sizes="(max-width: 1024px) 80vw, 25vw"
+                  className="object-cover transition-transform duration-700 group-hover:scale-105"
                 />
                 <div
                   className="absolute inset-0"
@@ -139,11 +142,9 @@ export function Catalogue({ locale = "fr" }: { locale?: Locale }) {
                 />
                 <div className="absolute bottom-0 inset-x-0 p-6 lg:p-8">
                   <div className="eyebrow text-[var(--gold)] mb-3">{c.count}</div>
-                  <h3 className="font-display text-2xl lg:text-3xl text-[var(--ivory)] leading-none">
-                    {c.title}
-                  </h3>
+                  <h3 className="font-display text-2xl lg:text-3xl text-[var(--ivory)] leading-none">{c.title}</h3>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
 
@@ -153,11 +154,8 @@ export function Catalogue({ locale = "fr" }: { locale?: Locale }) {
             </div>
             <ul className="lg:col-span-9 grid sm:grid-cols-2 gap-x-8">
               {others.map((o) => (
-                <li
-                  key={o}
-                  className="flex items-baseline gap-4 py-3 border-b border-[var(--navy)]/10"
-                >
-                  <span className="text-[var(--navy)] font-medium">{o}</span>
+                <li key={o} className="py-3 border-b border-[var(--navy)]/10 text-[var(--navy)] font-medium">
+                  {o}
                 </li>
               ))}
             </ul>

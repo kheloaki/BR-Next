@@ -3,154 +3,177 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logoHeader from "@/assets/barane-logo-horizontal-transparent.png";
 
 const nav = [
-  { key: "activities", href: "/activites" },
-  { key: "services", href: "/services" },
-  { key: "catalogue", href: "/catalogue" },
-  { key: "sectors", href: "/secteurs" },
-  { key: "about", href: "/about" },
-  { key: "contact", href: "/contact" },
+  { key: "activities", href: "/activites", anchor: "#activites" },
+  { key: "catalogue", href: "/catalogue", anchor: "#catalogue" },
+  { key: "sectors", href: "/secteurs", anchor: "#secteurs" },
+  { key: "projects", href: "/projets", anchor: "#projets" },
+  { key: "about", href: "/about", anchor: "#about" },
+  { key: "contact", href: "/contact", anchor: "#contact" },
 ];
 
 function stripLocalePrefix(pathname: string) {
-  if (pathname === "/en" || pathname === "/fr" || pathname === "/es") {
-    return "/";
-  }
-  if (pathname.startsWith("/en/")) {
-    return pathname.slice(3);
-  }
-  if (pathname.startsWith("/es/")) {
-    return pathname.slice(3);
-  }
-  if (pathname.startsWith("/fr/")) {
-    return pathname.slice(3);
-  }
+  if (pathname === "/en" || pathname === "/fr" || pathname === "/es") return "/";
+  if (pathname.startsWith("/en/")) return pathname.slice(3);
+  if (pathname.startsWith("/es/")) return pathname.slice(3);
+  if (pathname.startsWith("/fr/")) return pathname.slice(3);
   return pathname;
+}
+
+function isHomePath(cleanPath: string) {
+  return cleanPath === "/" || cleanPath === "";
 }
 
 export function Header() {
   const [open, setOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const pathname = usePathname();
   const isEnglish = pathname === "/en" || pathname.startsWith("/en/");
   const isSpanish = pathname === "/es" || pathname.startsWith("/es/");
   const isFrenchPrefixed = pathname === "/fr" || pathname.startsWith("/fr/");
   const cleanPath = stripLocalePrefix(pathname);
+  const onHome = isHomePath(cleanPath);
   const localePrefix = isEnglish ? "/en" : isSpanish ? "/es" : isFrenchPrefixed ? "/fr" : "";
+
   const localizeHref = (href: string) => {
-    if (href === "/") {
-      return localePrefix || "/";
-    }
+    if (href === "/") return localePrefix || "/";
     return `${localePrefix}${href}`;
   };
+
+  const navHref = (item: (typeof nav)[0]) => {
+    if (item.anchor) {
+      return onHome ? item.anchor : `${localizeHref("/")}${item.anchor}`;
+    }
+    return localizeHref(item.href);
+  };
+
+  useEffect(() => {
+    const onScroll = () => setIsScrolled(window.scrollY > 50);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   const labels = isEnglish
     ? {
         activities: "Activities",
-        services: "Services",
         catalogue: "Catalogue",
         sectors: "Sectors",
+        projects: "Projects",
         about: "About",
         contact: "Contact",
-        proposal: "Service Proposal",
         quote: "Request a quote",
       }
     : isSpanish
       ? {
           activities: "Actividades",
-          services: "Servicios",
           catalogue: "Catalogo",
           sectors: "Sectores",
+          projects: "Proyectos",
           about: "Nosotros",
           contact: "Contacto",
-          proposal: "Propuesta de servicio",
           quote: "Solicitar cotizacion",
         }
       : {
           activities: "Activités",
-          services: "Services",
           catalogue: "Catalogue",
           sectors: "Secteurs",
+          projects: "Réalisations",
           about: "À propos",
           contact: "Contact",
-          proposal: "Service Proposal",
           quote: "Demander un devis",
         };
+
   const currentLocaleLabel = isEnglish ? "EN" : isSpanish ? "ES" : "FR";
 
   return (
-    <header className="fixed top-0 inset-x-0 z-50 border-b border-border bg-[var(--ivory)]">
-      <div className="grid grid-cols-12 items-center h-16 lg:h-[72px]">
-        {/* Logo block — mirrors reference left-anchored logo */}
+    <header
+      className={`fixed z-50 transition-all duration-300 ${
+        isScrolled
+          ? "top-3 left-1/2 w-[94%] max-w-5xl -translate-x-1/2"
+          : "top-0 inset-x-0 w-full"
+      }`}
+    >
+      <div
+        className={`flex items-center justify-between transition-all duration-300 ${
+          isScrolled
+            ? "rounded-full border border-[var(--gold)]/25 bg-[var(--navy-deep)]/90 backdrop-blur-md px-3 py-2 shadow-lg"
+            : "h-16 lg:h-[72px] border-b border-border bg-[var(--ivory)] px-2 lg:px-4"
+        }`}
+      >
         <Link
           href={localizeHref("/")}
-          className="col-span-5 lg:col-span-2 flex items-center h-full px-2 lg:px-1.5 text-[var(--navy)]"
+          className={`flex items-center shrink-0 ${isScrolled ? "pl-2" : "h-full px-2 lg:px-1"}`}
         >
-          <div className="h-full flex items-center pr-2 border-r border-border">
-            <Image
-              src={logoHeader}
-              alt="BARANE INVEST"
-              width={240}
-              height={64}
-              className="h-14 lg:h-16 w-auto object-contain"
-            />
-          </div>
+          <Image
+            src={logoHeader}
+            alt="BARANE INVEST"
+            width={200}
+            height={52}
+            className={`w-auto object-contain transition-all ${
+              isScrolled ? "h-9" : "h-12 lg:h-14"
+            } ${isScrolled ? "brightness-0 invert" : ""}`}
+          />
         </Link>
 
-        <nav className="hidden lg:flex col-span-7 items-center justify-center gap-11 px-4">
+        <nav className="hidden lg:flex items-center gap-6 xl:gap-8 px-4">
           {nav.map((item) => (
             <Link
               key={item.href}
-              href={localizeHref(item.href)}
-              className={`group flex items-baseline gap-1 text-[0.85rem] font-semibold tracking-[0.07em] uppercase transition-colors ${
-                cleanPath === item.href ? "text-[var(--navy)]" : "text-[var(--graphite)]/80"
-              } hover:text-[var(--gold)]`}
+              href={navHref(item)}
+              className={`text-[0.72rem] font-semibold tracking-[0.08em] uppercase transition-colors ${
+                isScrolled
+                  ? cleanPath === item.href
+                    ? "text-[var(--gold)]"
+                    : "text-[var(--ivory)]/75 hover:text-[var(--gold)]"
+                  : cleanPath === item.href
+                    ? "text-[var(--navy)]"
+                    : "text-[var(--graphite)]/80 hover:text-[var(--gold)]"
+              }`}
             >
-              <span>{labels[item.key as keyof typeof labels]}</span>
+              {labels[item.key as keyof typeof labels]}
             </Link>
           ))}
         </nav>
 
-        <div className="hidden lg:flex col-span-3 h-full border-l border-border">
-          <div className="w-1/3 h-full border-r border-border relative">
+        <div className="hidden lg:flex items-center gap-2 shrink-0">
+          <div className="relative">
             <button
               type="button"
               onClick={() => setLangOpen((v) => !v)}
-              className="w-full h-full flex items-center justify-center gap-1 text-[0.8rem] font-semibold tracking-[0.06em] uppercase text-[var(--navy)]"
-              aria-label="Language selector"
+              className={`flex items-center gap-1 px-3 py-2 text-[0.72rem] font-semibold tracking-[0.06em] uppercase ${
+                isScrolled ? "text-[var(--ivory)]" : "text-[var(--navy)]"
+              }`}
               aria-expanded={langOpen}
+              aria-label="Language"
             >
               {currentLocaleLabel} <ChevronDown className="h-3.5 w-3.5" />
             </button>
             {langOpen && (
-              <div className="absolute top-full left-0 right-0 bg-[var(--ivory)] border border-border z-50">
+              <div className="absolute top-full right-0 mt-1 min-w-[5rem] border border-border bg-[var(--ivory)] z-50 shadow-md">
                 <Link
                   href={`/fr${cleanPath === "/" ? "" : cleanPath}`}
-                  className={`block px-4 py-2 text-xs font-semibold tracking-[0.06em] uppercase hover:bg-[var(--navy)]/5 ${
-                    !isEnglish && !isSpanish ? "text-[var(--navy)]" : "text-[var(--graphite)]/70"
-                  }`}
+                  className="block px-4 py-2 text-xs font-semibold uppercase hover:bg-[var(--navy)]/5"
                   onClick={() => setLangOpen(false)}
                 >
                   FR
                 </Link>
                 <Link
                   href={`/en${cleanPath === "/" ? "" : cleanPath}`}
-                  className={`block px-4 py-2 text-xs font-semibold tracking-[0.06em] uppercase hover:bg-[var(--navy)]/5 ${
-                    isEnglish ? "text-[var(--navy)]" : "text-[var(--graphite)]/70"
-                  }`}
+                  className="block px-4 py-2 text-xs font-semibold uppercase hover:bg-[var(--navy)]/5"
                   onClick={() => setLangOpen(false)}
                 >
                   EN
                 </Link>
                 <Link
                   href={`/es${cleanPath === "/" ? "" : cleanPath}`}
-                  className={`block px-4 py-2 text-xs font-semibold tracking-[0.06em] uppercase hover:bg-[var(--navy)]/5 ${
-                    isSpanish ? "text-[var(--navy)]" : "text-[var(--graphite)]/70"
-                  }`}
+                  className="block px-4 py-2 text-xs font-semibold uppercase hover:bg-[var(--navy)]/5"
                   onClick={() => setLangOpen(false)}
                 >
                   ES
@@ -158,49 +181,51 @@ export function Header() {
               </div>
             )}
           </div>
-          <Button variant="gold" size="xl" className="w-2/3 h-full rounded-none border-0" asChild>
-            <Link href={localizeHref("/contact")} className="text-[0.8rem] tracking-[0.06em] uppercase">
-              {labels.proposal}
-            </Link>
+          <Button
+            variant="gold"
+            size={isScrolled ? "default" : "lg"}
+            className={isScrolled ? "rounded-full px-5" : "rounded-none"}
+            asChild
+          >
+            <Link href={onHome ? "#contact" : localizeHref("/contact")}>{labels.quote}</Link>
           </Button>
         </div>
 
-        <div className="lg:hidden col-span-7 flex justify-end h-full">
-          <button
-            className="h-full px-6 flex items-center text-[var(--navy)]"
-            onClick={() => setOpen(!open)}
-            aria-label="Menu"
-          >
-            {open ? <X className="h-7 w-7" /> : <Menu className="h-7 w-7" />}
-          </button>
-        </div>
+        <button
+          type="button"
+          className={`lg:hidden p-3 ${isScrolled ? "text-[var(--ivory)]" : "text-[var(--navy)]"}`}
+          onClick={() => setOpen(!open)}
+          aria-label="Menu"
+        >
+          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        </button>
       </div>
 
       {open && (
-        <div className="lg:hidden bg-[var(--navy-deep)] px-6 py-8 space-y-5">
+        <div className="lg:hidden mt-2 mx-2 rounded-lg border border-[var(--gold)]/20 bg-[var(--navy-deep)] px-6 py-8 space-y-5 shadow-xl">
           {nav.map((item) => (
             <Link
               key={item.href}
-              href={localizeHref(item.href)}
+              href={navHref(item)}
               onClick={() => setOpen(false)}
-              className="flex items-baseline text-[var(--ivory)] font-display text-2xl uppercase tracking-tight"
+              className="block font-display text-2xl uppercase tracking-tight text-[var(--ivory)]"
             >
               {labels[item.key as keyof typeof labels]}
             </Link>
           ))}
-          <div className="flex items-center gap-4 text-sm text-[var(--ivory)]/70">
+          <div className="flex gap-4 text-sm text-[var(--ivory)]/70">
             <Link href={`/fr${cleanPath === "/" ? "" : cleanPath}`} onClick={() => setOpen(false)}>
-              Français
+              FR
             </Link>
             <Link href={`/en${cleanPath === "/" ? "" : cleanPath}`} onClick={() => setOpen(false)}>
-              English
+              EN
             </Link>
             <Link href={`/es${cleanPath === "/" ? "" : cleanPath}`} onClick={() => setOpen(false)}>
-              Espanol
+              ES
             </Link>
           </div>
           <Button variant="gold" className="w-full" asChild>
-            <Link href={localizeHref("/contact")} onClick={() => setOpen(false)}>
+            <Link href={onHome ? "#contact" : localizeHref("/contact")} onClick={() => setOpen(false)}>
               {labels.quote}
             </Link>
           </Button>
