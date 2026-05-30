@@ -1,19 +1,17 @@
-import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { ensureAdminUserRow, getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { requireAdminContext } from "@/lib/admin/require-admin";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  await ensureAdminUserRow(userId);
+  const auth = await requireAdminContext();
+  if ("error" in auth) return auth.error;
+  const { organizationId } = auth;
 
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("admin_suppliers")
     .select("id, name, ice, city, address, contact")
-    .eq("user_id", userId)
+    .eq("organization_id", organizationId)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -24,11 +22,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  await ensureAdminUserRow(userId);
+  const auth = await requireAdminContext();
+  if ("error" in auth) return auth.error;
+  const { userId, organizationId } = auth;
 
   const body = (await request.json()) as {
     id?: string;
@@ -56,12 +52,12 @@ export async function POST(request: Request) {
         .from("admin_suppliers")
         .update(payload)
         .eq("id", body.id.trim())
-        .eq("user_id", userId)
+        .eq("organization_id", organizationId)
         .select("id, name, ice, city, address, contact")
         .single()
     : await supabase
         .from("admin_suppliers")
-        .insert({ id: crypto.randomUUID(), user_id: userId, ...payload })
+        .insert({ id: crypto.randomUUID(), user_id: userId, organization_id: organizationId, ...payload })
         .select("id, name, ice, city, address, contact")
         .single();
 
@@ -72,11 +68,9 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  await ensureAdminUserRow(userId);
+  const auth = await requireAdminContext();
+  if ("error" in auth) return auth.error;
+  const { organizationId } = auth;
 
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
@@ -89,7 +83,7 @@ export async function DELETE(request: Request) {
     .from("admin_suppliers")
     .delete()
     .eq("id", id)
-    .eq("user_id", userId);
+    .eq("organization_id", organizationId);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -30,7 +30,7 @@ export default async function AdminProductsPage() {
     <AdminShell active="products">
       <div className="mb-4 flex justify-end">
         <Link
-          href="/admin/devis-builder"
+          href="/admin/facturation/devis"
           className="inline-flex border border-border rounded-md px-4 py-2 text-sm hover:bg-[#f8f8f8]"
         >
           Retour au devis

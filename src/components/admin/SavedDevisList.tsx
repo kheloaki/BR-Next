@@ -1,168 +1,318 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { downloadDevisPdf } from "@/components/admin/devis-pdf";
+import { AdminTabs } from "@/components/admin/AdminTabs";
+import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import {
+  btnPrimary,
+  btnSecondary,
+  moduleWrap,
+  rowHover,
+  tdClass,
+  thClass,
+} from "@/components/admin/admin-form-styles";
+import { AdminEmptyState } from "@/components/admin/ux/AdminEmptyState";
+import { AdminFilterBar } from "@/components/admin/ux/AdminFilterBar";
+import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import {
+  DOCUMENT_BADGE_CLASS,
   DOCUMENT_LABELS,
   defaultTemplate,
   type DevisTemplate,
   type DocumentType,
   type QuoteDraft,
 } from "@/components/admin/devis-types";
+import { confirmDelete } from "@/components/admin/ux/useAdminToast";
+import {
+  facturationBonLivraisonFromFacturePath,
+  facturationBuilderPath,
+  facturationDocumentsPath,
+  facturationEditPath,
+  parseDocumentsFilterParam,
+} from "@/lib/admin/facturation-nav";
 
 type Filter = "all" | DocumentType;
 
+const FILTER_COPY: Record<
+  Filter,
+  { title: string; description: string; empty: string; createLabel: string }
+> = {
+  all: {
+    title: "Documents enregistrés",
+    description: "Retrouvez, modifiez ou exportez vos devis, bons de commande, factures et bons de livraison.",
+    empty: "Les documents enregistrés depuis la facturation apparaîtront ici.",
+    createLabel: "Nouveau devis",
+  },
+  devis: {
+    title: "Devis enregistrés",
+    description: "Historique des devis clients sauvegardés.",
+    empty: "Aucun devis enregistré pour le moment.",
+    createLabel: "Nouveau devis",
+  },
+  bon_commande: {
+    title: "Bons de commande",
+    description: "Historique des bons de commande fournisseurs.",
+    empty: "Aucun bon de commande enregistré.",
+    createLabel: "Nouveau bon de commande",
+  },
+  facture: {
+    title: "Factures",
+    description: "Historique des factures clients.",
+    empty: "Aucune facture enregistrée.",
+    createLabel: "Nouvelle facture",
+  },
+  bon_livraison: {
+    title: "Bons de livraison",
+    description: "Bons de livraison liés aux factures clients.",
+    empty: "Aucun bon de livraison enregistré.",
+    createLabel: "Nouveau bon de livraison",
+  },
+};
+
+function formatDocDate(value: string) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("fr-FR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+const tableAction =
+  "inline-flex h-8 shrink-0 items-center justify-center rounded-md border px-2.5 text-xs font-medium transition whitespace-nowrap";
+const tableActionNeutral = `${tableAction} border-border bg-white text-[var(--navy)] hover:bg-[var(--background)]`;
+const tableActionPrimary = `${tableAction} border-[var(--gold)] bg-[var(--gold)] text-[var(--navy-deep)] hover:brightness-95`;
+const tableActionDanger = `${tableAction} border-red-200/80 bg-white text-red-700 hover:bg-red-50`;
+
 export function SavedDevisList() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const filter = parseDocumentsFilterParam(searchParams.get("filter")) as Filter;
+
   const [quotes, setQuotes] = useState<QuoteDraft[]>([]);
   const [template, setTemplate] = useState<DevisTemplate>(defaultTemplate);
-  const [filter, setFilter] = useState<Filter>("all");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    let mounted = true;
-    async function loadData() {
-      const [quotesRes, templateRes] = await Promise.all([
-        fetch("/api/admin/quotes", { cache: "no-store" }),
-        fetch("/api/admin/template", { cache: "no-store" }),
-      ]);
-      if (!mounted) return;
-      if (quotesRes.ok) {
-        setQuotes((await quotesRes.json()) as QuoteDraft[]);
-      }
-      if (templateRes.ok) {
-        setTemplate((await templateRes.json()) as DevisTemplate);
-      }
+  function setFilter(next: Filter) {
+    router.replace(facturationDocumentsPath(next === "all" ? undefined : next), { scroll: false });
+  }
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setLoadError("");
+    const [quotesRes, templateRes] = await Promise.all([
+      fetch("/api/admin/quotes", { cache: "no-store" }),
+      fetch("/api/admin/template", { cache: "no-store" }),
+    ]);
+    if (!quotesRes.ok) {
+      setLoadError("Impossible de charger les documents.");
+      setQuotes([]);
+    } else {
+      setQuotes((await quotesRes.json()) as QuoteDraft[]);
     }
-    void loadData();
-    return () => {
-      mounted = false;
-    };
+    if (templateRes.ok) {
+      setTemplate((await templateRes.json()) as DevisTemplate);
+    }
+    setLoading(false);
   }, []);
 
-  function removeQuote(id: string) {
-    void fetch(`/api/admin/quotes?id=${encodeURIComponent(id)}`, {
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    const onFocus = () => void loadData();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [loadData]);
+
+  async function removeQuote(quote: QuoteDraft) {
+    const label = `N° ${quote.quoteNumber || "—"} · ${quote.clientName || "Sans nom"}`;
+    if (!(await confirmDelete(label))) return;
+    const res = await fetch(`/api/admin/quotes?id=${encodeURIComponent(quote.id)}`, {
       method: "DELETE",
-    }).then(async (res) => {
-      if (!res.ok) return;
-      const quotesRes = await fetch("/api/admin/quotes", { cache: "no-store" });
-      if (!quotesRes.ok) return;
-      setQuotes((await quotesRes.json()) as QuoteDraft[]);
     });
+    if (!res.ok) return;
+    await loadData();
   }
 
   const counts = useMemo(() => {
     const devis = quotes.filter((q) => (q.documentType ?? "devis") === "devis").length;
     const bons = quotes.filter((q) => q.documentType === "bon_commande").length;
-    return { all: quotes.length, devis, bon_commande: bons };
+    const factures = quotes.filter((q) => q.documentType === "facture").length;
+    const bonsLivraison = quotes.filter((q) => q.documentType === "bon_livraison").length;
+    return { all: quotes.length, devis, bon_commande: bons, facture: factures, bon_livraison: bonsLivraison };
   }, [quotes]);
 
-  const visibleQuotes = useMemo(() => {
+  const byType = useMemo(() => {
     if (filter === "all") return quotes;
     return quotes.filter((q) => (q.documentType ?? "devis") === filter);
   }, [quotes, filter]);
 
-  return (
-    <div className="rounded-md border border-border bg-[#fbfbfb] p-6 lg:p-8">
-      <div className="border-b border-border pb-3 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-semibold text-[var(--navy)]">Documents sauvegardés</h2>
-          <p className="text-sm text-[var(--graphite)]/80 mt-1">
-            Téléchargez ou modifiez vos devis et bons de commande à tout moment.
-          </p>
-        </div>
-        <div className="inline-flex rounded-md border border-border bg-white p-1 text-sm">
-          <FilterTab active={filter === "all"} onClick={() => setFilter("all")} label={`Tous (${counts.all})`} />
-          <FilterTab active={filter === "devis"} onClick={() => setFilter("devis")} label={`Devis (${counts.devis})`} />
-          <FilterTab
-            active={filter === "bon_commande"}
-            onClick={() => setFilter("bon_commande")}
-            label={`Bons de commande (${counts.bon_commande})`}
-          />
-        </div>
-      </div>
-      <div className="mt-5 space-y-3">
-        {visibleQuotes.length === 0 ? (
-          <p className="text-sm text-[var(--graphite)]/70 rounded-md border border-border bg-white p-3">
-            Aucun document enregistré dans cette catégorie.
-          </p>
-        ) : (
-          visibleQuotes.map((quote) => {
-            const docType: DocumentType = quote.documentType ?? "devis";
-            const docLabel = DOCUMENT_LABELS[docType];
-            return (
-              <div key={quote.id} className="rounded-md border border-border bg-white p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.08em] ${
-                        docType === "bon_commande"
-                          ? "bg-[#eef3fb] text-[var(--navy)]"
-                          : "bg-[#fff4e8] text-[#b04a09]"
-                      }`}
-                    >
-                      {docLabel}
-                    </span>
-                    <p className="font-medium text-[var(--navy)]">
-                      N° {quote.quoteNumber} - {quote.clientName}
-                    </p>
-                  </div>
-                  <p className="text-xs text-[var(--graphite)]/70 mt-1">
-                    {new Date(quote.createdAt).toLocaleString()} | {quote.items.length} ligne(s)
-                  </p>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  <Link
-                    href={`/admin/devis-builder?id=${encodeURIComponent(quote.id)}`}
-                    className="rounded-md border border-border px-3 py-2 text-sm hover:bg-[#f7f7f7]"
-                  >
-                    Modifier
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void downloadDevisPdf(quote, template);
-                    }}
-                    className="rounded-md border border-[#de7a3a] bg-[#de7a3a] px-3 py-2 text-sm text-white hover:opacity-90"
-                  >
-                    Télécharger PDF
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeQuote(quote.id)}
-                    className="rounded-md border border-border px-3 py-2 text-sm hover:bg-[#f7f7f7]"
-                  >
-                    Supprimer
-                  </button>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
-}
+  const filteredQuotes = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return byType;
+    return byType.filter((quote) => {
+      const docType = quote.documentType ?? "devis";
+      const haystack = [
+        DOCUMENT_LABELS[docType],
+        quote.quoteNumber,
+        quote.clientName,
+        quote.reference,
+        quote.linkedFactureNumber,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [byType, search]);
 
-function FilterTab({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-}) {
+  const copy = FILTER_COPY[filter];
+  const createHref =
+    filter === "all" ? facturationBuilderPath("devis") : facturationBuilderPath(filter);
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-md px-3 py-1.5 text-sm transition ${
-        active
-          ? "bg-[#de7a3a] text-white"
-          : "text-[var(--graphite)]/80 hover:bg-[#f7f7f7]"
-      }`}
-    >
-      {label}
-    </button>
+    <div className={moduleWrap}>
+      <OpsModuleHeader
+        title={copy.title}
+        description={copy.description}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={btnSecondary} onClick={() => void loadData()}>
+              Actualiser
+            </button>
+            <Link href={createHref} className={btnPrimary}>
+              + {copy.createLabel}
+            </Link>
+          </div>
+        }
+      />
+
+      {loadError ? (
+        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{loadError}</p>
+      ) : null}
+
+      <AdminTabs
+        active={filter}
+        onChange={(id) => setFilter(id as Filter)}
+        aria-label="Filtrer les documents"
+        tabs={[
+          { id: "all", label: "Tous", badge: counts.all },
+          { id: "devis", label: "Devis", badge: counts.devis },
+          { id: "bon_commande", label: "Bons de commande", badge: counts.bon_commande },
+          { id: "facture", label: "Factures", badge: counts.facture },
+          { id: "bon_livraison", label: "Bons de livraison", badge: counts.bon_livraison },
+        ]}
+      />
+
+      <AdminFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="N°, client, référence, type…"
+      />
+
+      {loading ? (
+        <AdminLoading />
+      ) : filteredQuotes.length === 0 ? (
+        <AdminEmptyState
+          title={search.trim() ? "Aucun résultat" : "Aucun document"}
+          description={
+            search.trim()
+              ? "Essayez un autre terme ou effacez la recherche."
+              : copy.empty
+          }
+          actionLabel={search.trim() ? undefined : copy.createLabel}
+          actionHref={search.trim() ? undefined : createHref}
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <AdminTableWrap>
+            <thead>
+              <tr>
+                <th className={thClass}>Type</th>
+                <th className={thClass}>N° document</th>
+                <th className={thClass}>Client / fournisseur</th>
+                <th className={thClass}>Référence</th>
+                <th className={thClass}>Date</th>
+                <th className={`${thClass} text-right w-16`}>Lignes</th>
+                <th className={`${thClass} text-right min-w-[17rem]`}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredQuotes.map((quote) => {
+                const docType: DocumentType = quote.documentType ?? "devis";
+                const docLabel = DOCUMENT_LABELS[docType];
+                return (
+                  <tr key={quote.id} className={rowHover}>
+                    <td className={tdClass}>
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${DOCUMENT_BADGE_CLASS[docType]}`}
+                      >
+                        {docLabel}
+                      </span>
+                    </td>
+                    <td className={`${tdClass} font-medium text-[var(--navy)]`}>
+                      {quote.quoteNumber || "—"}
+                    </td>
+                    <td className={tdClass}>{quote.clientName || "—"}</td>
+                    <td className={tdClass}>
+                      <p>{quote.reference || "—"}</p>
+                      {quote.linkedFactureNumber ? (
+                        <p className="mt-0.5 text-[11px] text-[var(--graphite)]/65">
+                          → Facture N° {quote.linkedFactureNumber}
+                        </p>
+                      ) : null}
+                    </td>
+                    <td className={`${tdClass} whitespace-nowrap text-[var(--graphite)]/80`}>
+                      {formatDocDate(quote.createdAt)}
+                    </td>
+                    <td className={`${tdClass} text-right tabular-nums`}>{quote.items.length}</td>
+                    <td className={`${tdClass} text-right`}>
+                      <div className="inline-flex flex-nowrap items-center justify-end gap-1.5">
+                        <Link href={facturationEditPath(quote)} className={tableActionNeutral}>
+                          Modifier
+                        </Link>
+                        {docType === "facture" ? (
+                          <Link
+                            href={facturationBonLivraisonFromFacturePath(quote.id)}
+                            className={tableActionNeutral}
+                          >
+                            Bon livr.
+                          </Link>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => void downloadDevisPdf(quote, template)}
+                          className={tableActionPrimary}
+                        >
+                          PDF
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void removeQuote(quote)}
+                          className={tableActionDanger}
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </AdminTableWrap>
+        </div>
+      )}
+    </div>
   );
 }

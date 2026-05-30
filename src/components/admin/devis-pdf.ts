@@ -3,7 +3,9 @@ import logoStacked from "@/assets/barane-logo-stacked.png";
 import cachetSignature from "@/assets/barane-cachet-signature.png";
 import {
   DOCUMENT_LABELS,
+  isDeliveryNote,
   type DevisTemplate,
+  type DocumentType,
   type QuoteDraft,
 } from "@/components/admin/devis-types";
 
@@ -51,6 +53,48 @@ function formatDateShort(value: string) {
   const mm = String(parsed.getMonth() + 1).padStart(2, "0");
   const yy = String(parsed.getFullYear()).slice(-2);
   return `${dd}/${mm}/${yy}`;
+}
+
+/** Collapse odd whitespace so PDF wrapping does not split words mid-character. */
+function normalizeDesignationText(text: string) {
+  return text
+    .replace(/\u00A0/g, " ")
+    .replace(/[\u2000-\u200B\u202F\u205F\uFEFF]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Word-wrap at spaces; only break long tokens when unavoidable. */
+function wrapDesignationLines(doc: jsPDF, text: string, maxWidth: number, fontSize = 7.5): string[] {
+  doc.setFontSize(fontSize);
+  const normalized = normalizeDesignationText(text);
+  if (!normalized) return ["—"];
+
+  const lines: string[] = [];
+  const paragraphs = normalized.split(/\n+/);
+
+  for (const paragraph of paragraphs) {
+    const words = paragraph.split(" ").filter(Boolean);
+    let current = "";
+
+    for (const word of words) {
+      const candidate = current ? `${current} ${word}` : word;
+      if (doc.getTextWidth(candidate) <= maxWidth) {
+        current = candidate;
+        continue;
+      }
+      if (current) lines.push(current);
+      if (doc.getTextWidth(word) <= maxWidth) {
+        current = word;
+      } else {
+        lines.push(...doc.splitTextToSize(word, maxWidth));
+        current = "";
+      }
+    }
+    if (current) lines.push(current);
+  }
+
+  return lines.length > 0 ? lines : ["—"];
 }
 
 type PdfCtx = {
@@ -199,7 +243,15 @@ function drawClientBox(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(6.5);
   setText(doc, COLORS.gold);
-  doc.text(isPurchaseOrder(draft) ? "FOURNISSEUR" : "CLIENT", textX, boxY + 5.5);
+  const docType = draft.documentType ?? "devis";
+  const partyLabel = isPurchaseOrder(draft)
+    ? "FOURNISSEUR"
+    : docType === "facture"
+      ? "FACTURÉ À"
+      : docType === "bon_livraison"
+        ? "LIVRÉ À"
+        : "CLIENT";
+  doc.text(partyLabel, textX, boxY + 5.5);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9.5);
@@ -250,6 +302,13 @@ function isPurchaseOrder(draft: QuoteDraft) {
   return draft.documentType === "bon_commande";
 }
 
+function pdfFileSlug(documentType: DocumentType) {
+  if (documentType === "bon_commande") return "bon-de-commande";
+  if (documentType === "facture") return "facture";
+  if (documentType === "bon_livraison") return "bon-de-livraison";
+  return "devis";
+}
+
 function drawTitleBlock(ctx: PdfCtx, draft: QuoteDraft, startY: number) {
   const { doc, left } = ctx;
   const documentType = draft.documentType ?? "devis";
@@ -271,10 +330,19 @@ function drawMetaRow(ctx: PdfCtx, draft: QuoteDraft, startY: number) {
   const { doc, left } = ctx;
   const y = startY;
   const h = 14;
+  const docType = draft.documentType ?? "devis";
+  const isFacture = docType === "facture";
+  const delivery = isDeliveryNote(docType);
   const cols = [
     { label: "Numéro", value: draft.quoteNumber || "—", w: 32 },
     { label: "Date", value: formatDateShort(draft.date), w: 32 },
-    { label: "Référence", value: draft.reference || "—", w: 56 },
+    ...(isFacture && draft.dueDate
+      ? [{ label: "Échéance", value: formatDateShort(draft.dueDate), w: 32 }]
+      : []),
+    ...(delivery && draft.linkedFactureNumber
+      ? [{ label: "Facture", value: `N° ${draft.linkedFactureNumber}`, w: 36 }]
+      : []),
+    { label: "Référence", value: draft.reference || "—", w: delivery ? 40 : isFacture && draft.dueDate ? 32 : 56 },
   ];
   let x = left;
   for (const col of cols) {
@@ -302,25 +370,36 @@ function drawItemsTable(
   tableBottom: number,
 ) {
   const { doc, left, right } = ctx;
+  const delivery = isDeliveryNote(draft.documentType ?? "devis");
   const c0 = left;
-  const c1 = c0 + 22;
-  const c2 = c1 + 78;
-  const c3 = c2 + 16;
-  const c4 = c3 + 22;
-  const c5 = c4 + 14;
+  const c1 = c0 + (delivery ? 22 : 18);
+  const c2 = delivery ? c1 + 128 : c1 + 92;
+  const c3 = delivery ? right : c2 + 18;
+  const c4 = delivery ? c3 : c3 + 20;
+  const c5 = delivery ? c4 : c4 + 12;
   const c6 = right;
   const headerH = 9;
+  const lineHeight = 3.9;
+  const rowPadY = 2.5;
+  const descFontSize = 7.5;
+  const descPadX = 2;
 
   setFill(doc, COLORS.navy);
   doc.rect(left, tableTop, right - left, headerH, "F");
-  const headers = [
-    { x: (c0 + c1) / 2, t: "Réf." },
-    { x: (c1 + c2) / 2, t: "Désignation" },
-    { x: (c2 + c3) / 2, t: "Qté" },
-    { x: (c3 + c4) / 2, t: "P.U." },
-    { x: (c4 + c5) / 2, t: "Rem." },
-    { x: (c5 + c6) / 2, t: "Montant HT" },
-  ];
+  const headers = delivery
+    ? [
+        { x: (c0 + c1) / 2, t: "Réf." },
+        { x: (c1 + c2) / 2, t: "Désignation" },
+        { x: (c2 + c3) / 2, t: "Qté livrée" },
+      ]
+    : [
+        { x: (c0 + c1) / 2, t: "Réf." },
+        { x: (c1 + c2) / 2, t: "Désignation" },
+        { x: (c2 + c3) / 2, t: "Qté" },
+        { x: (c3 + c4) / 2, t: "P.U." },
+        { x: (c4 + c5) / 2, t: "Rem." },
+        { x: (c5 + c6) / 2, t: "Montant HT" },
+      ];
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
   setText(doc, COLORS.white);
@@ -332,59 +411,75 @@ function drawItemsTable(
   doc.setLineWidth(0.2);
   doc.rect(left, tableTop + headerH, right - left, tableBottom - tableTop - headerH);
 
-  let y = tableTop + headerH + 6;
+  let y = tableTop + headerH + rowPadY + 3;
   let rowIndex = 0;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
 
   for (const item of draft.items) {
-    if (y > tableBottom - 5) break;
+    if (y > tableBottom - 8) break;
 
     if (item.isNote) {
-      const noteText = item.designation || "";
-      const wrapped = doc.splitTextToSize(noteText, right - left - 8);
-      const noteHeight = Math.max(7, wrapped.length * 4.2 + 3);
-      const noteTop = y - 4;
+      doc.setFont("helvetica", "bolditalic");
+      const wrapped = wrapDesignationLines(doc, item.designation || "", right - left - 10, descFontSize);
+      const noteHeight = Math.max(8, wrapped.length * lineHeight + rowPadY * 2);
+      const noteTop = y - rowPadY;
+      if (noteTop + noteHeight > tableBottom) break;
+
       setFill(doc, COLORS.goldLight);
       doc.rect(left + 0.5, noteTop, right - left - 1, noteHeight, "F");
       setFill(doc, COLORS.gold);
       doc.rect(left + 0.5, noteTop, 2, noteHeight, "F");
-      doc.setFont("helvetica", "bolditalic");
-      doc.setFontSize(8);
       setText(doc, COLORS.slate);
       doc.text(wrapped, left + 5, y);
       doc.setFont("helvetica", "normal");
       setText(doc, COLORS.text);
-      y += noteHeight + 1;
+      y = noteTop + noteHeight + 1.5;
       continue;
     }
 
+    doc.setFont("helvetica", "normal");
+    const descWidth = c2 - c1 - descPadX * 2;
+    const wrapped = wrapDesignationLines(doc, item.designation, descWidth, descFontSize);
+    const rowHeight = Math.max(9, wrapped.length * lineHeight + rowPadY * 2);
+    const rowTop = y - rowPadY;
+    if (rowTop + rowHeight > tableBottom) break;
+
     if (rowIndex % 2 === 1) {
       setFill(doc, COLORS.rowAlt);
-      doc.rect(left + 0.5, y - 4.5, right - left - 1, 8, "F");
+      doc.rect(left + 0.5, rowTop, right - left - 1, rowHeight, "F");
     }
     rowIndex++;
 
-    const descY = Math.min(y, tableBottom - 4);
-    const amount = item.qty * item.unitPrice;
-    const wrapped = doc.splitTextToSize(item.designation, c2 - c1 - 3);
+    const qtyLabel = item.unit ? `${money(item.qty)} ${item.unit}` : money(item.qty);
+    const numericY = rowTop + rowHeight / 2 + 1;
+
     setText(doc, COLORS.navy);
     doc.setFont("helvetica", "bold");
-    doc.text(item.reference || "—", c0 + 2, descY);
+    doc.setFontSize(8);
+    doc.text(item.reference || "—", c0 + descPadX, y);
+
     doc.setFont("helvetica", "normal");
+    doc.setFontSize(descFontSize);
     setText(doc, COLORS.text);
-    doc.text(wrapped, c1 + 2, descY);
-    doc.text(money(item.qty), c2 + 2, descY);
-    doc.text(money(item.unitPrice), c3 + 2, descY);
-    doc.text(money(0), c4 + 2, descY);
-    doc.setFont("helvetica", "bold");
-    setText(doc, COLORS.navy);
-    doc.text(money(amount), c5 + 2, descY);
-    doc.setFont("helvetica", "normal");
-    y += Math.max(7.5, wrapped.length * 4.1);
+    doc.text(wrapped, c1 + descPadX, y);
+
+    doc.setFontSize(8);
+    setText(doc, COLORS.text);
+    doc.text(qtyLabel, (c2 + c3) / 2, numericY, { align: "center" });
+    if (!delivery) {
+      const amount = item.qty * item.unitPrice;
+      doc.text(money(item.unitPrice), (c3 + c4) / 2, numericY, { align: "center" });
+      doc.text(money(0), (c4 + c5) / 2, numericY, { align: "center" });
+      doc.setFont("helvetica", "bold");
+      setText(doc, COLORS.navy);
+      doc.text(money(amount), (c5 + c6) / 2, numericY, { align: "center" });
+      doc.setFont("helvetica", "normal");
+    }
+
+    y = rowTop + rowHeight + 1;
   }
 
-  [c1, c2, c3, c4, c5].forEach((x) => {
+  const vertLines = delivery ? [c1, c2] : [c1, c2, c3, c4, c5];
+  vertLines.forEach((x) => {
     setDraw(doc, COLORS.border);
     doc.line(x, tableTop + headerH, x, tableBottom);
   });
@@ -439,7 +534,8 @@ function drawTotals(
   doc.roundedRect(rvX, bottomY, rvW, rowH, 2, 2);
   doc.line(rvX, bottomY + 8, rvX + rvW, bottomY + 8);
 
-  const labels = ["Total HT", "Escompte", "Total TTC", "Acompte"];
+  const depositLabel = (draft.documentType ?? "devis") === "facture" ? "Acompte versé" : "Acompte";
+  const labels = ["Total HT", "Escompte", "Total TTC", depositLabel];
   const values = [totals.totalHt, draft.discount, totals.totalTtc, draft.deposit];
   const netColW = Math.max(26, rvW * 0.22);
   const dataColW = (rvW - netColW) / 4;
@@ -492,6 +588,7 @@ export async function downloadDevisPdf(draft: QuoteDraft, template: DevisTemplat
   const left = 12;
   const right = 198;
   const ctx: PdfCtx = { doc, left, right, pageW: 210 };
+  const documentType = draft.documentType ?? "devis";
 
   const totalHt = draft.items.reduce(
     (acc, i) => (i.isNote ? acc : acc + i.qty * i.unitPrice),
@@ -508,12 +605,27 @@ export async function downloadDevisPdf(draft: QuoteDraft, template: DevisTemplat
   const titleBottom = drawTitleBlock(ctx, draft, headerBottom);
   const metaBottom = drawMetaRow(ctx, draft, titleBottom);
 
+  const delivery = isDeliveryNote(documentType);
   const tableTop = metaBottom + 2;
-  const tableBottom = 208;
+  const tableBottom = delivery ? 250 : 208;
   drawItemsTable(ctx, draft, tableTop, tableBottom);
 
-  const bottomY = 214;
-  drawTotals(ctx, draft, totals, bottomY);
+  if (!delivery) {
+    const bottomY = 214;
+    drawTotals(ctx, draft, totals, bottomY);
+  } else {
+    const { doc, left, right } = ctx;
+    const noteY = tableBottom + 6;
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    setText(doc, COLORS.slate);
+    doc.text(
+      "Bon de livraison — quantités livrées. Montants sur la facture référencée.",
+      (left + right) / 2,
+      noteY,
+      { align: "center" },
+    );
+  }
 
   const signatureTop = 252;
   if (draft.includeCachet) {
@@ -531,10 +643,15 @@ export async function downloadDevisPdf(draft: QuoteDraft, template: DevisTemplat
     }
   }
 
-  const footerY = draft.includeCachet ? 288 : 268;
+  const footerY = delivery
+    ? draft.includeCachet
+      ? 288
+      : 272
+    : draft.includeCachet
+      ? 288
+      : 268;
   drawFooter(ctx, template, footerY);
 
-  const documentType = draft.documentType ?? "devis";
-  const fileSlug = documentType === "bon_commande" ? "bon-de-commande" : "devis";
+  const fileSlug = pdfFileSlug(documentType);
   doc.save(`${fileSlug}-${draft.quoteNumber || "draft"}.pdf`);
 }

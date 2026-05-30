@@ -2,8 +2,10 @@
 
 import Image from "next/image";
 import logoStacked from "@/assets/barane-logo-stacked.png";
+import { formatMoney, htToTtc } from "@/lib/admin/price-ht-ttc";
 import {
   DOCUMENT_LABELS,
+  isDeliveryNote,
   type DevisTemplate,
   type DocumentType,
   type LineItem,
@@ -29,6 +31,8 @@ type DocumentPreviewProps = {
   quoteNumber: string;
   reference: string;
   date: string;
+  dueDate?: string;
+  linkedFactureNumber?: string;
   clientName: string;
   clientIce: string;
   isPurchaseOrder: boolean;
@@ -46,6 +50,8 @@ export function DocumentPreview({
   quoteNumber,
   reference,
   date,
+  dueDate,
+  linkedFactureNumber,
   clientName,
   clientIce,
   isPurchaseOrder,
@@ -58,6 +64,13 @@ export function DocumentPreview({
   template,
 }: DocumentPreviewProps) {
   const documentLabel = DOCUMENT_LABELS[documentType];
+  const deliveryNote = isDeliveryNote(documentType);
+  const counterpartyLabel = isPurchaseOrder
+    ? "Fournisseur"
+    : documentType === "facture"
+      ? "Facturé à"
+      : "Client";
+  const depositLabel = documentType === "facture" ? "Acompte versé" : "Acompte";
   const totalHt = items.reduce(
     (acc, item) => (item.isNote ? acc : acc + item.qty * item.unitPrice),
     0,
@@ -131,6 +144,12 @@ export function DocumentPreview({
         {[
           { label: "Numéro", value: quoteNumber || "—" },
           { label: "Date", value: date || "—" },
+          ...(documentType === "facture" && dueDate
+            ? [{ label: "Échéance", value: dueDate }]
+            : []),
+          ...(deliveryNote && linkedFactureNumber
+            ? [{ label: "Facture", value: `N° ${linkedFactureNumber}` }]
+            : []),
           { label: "Référence", value: reference || "—" },
         ].map((chip) => (
           <div
@@ -146,13 +165,17 @@ export function DocumentPreview({
       </div>
 
       <div className="mx-4 mb-3 overflow-hidden rounded-md border border-border">
-        <div className="grid grid-cols-[44px_1fr_36px_56px] bg-[var(--navy)] text-[9px] font-bold uppercase tracking-wide text-white px-2 py-1.5">
+        <div
+          className={`grid ${
+            deliveryNote ? "grid-cols-[44px_1fr_48px]" : "grid-cols-[44px_1fr_36px_56px]"
+          } bg-[var(--navy)] text-[9px] font-bold uppercase tracking-wide text-white px-2 py-1.5`}
+        >
           <span>Réf.</span>
           <span>Désignation</span>
           <span className="text-right">Qté</span>
-          <span className="text-right">Montant</span>
+          {!deliveryNote ? <span className="text-right">Montant</span> : null}
         </div>
-        <div className="max-h-[140px] overflow-y-auto divide-y divide-border bg-white">
+        <div className="max-h-[min(320px,50vh)] overflow-y-auto divide-y divide-border bg-white">
           {items.length === 0 ? (
             <p className="px-3 py-4 text-center text-[11px] text-[var(--graphite)]/60 italic">
               Aucun article
@@ -162,25 +185,37 @@ export function DocumentPreview({
               item.isNote ? (
                 <div
                   key={`note-${idx}`}
-                  className="flex gap-2 border-l-2 border-[#de7a3a] bg-[#fff8ef] px-2 py-2 text-[10px] italic text-[var(--graphite)]/85"
+                  className="border-l-2 border-[#de7a3a] bg-[#fff8ef] px-2 py-2 text-[10px] italic leading-snug text-[var(--graphite)]/85 whitespace-pre-wrap break-words"
                 >
                   {item.designation || "Note"}
                 </div>
               ) : (
                 <div
                   key={`row-${idx}`}
-                  className={`grid grid-cols-[44px_1fr_36px_56px] gap-1 px-2 py-1.5 text-[10px] ${
-                    idx % 2 === 1 ? "bg-[#f9fafb]" : ""
-                  }`}
+                  className={`grid items-start gap-x-2 gap-y-1 px-2 py-2 text-[10px] ${
+                    deliveryNote
+                      ? "grid-cols-[44px_minmax(0,1fr)_48px]"
+                      : "grid-cols-[44px_minmax(0,1fr)_40px_56px]"
+                  } ${idx % 2 === 1 ? "bg-[#f9fafb]" : ""}`}
                 >
-                  <span className="font-semibold text-[var(--navy)] truncate">
+                  <span className="pt-0.5 font-semibold text-[var(--navy)] break-words">
                     {item.reference || "—"}
                   </span>
-                  <span className="text-[var(--graphite)] truncate">{item.designation}</span>
-                  <span className="text-right text-[var(--graphite)]/80">{item.qty}</span>
-                  <span className="text-right font-semibold text-[var(--navy)]">
-                    {money(item.qty * item.unitPrice)}
+                  <p className="min-w-0 text-left leading-snug text-[var(--graphite)] whitespace-pre-wrap break-words [overflow-wrap:anywhere] [hyphens:none]">
+                    {item.designation}
+                  </p>
+                  <span className="pt-0.5 text-right text-[var(--graphite)]/80 whitespace-nowrap">
+                    {item.qty}
+                    {item.unit ? ` ${item.unit}` : ""}
                   </span>
+                  {!deliveryNote ? (
+                    <span className="pt-0.5 text-right font-semibold text-[var(--navy)] leading-tight">
+                      <span className="block">{money(item.qty * item.unitPrice)}</span>
+                      <span className="block text-[9px] font-normal text-[var(--graphite)]/70">
+                        {formatMoney(item.qty * htToTtc(item.unitPrice, vatRate))}
+                      </span>
+                    </span>
+                  ) : null}
                 </div>
               ),
             )
@@ -188,6 +223,11 @@ export function DocumentPreview({
         </div>
       </div>
 
+      {deliveryNote ? (
+        <p className="mx-4 mb-3 rounded-md border border-dashed border-border bg-[var(--background)] px-3 py-2 text-center text-[10px] text-[var(--graphite)]/75">
+          Document de livraison — quantités livrées conformes à la facture référencée.
+        </p>
+      ) : (
       <div className="mx-4 mb-3 flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-3">
         <div className="shrink-0 overflow-hidden rounded-md border border-border text-[9px] sm:w-[42%]">
           <div className="grid grid-cols-3 border-b border-border bg-[#f8fafc] font-bold text-[var(--graphite)]/70">
@@ -209,7 +249,7 @@ export function DocumentPreview({
         </div>
         <div className="min-w-0 flex-1 overflow-hidden rounded-md border border-border text-[9px]">
           <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1.1fr] border-b border-border bg-[#f8fafc] font-bold text-[var(--graphite)]/70">
-            {["Total HT", "Escompte", "Total TTC", "Acompte"].map((label, i) => (
+            {["Total HT", "Escompte", "Total TTC", depositLabel].map((label, i) => (
               <span
                 key={label}
                 className={`px-1 py-1 text-center ${i > 0 ? "border-l border-border" : ""}`}
@@ -238,6 +278,7 @@ export function DocumentPreview({
           </div>
         </div>
       </div>
+      )}
 
       {includeCachet ? (
         <div className="mx-4 mb-3 rounded-md border border-dashed border-[var(--gold)]/50 bg-[#fff8ef] px-3 py-2 text-right">

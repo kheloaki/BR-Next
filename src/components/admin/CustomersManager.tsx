@@ -1,28 +1,75 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Customer } from "@/components/admin/devis-types";
+import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
+import {
+  btnDanger,
+  btnPrimary,
+  btnSecondary,
+  formGridClass,
+  inputClass,
+  moduleWrap,
+  rowHover,
+  tdClass,
+  thClass,
+} from "@/components/admin/admin-form-styles";
+import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
+import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
+import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminToast } from "@/components/admin/ux/AdminToast";
+import { confirmDelete, useAdminToast } from "@/components/admin/ux/useAdminToast";
 
 export function CustomersManager() {
+  const toast = useAdminToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newIce, setNewIce] = useState("");
   const [newCity, setNewCity] = useState("");
   const [newAddress, setNewAddress] = useState("");
+  const [saving, setSaving] = useState(false);
 
   async function refreshCustomers() {
+    setLoading(true);
     const res = await fetch("/api/admin/customers", { cache: "no-store" });
-    if (!res.ok) return;
-    setCustomers((await res.json()) as Customer[]);
+    if (res.ok) setCustomers((await res.json()) as Customer[]);
+    setLoading(false);
   }
 
   useEffect(() => {
     void refreshCustomers();
   }, []);
 
-  function addCustomer() {
-    if (!newName.trim()) return;
-    void fetch("/api/admin/customers", {
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return customers;
+    return customers.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.ice.toLowerCase().includes(q) ||
+        (c.city || "").toLowerCase().includes(q) ||
+        (c.address || "").toLowerCase().includes(q),
+    );
+  }, [customers, search]);
+
+  function resetCreateForm() {
+    setNewName("");
+    setNewIce("");
+    setNewCity("");
+    setNewAddress("");
+  }
+
+  async function addCustomer() {
+    if (!newName.trim()) {
+      toast.error("Le nom du client est obligatoire.");
+      return;
+    }
+    setSaving(true);
+    const res = await fetch("/api/admin/customers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -31,77 +78,155 @@ export function CustomersManager() {
         city: newCity.trim(),
         address: newAddress.trim(),
       }),
-    }).then(async (res) => {
-      if (!res.ok) return;
-      await refreshCustomers();
-      setNewName("");
-      setNewIce("");
-      setNewCity("");
-      setNewAddress("");
     });
+    setSaving(false);
+    if (!res.ok) {
+      toast.error("Impossible d'ajouter le client.");
+      return;
+    }
+    toast.success("Client ajouté.");
+    resetCreateForm();
+    setShowCreateForm(false);
+    await refreshCustomers();
   }
 
-  function updateCustomer(id: string, patch: Partial<Customer>) {
-    const current = customers.find((c) => c.id === id);
-    if (!current) return;
-    void fetch("/api/admin/customers", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id,
-        name: patch.name ?? current.name,
-        ice: patch.ice ?? current.ice,
-        city: patch.city ?? current.city ?? "",
-        address: patch.address ?? current.address ?? "",
-      }),
-    }).then(async () => {
-      await refreshCustomers();
-    });
-  }
-
-  function deleteCustomer(id: string) {
-    void fetch(`/api/admin/customers?id=${encodeURIComponent(id)}`, {
+  async function deleteCustomer(customer: Customer) {
+    if (!(await confirmDelete(customer.name))) return;
+    const res = await fetch(`/api/admin/customers?id=${encodeURIComponent(customer.id)}`, {
       method: "DELETE",
-    }).then(async () => {
-      await refreshCustomers();
     });
+    if (!res.ok) {
+      toast.error("Impossible de supprimer.");
+      return;
+    }
+    toast.success("Client supprimé.");
+    await refreshCustomers();
   }
 
   return (
-    <div className="rounded-md border border-border bg-[#fbfbfb] p-4 lg:p-5">
-      <div className="border-b border-border pb-3">
-        <h2 className="text-2xl font-semibold text-[var(--navy)]">Clients</h2>
-        <p className="text-sm text-[var(--graphite)]/80 mt-1">
-          Gerer les clients disponibles dans le selecteur du devis.
-        </p>
-      </div>
-
-      <div className="mt-4 rounded-md border border-border bg-white p-3">
-        <p className="text-xs uppercase tracking-[0.08em] text-[var(--graphite)]/70">Creer un client</p>
-        <div className="mt-2 grid md:grid-cols-4 gap-2">
-          <input className="rounded-md border border-border bg-[#f9f9f9] p-2.5" placeholder="Nom" value={newName} onChange={(e) => setNewName(e.target.value)} />
-          <input className="rounded-md border border-border bg-[#f9f9f9] p-2.5" placeholder="ICE" value={newIce} onChange={(e) => setNewIce(e.target.value)} />
-          <input className="rounded-md border border-border bg-[#f9f9f9] p-2.5" placeholder="Ville" value={newCity} onChange={(e) => setNewCity(e.target.value)} />
-          <input className="rounded-md border border-border bg-[#f9f9f9] p-2.5" placeholder="Adresse" value={newAddress} onChange={(e) => setNewAddress(e.target.value)} />
-        </div>
-        <button type="button" onClick={addCustomer} className="mt-3 rounded-md border border-[#de7a3a] bg-[#de7a3a] px-4 py-2 text-sm text-white hover:opacity-90">
-          Ajouter le client
-        </button>
-      </div>
-
-      <div className="mt-4 space-y-2">
-        {customers.map((customer) => (
-          <div key={customer.id} className="rounded-md border border-border bg-white p-3 grid md:grid-cols-12 gap-2">
-            <input className="md:col-span-3 rounded-md border border-border bg-[#f9f9f9] p-2.5" value={customer.name} onChange={(e) => updateCustomer(customer.id, { name: e.target.value })} />
-            <input className="md:col-span-2 rounded-md border border-border bg-[#f9f9f9] p-2.5" value={customer.ice} onChange={(e) => updateCustomer(customer.id, { ice: e.target.value })} />
-            <input className="md:col-span-2 rounded-md border border-border bg-[#f9f9f9] p-2.5" value={customer.city ?? ""} onChange={(e) => updateCustomer(customer.id, { city: e.target.value })} />
-            <input className="md:col-span-4 rounded-md border border-border bg-[#f9f9f9] p-2.5" value={customer.address ?? ""} onChange={(e) => updateCustomer(customer.id, { address: e.target.value })} />
-            <button type="button" onClick={() => deleteCustomer(customer.id)} className="md:col-span-1 rounded-md border border-border p-2.5 text-sm hover:bg-[#f7f7f7]">
-              Suppr
+    <div className={moduleWrap}>
+      <OpsModuleHeader
+        title="Clients"
+        description="Gérez le carnet client utilisé dans les devis et factures."
+        actions={
+          <>
+            <a
+              href="/admin/facturation/devis"
+              className="text-sm font-medium text-[var(--navy)] underline underline-offset-2"
+            >
+              Ouvrir le devis
+            </a>
+            <button
+              type="button"
+              className={btnPrimary}
+              onClick={() => {
+                if (showCreateForm) {
+                  resetCreateForm();
+                  setShowCreateForm(false);
+                } else {
+                  setShowCreateForm(true);
+                }
+              }}
+            >
+              {showCreateForm ? "Annuler" : "Créer un client"}
             </button>
-          </div>
-        ))}
-      </div>
+          </>
+        }
+      />
+
+      {showCreateForm ? (
+        <div className="mb-4">
+          <AdminFormCard
+            title="Nouveau client"
+            hint="ICE et adresse optionnels."
+            footer={
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className={btnSecondary}
+                  onClick={() => {
+                    resetCreateForm();
+                    setShowCreateForm(false);
+                  }}
+                >
+                  Annuler
+                </button>
+                <button type="button" onClick={() => void addCustomer()} disabled={saving} className={btnPrimary}>
+                  {saving ? "Enregistrement…" : "Ajouter le client"}
+                </button>
+              </div>
+            }
+          >
+            <div className={formGridClass}>
+              <input
+                className={`${inputClass} sm:col-span-2`}
+                placeholder="Raison sociale *"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+              />
+              <input className={inputClass} placeholder="ICE" value={newIce} onChange={(e) => setNewIce(e.target.value)} />
+              <input className={inputClass} placeholder="Ville" value={newCity} onChange={(e) => setNewCity(e.target.value)} />
+              <input
+                className={`${inputClass} sm:col-span-2`}
+                placeholder="Adresse"
+                value={newAddress}
+                onChange={(e) => setNewAddress(e.target.value)}
+              />
+            </div>
+          </AdminFormCard>
+        </div>
+      ) : null}
+
+      {loading ? (
+        <AdminLoading />
+      ) : (
+        <AdminInventoryCard
+          title="Liste des clients"
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Nom, ICE, ville…"
+        >
+          {filtered.length === 0 ? (
+            <div className="px-5 py-12 text-center text-sm text-[var(--graphite)]/70">
+              {search ? "Aucun résultat pour ce filtre." : "Aucun client enregistré."}
+              {!showCreateForm ? (
+                <button type="button" className={`mt-4 ${btnPrimary}`} onClick={() => setShowCreateForm(true)}>
+                  Créer un client
+                </button>
+              ) : null}
+            </div>
+          ) : (
+            <AdminTableWrap>
+              <thead>
+                <tr>
+                  <th className={thClass}>Nom</th>
+                  <th className={thClass}>ICE</th>
+                  <th className={thClass}>Ville</th>
+                  <th className={thClass}>Adresse</th>
+                  <th className={thClass} />
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((customer) => (
+                  <tr key={customer.id} className={rowHover}>
+                    <td className={tdClass}>{customer.name}</td>
+                    <td className={tdClass}>{customer.ice || "—"}</td>
+                    <td className={tdClass}>{customer.city || "—"}</td>
+                    <td className={tdClass}>{customer.address || "—"}</td>
+                    <td className={tdClass}>
+                      <button type="button" onClick={() => void deleteCustomer(customer)} className={btnDanger}>
+                        Supprimer
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </AdminTableWrap>
+          )}
+        </AdminInventoryCard>
+      )}
+
+      <AdminToast message={toast.toast?.message ?? null} kind={toast.toast?.kind} onDismiss={toast.dismiss} />
     </div>
   );
 }

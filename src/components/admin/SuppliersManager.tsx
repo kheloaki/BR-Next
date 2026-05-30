@@ -1,29 +1,78 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Supplier } from "@/components/admin/devis-types";
+import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
+import {
+  btnDanger,
+  btnPrimary,
+  btnSecondary,
+  formGridClass,
+  inputClass,
+  moduleWrap,
+  rowHover,
+  tdClass,
+  thClass,
+} from "@/components/admin/admin-form-styles";
+import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
+import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
+import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminToast } from "@/components/admin/ux/AdminToast";
+import { confirmDelete, useAdminToast } from "@/components/admin/ux/useAdminToast";
 
 export function SuppliersManager() {
+  const toast = useAdminToast();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newIce, setNewIce] = useState("");
   const [newCity, setNewCity] = useState("");
   const [newAddress, setNewAddress] = useState("");
   const [newContact, setNewContact] = useState("");
+  const [saving, setSaving] = useState(false);
 
   async function refresh() {
+    setLoading(true);
     const res = await fetch("/api/admin/suppliers", { cache: "no-store" });
-    if (!res.ok) return;
-    setSuppliers((await res.json()) as Supplier[]);
+    if (res.ok) setSuppliers((await res.json()) as Supplier[]);
+    setLoading(false);
   }
 
   useEffect(() => {
     void refresh();
   }, []);
 
-  function addSupplier() {
-    if (!newName.trim()) return;
-    void fetch("/api/admin/suppliers", {
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return suppliers;
+    return suppliers.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.ice.toLowerCase().includes(q) ||
+        (s.city || "").toLowerCase().includes(q) ||
+        (s.contact || "").toLowerCase().includes(q) ||
+        (s.address || "").toLowerCase().includes(q),
+    );
+  }, [suppliers, search]);
+
+  function resetCreateForm() {
+    setNewName("");
+    setNewIce("");
+    setNewCity("");
+    setNewAddress("");
+    setNewContact("");
+  }
+
+  async function addSupplier() {
+    if (!newName.trim()) {
+      toast.error("Le nom du fournisseur est obligatoire.");
+      return;
+    }
+    setSaving(true);
+    const res = await fetch("/api/admin/suppliers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -33,87 +82,162 @@ export function SuppliersManager() {
         address: newAddress.trim(),
         contact: newContact.trim(),
       }),
-    }).then(async (res) => {
-      if (!res.ok) return;
-      await refresh();
-      setNewName("");
-      setNewIce("");
-      setNewCity("");
-      setNewAddress("");
-      setNewContact("");
     });
+    setSaving(false);
+    if (!res.ok) {
+      toast.error("Impossible d'ajouter le fournisseur.");
+      return;
+    }
+    toast.success("Fournisseur ajouté.");
+    resetCreateForm();
+    setShowCreateForm(false);
+    await refresh();
   }
 
-  function updateSupplier(id: string, patch: Partial<Supplier>) {
-    const current = suppliers.find((c) => c.id === id);
-    if (!current) return;
-    void fetch("/api/admin/suppliers", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id,
-        name: patch.name ?? current.name,
-        ice: patch.ice ?? current.ice,
-        city: patch.city ?? current.city ?? "",
-        address: patch.address ?? current.address ?? "",
-        contact: patch.contact ?? current.contact ?? "",
-      }),
-    }).then(async () => {
-      await refresh();
-    });
-  }
-
-  function deleteSupplier(id: string) {
-    void fetch(`/api/admin/suppliers?id=${encodeURIComponent(id)}`, {
+  async function deleteSupplier(supplier: Supplier) {
+    if (!(await confirmDelete(supplier.name))) return;
+    const res = await fetch(`/api/admin/suppliers?id=${encodeURIComponent(supplier.id)}`, {
       method: "DELETE",
-    }).then(async () => {
-      await refresh();
     });
+    if (!res.ok) {
+      toast.error("Impossible de supprimer.");
+      return;
+    }
+    toast.success("Fournisseur supprimé.");
+    await refresh();
   }
 
   return (
-    <div className="rounded-md border border-border bg-[#fbfbfb] p-4 lg:p-5">
-      <div className="border-b border-border pb-3">
-        <h2 className="text-2xl font-semibold text-[var(--navy)]">Fournisseurs</h2>
-        <p className="text-sm text-[var(--graphite)]/80 mt-1">
-          Gérer les fournisseurs disponibles dans le sélecteur des bons de commande.
-        </p>
-      </div>
+    <div className={moduleWrap}>
+      <OpsModuleHeader
+        title="Fournisseurs"
+        description="Carnet fournisseurs pour les bons de commande et achats."
+        actions={
+          <>
+            <a
+              href="/admin/facturation/bon-commande"
+              className="text-sm font-medium text-[var(--navy)] underline underline-offset-2"
+            >
+              Nouveau bon de commande
+            </a>
+            <button
+              type="button"
+              className={btnPrimary}
+              onClick={() => {
+                if (showCreateForm) {
+                  resetCreateForm();
+                  setShowCreateForm(false);
+                } else {
+                  setShowCreateForm(true);
+                }
+              }}
+            >
+              {showCreateForm ? "Annuler" : "Créer un fournisseur"}
+            </button>
+          </>
+        }
+      />
 
-      <div className="mt-4 rounded-md border border-border bg-white p-3">
-        <p className="text-xs uppercase tracking-[0.08em] text-[var(--graphite)]/70">Créer un fournisseur</p>
-        <div className="mt-2 grid md:grid-cols-5 gap-2">
-          <input className="rounded-md border border-border bg-[#f9f9f9] p-2.5" placeholder="Nom" value={newName} onChange={(e) => setNewName(e.target.value)} />
-          <input className="rounded-md border border-border bg-[#f9f9f9] p-2.5" placeholder="ICE" value={newIce} onChange={(e) => setNewIce(e.target.value)} />
-          <input className="rounded-md border border-border bg-[#f9f9f9] p-2.5" placeholder="Ville" value={newCity} onChange={(e) => setNewCity(e.target.value)} />
-          <input className="rounded-md border border-border bg-[#f9f9f9] p-2.5" placeholder="Adresse" value={newAddress} onChange={(e) => setNewAddress(e.target.value)} />
-          <input className="rounded-md border border-border bg-[#f9f9f9] p-2.5" placeholder="Contact (tel / email)" value={newContact} onChange={(e) => setNewContact(e.target.value)} />
-        </div>
-        <button type="button" onClick={addSupplier} className="mt-3 rounded-md border border-[#de7a3a] bg-[#de7a3a] px-4 py-2 text-sm text-white hover:opacity-90">
-          Ajouter le fournisseur
-        </button>
-      </div>
-
-      <div className="mt-4 space-y-2">
-        {suppliers.length === 0 ? (
-          <p className="rounded-md border border-border bg-white p-3 text-sm text-[var(--graphite)]/70">
-            Aucun fournisseur enregistré.
-          </p>
-        ) : (
-          suppliers.map((supplier) => (
-            <div key={supplier.id} className="rounded-md border border-border bg-white p-3 grid md:grid-cols-12 gap-2">
-              <input className="md:col-span-3 rounded-md border border-border bg-[#f9f9f9] p-2.5" value={supplier.name} onChange={(e) => updateSupplier(supplier.id, { name: e.target.value })} />
-              <input className="md:col-span-2 rounded-md border border-border bg-[#f9f9f9] p-2.5" value={supplier.ice} onChange={(e) => updateSupplier(supplier.id, { ice: e.target.value })} />
-              <input className="md:col-span-2 rounded-md border border-border bg-[#f9f9f9] p-2.5" value={supplier.city ?? ""} onChange={(e) => updateSupplier(supplier.id, { city: e.target.value })} />
-              <input className="md:col-span-2 rounded-md border border-border bg-[#f9f9f9] p-2.5" value={supplier.address ?? ""} onChange={(e) => updateSupplier(supplier.id, { address: e.target.value })} />
-              <input className="md:col-span-2 rounded-md border border-border bg-[#f9f9f9] p-2.5" value={supplier.contact ?? ""} onChange={(e) => updateSupplier(supplier.id, { contact: e.target.value })} />
-              <button type="button" onClick={() => deleteSupplier(supplier.id)} className="md:col-span-1 rounded-md border border-border p-2.5 text-sm hover:bg-[#f7f7f7]">
-                Suppr
-              </button>
+      {showCreateForm ? (
+        <div className="mb-4">
+          <AdminFormCard
+            title="Nouveau fournisseur"
+            footer={
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className={btnSecondary}
+                  onClick={() => {
+                    resetCreateForm();
+                    setShowCreateForm(false);
+                  }}
+                >
+                  Annuler
+                </button>
+                <button type="button" onClick={() => void addSupplier()} disabled={saving} className={btnPrimary}>
+                  {saving ? "Enregistrement…" : "Ajouter le fournisseur"}
+                </button>
+              </div>
+            }
+          >
+            <div className={formGridClass}>
+              <input
+                className={`${inputClass} sm:col-span-2`}
+                placeholder="Raison sociale *"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+              />
+              <input className={inputClass} placeholder="ICE" value={newIce} onChange={(e) => setNewIce(e.target.value)} />
+              <input className={inputClass} placeholder="Ville" value={newCity} onChange={(e) => setNewCity(e.target.value)} />
+              <input
+                className={inputClass}
+                placeholder="Contact (tél. / email)"
+                value={newContact}
+                onChange={(e) => setNewContact(e.target.value)}
+              />
+              <input
+                className={`${inputClass} sm:col-span-2`}
+                placeholder="Adresse"
+                value={newAddress}
+                onChange={(e) => setNewAddress(e.target.value)}
+              />
             </div>
-          ))
-        )}
-      </div>
+          </AdminFormCard>
+        </div>
+      ) : null}
+
+      {loading ? (
+        <AdminLoading />
+      ) : (
+        <AdminInventoryCard
+          title="Liste des fournisseurs"
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Nom, ICE, contact…"
+        >
+          {filtered.length === 0 ? (
+            <div className="px-5 py-12 text-center text-sm text-[var(--graphite)]/70">
+              {search ? "Aucun résultat pour ce filtre." : "Aucun fournisseur enregistré."}
+              {!showCreateForm ? (
+                <button type="button" className={`mt-4 ${btnPrimary}`} onClick={() => setShowCreateForm(true)}>
+                  Créer un fournisseur
+                </button>
+              ) : null}
+            </div>
+          ) : (
+            <AdminTableWrap>
+              <thead>
+                <tr>
+                  <th className={thClass}>Nom</th>
+                  <th className={thClass}>ICE</th>
+                  <th className={thClass}>Ville</th>
+                  <th className={thClass}>Contact</th>
+                  <th className={thClass}>Adresse</th>
+                  <th className={thClass} />
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((supplier) => (
+                  <tr key={supplier.id} className={rowHover}>
+                    <td className={tdClass}>{supplier.name}</td>
+                    <td className={tdClass}>{supplier.ice || "—"}</td>
+                    <td className={tdClass}>{supplier.city || "—"}</td>
+                    <td className={tdClass}>{supplier.contact || "—"}</td>
+                    <td className={tdClass}>{supplier.address || "—"}</td>
+                    <td className={tdClass}>
+                      <button type="button" onClick={() => void deleteSupplier(supplier)} className={btnDanger}>
+                        Supprimer
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </AdminTableWrap>
+          )}
+        </AdminInventoryCard>
+      )}
+
+      <AdminToast message={toast.toast?.message ?? null} kind={toast.toast?.kind} onDismiss={toast.dismiss} />
     </div>
   );
 }

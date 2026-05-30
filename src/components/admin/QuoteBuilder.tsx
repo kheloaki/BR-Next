@@ -4,18 +4,35 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { DocumentPreview } from "@/components/admin/DocumentPreview";
+import { HtTtcPriceFields } from "@/components/admin/HtTtcPriceFields";
+import { ProductCategorySelect } from "@/components/admin/ProductCategorySelect";
+import { ProductUnitField } from "@/components/admin/ProductUnitField";
+import { formatMoney, htToTtc } from "@/lib/admin/price-ht-ttc";
 import { downloadDevisPdf } from "@/components/admin/devis-pdf";
 import {
   DOCUMENT_LABELS,
+  isDeliveryNote,
+  isSupplierDocument,
   type Customer,
   defaultTemplate,
   type DevisTemplate,
   type DocumentType,
   type Product,
+  type ProductCategory,
   type QuoteDraft,
   type LineItem,
+  PRODUCT_UNITS,
   type Supplier,
 } from "@/components/admin/devis-types";
+import { btnDanger, inputClass, inputClassDense, moduleWrap } from "@/components/admin/admin-form-styles";
+import { confirmDelete, readApiError } from "@/components/admin/ux/useAdminToast";
+import { buildBonLivraisonFromFacture } from "@/lib/admin/bon-livraison";
+import {
+  facturationBonLivraisonFromFacturePath,
+  facturationBuilderPath,
+  facturationDocumentsPath,
+  facturationEditPath,
+} from "@/lib/admin/facturation-nav";
 
 function money(value: number) {
   return new Intl.NumberFormat("fr-MA", {
@@ -86,19 +103,24 @@ function NumberField({
   );
 }
 
-export function QuoteBuilder() {
+export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: DocumentType } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editingId = searchParams.get("id");
+  const fromFactureId = searchParams.get("fromFacture");
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
+  const [pickerCategory, setPickerCategory] = useState("");
   const [template, setTemplate] = useState<DevisTemplate>(defaultTemplate);
   const [savedCount, setSavedCount] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [newProductReference, setNewProductReference] = useState("");
   const [newProductDesignation, setNewProductDesignation] = useState("");
+  const [newProductUnit, setNewProductUnit] = useState("u");
   const [newProductPrice, setNewProductPrice] = useState(0);
+  const [newProductCategory, setNewProductCategory] = useState("");
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -110,6 +132,7 @@ export function QuoteBuilder() {
   const [newCustomerAddress, setNewCustomerAddress] = useState("");
   const [counterpartyMode, setCounterpartyMode] = useState<"saved" | "passager">("saved");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveErrorMessage, setSaveErrorMessage] = useState("");
 
   const [documentType, setDocumentType] = useState<DocumentType>("devis");
   const [includeCachet, setIncludeCachet] = useState(false);
@@ -119,9 +142,14 @@ export function QuoteBuilder() {
   const [quoteNumber, setQuoteNumber] = useState("");
   const [reference, setReference] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [dueDate, setDueDate] = useState("");
   const [vatRate, setVatRate] = useState(20);
   const [discount, setDiscount] = useState(0);
   const [deposit, setDeposit] = useState(0);
+  const [linkedFactureId, setLinkedFactureId] = useState<string | undefined>();
+  const [linkedFactureNumber, setLinkedFactureNumber] = useState<string | undefined>();
+  const autoNumberInitRef = useRef(false);
+  const prevDocTypeRef = useRef<DocumentType>("devis");
   const [items, setItems] = useState<LineItem[]>([]);
   const [allQuotes, setAllQuotes] = useState<QuoteDraft[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
@@ -130,17 +158,22 @@ export function QuoteBuilder() {
     let mounted = true;
     async function loadData() {
       try {
-        const [productsRes, templateRes, quotesRes, customersRes, suppliersRes] = await Promise.all([
-          fetch("/api/admin/products", { cache: "no-store" }),
-          fetch("/api/admin/template", { cache: "no-store" }),
-          fetch("/api/admin/quotes", { cache: "no-store" }),
-          fetch("/api/admin/customers", { cache: "no-store" }),
-          fetch("/api/admin/suppliers", { cache: "no-store" }),
-        ]);
+        const [productsRes, categoriesRes, templateRes, quotesRes, customersRes, suppliersRes] =
+          await Promise.all([
+            fetch("/api/admin/products", { cache: "no-store" }),
+            fetch("/api/admin/product-categories", { cache: "no-store" }),
+            fetch("/api/admin/template", { cache: "no-store" }),
+            fetch("/api/admin/quotes", { cache: "no-store" }),
+            fetch("/api/admin/customers", { cache: "no-store" }),
+            fetch("/api/admin/suppliers", { cache: "no-store" }),
+          ]);
         if (!mounted) return;
 
         if (productsRes.ok) {
           setProducts((await productsRes.json()) as Product[]);
+        }
+        if (categoriesRes.ok) {
+          setProductCategories((await categoriesRes.json()) as ProductCategory[]);
         }
         if (templateRes.ok) {
           setTemplate((await templateRes.json()) as DevisTemplate);
@@ -187,6 +220,7 @@ export function QuoteBuilder() {
       setQuoteNumber(draft.quoteNumber ?? "");
       setReference(draft.reference ?? "");
       setDate(draft.date ?? new Date().toISOString().slice(0, 10));
+      setDueDate(draft.dueDate ?? "");
       setVatRate(typeof draft.vatRate === "number" ? draft.vatRate : 20);
       setDiscount(typeof draft.discount === "number" ? draft.discount : 0);
       setDeposit(typeof draft.deposit === "number" ? draft.deposit : 0);
@@ -197,6 +231,47 @@ export function QuoteBuilder() {
       mounted = false;
     };
   }, [editingId]);
+
+  useEffect(() => {
+    if (editingId || fixedDocumentType) return;
+    const typeParam = searchParams.get("type");
+    if (
+      typeParam === "devis" ||
+      typeParam === "bon_commande" ||
+      typeParam === "facture" ||
+      typeParam === "bon_livraison"
+    ) {
+      setDocumentType(typeParam);
+    }
+  }, [editingId, fixedDocumentType, searchParams]);
+
+  useEffect(() => {
+    if (editingId || !fixedDocumentType) return;
+    setDocumentType(fixedDocumentType);
+  }, [editingId, fixedDocumentType]);
+
+  useEffect(() => {
+    if (editingId || !fromFactureId || !dataLoaded) return;
+    const facture = allQuotes.find((q) => q.id === fromFactureId);
+    if (!facture || (facture.documentType ?? "devis") !== "facture") return;
+    const draft = buildBonLivraisonFromFacture(facture, allQuotes);
+    setDocumentType("bon_livraison");
+    setClientName(draft.clientName ?? "");
+    setClientIce(draft.clientIce ?? "");
+    setClientAddress(draft.clientAddress ?? "");
+    setQuoteNumber(draft.quoteNumber ?? "");
+    setReference(draft.reference ?? "");
+    setDate(draft.date ?? new Date().toISOString().slice(0, 10));
+    setDueDate("");
+    setVatRate(draft.vatRate ?? 20);
+    setDiscount(0);
+    setDeposit(0);
+    setItems(draft.items ?? []);
+    setIncludeCachet(Boolean(draft.includeCachet));
+    setLinkedFactureId(draft.linkedFactureId);
+    setLinkedFactureNumber(draft.linkedFactureNumber);
+    autoNumberInitRef.current = true;
+  }, [editingId, fromFactureId, dataLoaded, allQuotes]);
 
   useEffect(() => {
     if (loading) return;
@@ -215,8 +290,6 @@ export function QuoteBuilder() {
     setSelectedSupplierId("");
   }, [documentType]);
 
-  const autoNumberInitRef = useRef(false);
-  const prevDocTypeRef = useRef(documentType);
   useEffect(() => {
     if (editingId) return;
     if (!dataLoaded) return;
@@ -241,6 +314,11 @@ export function QuoteBuilder() {
     return { totalHt, netHt, vatAmount, totalTtc, netToPay };
   }, [items, vatRate, discount, deposit]);
 
+  const pickerProducts = useMemo(() => {
+    if (!pickerCategory) return products;
+    return products.filter((p) => p.category === pickerCategory);
+  }, [products, pickerCategory]);
+
   function updateItem(index: number, patch: Partial<LineItem>) {
     setItems((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)));
   }
@@ -254,13 +332,25 @@ export function QuoteBuilder() {
         productId: p.id,
         reference: p.reference,
         designation: p.designation,
+        unit: p.unit || "u",
         qty: 1,
         unitPrice: p.unitPrice,
       },
     ]);
   }
 
-  function removeItem(index: number) {
+  async function removeItem(index: number) {
+    const item = items[index];
+    const label = item?.designation?.trim() || "cette ligne";
+    if (
+      !(await confirmDelete(label, {
+        title: "Retirer la ligne",
+        description: `Voulez-vous vraiment retirer « ${label} » de ce document ?`,
+        confirmLabel: "Retirer",
+      }))
+    ) {
+      return;
+    }
     setItems((prev) => prev.filter((_, i) => i !== index));
   }
 
@@ -271,6 +361,7 @@ export function QuoteBuilder() {
         productId: uid("manual"),
         reference: "NN",
         designation: "",
+        unit: "u",
         qty: 1,
         unitPrice: 0,
       },
@@ -279,12 +370,15 @@ export function QuoteBuilder() {
 
   async function createProductFromBuilder() {
     if (!newProductDesignation.trim()) return;
+    if (!newProductUnit.trim()) return;
     const res = await fetch("/api/admin/products", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         reference: newProductReference.trim() || "NN",
         designation: newProductDesignation.trim(),
+        category: newProductCategory,
+        unit: newProductUnit.trim(),
         unitPrice: newProductPrice,
       }),
     });
@@ -300,13 +394,16 @@ export function QuoteBuilder() {
         productId: created.id,
         reference: created.reference,
         designation: created.designation,
+        unit: created.unit || "u",
         qty: 1,
         unitPrice: created.unitPrice,
       },
     ]);
     setNewProductReference("");
     setNewProductDesignation("");
+    setNewProductUnit("u");
     setNewProductPrice(0);
+    setNewProductCategory("");
     setProductModalOpen(false);
   }
 
@@ -324,7 +421,7 @@ export function QuoteBuilder() {
     ]);
   }
 
-  const isPurchaseOrder = documentType === "bon_commande";
+  const isPurchaseOrder = isSupplierDocument(documentType);
   const counterpartyLabel = isPurchaseOrder ? "fournisseur" : "client";
   const counterpartyApi = isPurchaseOrder ? "/api/admin/suppliers" : "/api/admin/customers";
 
@@ -403,9 +500,12 @@ export function QuoteBuilder() {
       quoteNumber,
       reference,
       date,
+      dueDate: documentType === "facture" && dueDate ? dueDate : undefined,
+      linkedFactureId: documentType === "bon_livraison" ? linkedFactureId : undefined,
+      linkedFactureNumber: documentType === "bon_livraison" ? linkedFactureNumber : undefined,
       vatRate,
-      discount,
-      deposit,
+      discount: isDeliveryNote(documentType) ? 0 : discount,
+      deposit: isDeliveryNote(documentType) ? 0 : deposit,
       items,
       includeCachet,
     };
@@ -416,6 +516,7 @@ export function QuoteBuilder() {
   function saveDraft() {
     const draft = currentDraft();
     setSaveStatus("saving");
+    setSaveErrorMessage("");
     void fetch("/api/admin/quotes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -423,6 +524,7 @@ export function QuoteBuilder() {
     }).then(async (res) => {
       if (!res.ok) {
         setSaveStatus("error");
+        setSaveErrorMessage(await readApiError(res));
         return;
       }
       const result = (await res.json()) as { id?: string; created?: boolean };
@@ -433,7 +535,7 @@ export function QuoteBuilder() {
         setSavedCount(quotes.length);
       }
       if (!editingId && result.id) {
-        router.replace(`/admin/devis-builder?id=${encodeURIComponent(result.id)}`);
+        router.replace(`${facturationBuilderPath(documentType)}?id=${encodeURIComponent(result.id)}`);
       }
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 2500);
@@ -445,7 +547,7 @@ export function QuoteBuilder() {
   }
 
   return (
-    <div className="rounded-md border border-border bg-[#fbfbfb] p-4 lg:p-5">
+    <div className={moduleWrap}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
         <div>
           <h2 className="text-3xl font-semibold text-[var(--navy)]">
@@ -457,40 +559,97 @@ export function QuoteBuilder() {
             </p>
           ) : null}
         </div>
-        <div className="inline-flex rounded-md border border-border bg-white p-1 text-sm">
-          <button
-            type="button"
-            onClick={() => setDocumentType("devis")}
-            className={`rounded-md px-3 py-1.5 transition ${
-              documentType === "devis"
-                ? "bg-[#de7a3a] text-white"
-                : "text-[var(--graphite)]/80 hover:bg-[#f7f7f7]"
-            }`}
-          >
-            Devis
-          </button>
-          <button
-            type="button"
-            onClick={() => setDocumentType("bon_commande")}
-            className={`rounded-md px-3 py-1.5 transition ${
-              documentType === "bon_commande"
-                ? "bg-[#de7a3a] text-white"
-                : "text-[var(--graphite)]/80 hover:bg-[#f7f7f7]"
-            }`}
-          >
-            Bon de commande
-          </button>
-        </div>
+        {!fixedDocumentType ? (
+          <div className="inline-flex rounded-md border border-border bg-white p-1 text-sm">
+            <button
+              type="button"
+              onClick={() => setDocumentType("devis")}
+              className={`rounded-md px-3 py-1.5 transition ${
+                documentType === "devis"
+                  ? "bg-[#de7a3a] text-white"
+                  : "text-[var(--graphite)]/80 hover:bg-[#f7f7f7]"
+              }`}
+            >
+              Devis
+            </button>
+            <button
+              type="button"
+              onClick={() => setDocumentType("bon_commande")}
+              className={`rounded-md px-3 py-1.5 transition ${
+                documentType === "bon_commande"
+                  ? "bg-[#de7a3a] text-white"
+                  : "text-[var(--graphite)]/80 hover:bg-[#f7f7f7]"
+              }`}
+            >
+              Bon de commande
+            </button>
+            <button
+              type="button"
+              onClick={() => setDocumentType("facture")}
+              className={`rounded-md px-3 py-1.5 transition ${
+                documentType === "facture"
+                  ? "bg-[#de7a3a] text-white"
+                  : "text-[var(--graphite)]/80 hover:bg-[#f7f7f7]"
+              }`}
+            >
+              Facture
+            </button>
+            <button
+              type="button"
+              onClick={() => setDocumentType("bon_livraison")}
+              className={`rounded-md px-3 py-1.5 transition ${
+                documentType === "bon_livraison"
+                  ? "bg-[#de7a3a] text-white"
+                  : "text-[var(--graphite)]/80 hover:bg-[#f7f7f7]"
+              }`}
+            >
+              Bon de livraison
+            </button>
+          </div>
+        ) : null}
       </div>
+
+      {documentType === "bon_livraison" && linkedFactureNumber ? (
+        <p className="mb-4 rounded-lg border border-sky-200/80 bg-sky-50 px-4 py-2.5 text-sm text-sky-900">
+          Lié à la facture <strong>N° {linkedFactureNumber}</strong>
+          {linkedFactureId ? (
+            <>
+              {" "}
+              ·{" "}
+              <Link
+                href={facturationEditPath({ id: linkedFactureId, documentType: "facture" })}
+                className="font-medium underline underline-offset-2"
+              >
+                Voir la facture
+              </Link>
+            </>
+          ) : null}
+        </p>
+      ) : null}
 
       <div className="grid xl:grid-cols-12 gap-6 items-start">
         <section className="xl:col-span-8">
           <div className="rounded-md border border-border bg-white p-4 lg:p-5">
             <h3 className="text-2xl font-semibold text-[var(--navy)]">Entete</h3>
             <div className="mt-4 grid md:grid-cols-2 gap-3">
-              <input className="rounded-md border border-border bg-[#f9f9f9] p-3" value={quoteNumber} onChange={(e) => setQuoteNumber(e.target.value)} placeholder={`Numero ${documentLabel.toLowerCase()} (ex: 001/2026)`} />
-              <input className="rounded-md border border-border bg-[#f9f9f9] p-3" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Reference (ex: N38)" />
-              <input type="date" className="rounded-md border border-border bg-[#f9f9f9] p-3" value={date} onChange={(e) => setDate(e.target.value)} />
+              <input className={inputClass} value={quoteNumber} onChange={(e) => setQuoteNumber(e.target.value)} placeholder={`Numero ${documentLabel.toLowerCase()} (ex: 001/2026)`} />
+              <input className={inputClass} value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Reference (ex: N38)" />
+              <input type="date" className={inputClass} value={date} onChange={(e) => setDate(e.target.value)} />
+              {documentType === "facture" ? (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs uppercase tracking-[0.08em] text-[var(--graphite)]/70">
+                    Date d&apos;échéance
+                  </label>
+                  <input
+                    type="date"
+                    className={inputClass}
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                  />
+                </div>
+              ) : (
+                <div className="hidden md:block" aria-hidden />
+              )}
               <div className="flex flex-col gap-2">
                 <label className="text-xs uppercase tracking-[0.08em] text-[var(--graphite)]/70">
                   Taux de TVA
@@ -511,7 +670,7 @@ export function QuoteBuilder() {
                     </button>
                   ))}
                   <NumberField
-                    className="w-20 rounded-md border border-border bg-[#f9f9f9] px-2 py-1 text-sm"
+                    className={`w-20 ${inputClassDense}`}
                     value={vatRate}
                     onChange={setVatRate}
                     placeholder="Autre"
@@ -524,8 +683,8 @@ export function QuoteBuilder() {
           <div className="mt-4 grid md:grid-cols-2 gap-4">
             <div className="rounded-md border border-border bg-white p-4">
               <p className="text-xs uppercase tracking-[0.1em] text-[var(--graphite)]/70">De</p>
-              <input className="mt-3 rounded-md border border-border bg-[#f9f9f9] p-3 w-full" value={template.sellerName} onChange={(e) => setTemplate((t) => ({ ...t, sellerName: e.target.value }))} placeholder="Nom entreprise" />
-              <input className="mt-3 rounded-md border border-border bg-[#f9f9f9] p-3 w-full" value={template.sellerActivity} onChange={(e) => setTemplate((t) => ({ ...t, sellerActivity: e.target.value }))} placeholder="Activite entreprise" />
+              <input className={`mt-3 w-full ${inputClass}`} value={template.sellerName} onChange={(e) => setTemplate((t) => ({ ...t, sellerName: e.target.value }))} placeholder="Nom entreprise" />
+              <input className={`mt-3 w-full ${inputClass}`} value={template.sellerActivity} onChange={(e) => setTemplate((t) => ({ ...t, sellerActivity: e.target.value }))} placeholder="Activite entreprise" />
             </div>
             <div className="rounded-md border border-border bg-white p-4">
               <div className="flex items-start justify-between gap-2">
@@ -568,7 +727,7 @@ export function QuoteBuilder() {
               {counterpartyMode === "saved" ? (
                 <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
                   <select
-                    className="rounded-md border border-border bg-[#f9f9f9] p-3"
+                    className={inputClass}
                     value={isPurchaseOrder ? selectedSupplierId : selectedCustomerId}
                     onChange={(e) => onSelectCounterparty(e.target.value)}
                   >
@@ -590,10 +749,10 @@ export function QuoteBuilder() {
                   </button>
                 </div>
               ) : null}
-              <input className="mt-3 rounded-md border border-border bg-[#f9f9f9] p-3 w-full" value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder={`${counterpartyLabel.charAt(0).toUpperCase() + counterpartyLabel.slice(1)} / Société`} />
-              <input className="mt-3 rounded-md border border-border bg-[#f9f9f9] p-3 w-full" value={clientIce} onChange={(e) => setClientIce(e.target.value)} placeholder={`ICE ${counterpartyLabel}`} />
+              <input className={`mt-3 w-full ${inputClass}`} value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder={`${counterpartyLabel.charAt(0).toUpperCase() + counterpartyLabel.slice(1)} / Société`} />
+              <input className={`mt-3 w-full ${inputClass}`} value={clientIce} onChange={(e) => setClientIce(e.target.value)} placeholder={`ICE ${counterpartyLabel}`} />
               <textarea
-                className="mt-3 rounded-md border border-border bg-[#f9f9f9] p-3 w-full"
+                className={`mt-3 w-full ${inputClass}`}
                 rows={2}
                 value={clientAddress}
                 onChange={(e) => setClientAddress(e.target.value)}
@@ -634,10 +793,11 @@ export function QuoteBuilder() {
             </div>
             <div className="mt-3 hidden lg:grid lg:grid-cols-12 gap-2 rounded-md border border-border bg-[#f6f8fb] p-2 text-xs uppercase tracking-[0.08em] text-[var(--graphite)]/70">
               <span className="lg:col-span-2">Ref</span>
-              <span className="lg:col-span-5">Designation</span>
-              <span className="lg:col-span-1">Qte</span>
-              <span className="lg:col-span-2">Prix unitaire</span>
-              <span className="lg:col-span-2">Montant</span>
+              <span className="lg:col-span-4">Désignation</span>
+              <span className="lg:col-span-1">Unité</span>
+              <span className="lg:col-span-1">Qté</span>
+              <span className="lg:col-span-2">Prix HT / TTC</span>
+              <span className="lg:col-span-2">Montant HT / TTC</span>
             </div>
             <div className="mt-3 space-y-3">
               {items.map((item, idx) => (
@@ -650,14 +810,14 @@ export function QuoteBuilder() {
                         </span>
                         <textarea
                           rows={2}
-                          className="flex-1 rounded-md border border-border bg-[#f9f9f9] p-2 text-sm italic"
+                          className={`flex-1 text-sm italic ${inputClassDense}`}
                           value={item.designation}
                           onChange={(e) => updateItem(idx, { designation: e.target.value })}
                           placeholder="Ex: Mode de paiement: 5 jours apres chaque fin de mois"
                         />
                       </div>
                       <div className="lg:col-span-2 flex items-center justify-end">
-                        <button className="text-rose-700 text-sm" onClick={() => removeItem(idx)} type="button">
+                        <button type="button" className={btnDanger} onClick={() => void removeItem(idx)}>
                           Supprimer
                         </button>
                       </div>
@@ -665,19 +825,38 @@ export function QuoteBuilder() {
                   ) : (
                     <>
                       <div className="lg:col-span-2 flex flex-col gap-1">
-                        <input className="rounded-md border border-border bg-[#f9f9f9] p-2" value={item.reference} onChange={(e) => updateItem(idx, { reference: e.target.value })} />
+                        <input className={inputClassDense} value={item.reference} onChange={(e) => updateItem(idx, { reference: e.target.value })} />
                         {item.productId.startsWith("manual-") ? (
                           <span className="rounded-md bg-[#fff4e8] px-2 py-0.5 text-[10px] uppercase tracking-[0.08em] text-[#b04a09] self-start">
                             Passager
                           </span>
                         ) : null}
                       </div>
-                      <input className="rounded-md border border-border bg-[#f9f9f9] p-2 lg:col-span-5" value={item.designation} onChange={(e) => updateItem(idx, { designation: e.target.value })} />
-                      <NumberField className="rounded-md border border-border bg-[#f9f9f9] p-2 lg:col-span-1" value={item.qty} onChange={(v) => updateItem(idx, { qty: v })} />
-                      <NumberField className="rounded-md border border-border bg-[#f9f9f9] p-2 lg:col-span-2" value={item.unitPrice} onChange={(v) => updateItem(idx, { unitPrice: v })} />
-                      <div className="lg:col-span-2 flex items-center justify-between rounded-md border border-border px-3">
-                        <span className="text-sm font-medium">{money(item.qty * item.unitPrice)}</span>
-                        <button className="text-rose-700 text-sm" onClick={() => removeItem(idx)} type="button">
+                      <input className={`${inputClassDense} lg:col-span-4`} value={item.designation} onChange={(e) => updateItem(idx, { designation: e.target.value })} />
+                      <input
+                        className={`${inputClassDense} lg:col-span-1 text-sm`}
+                        value={item.unit ?? "u"}
+                        onChange={(e) => updateItem(idx, { unit: e.target.value })}
+                        placeholder="u"
+                        list="admin-product-units"
+                      />
+                      <NumberField className={`${inputClassDense} lg:col-span-1`} value={item.qty} onChange={(v) => updateItem(idx, { qty: v })} />
+                      <div className="lg:col-span-2">
+                        <HtTtcPriceFields
+                          compact
+                          vatRate={vatRate}
+                          valueHt={item.unitPrice}
+                          onChangeHt={(unitPrice) => updateItem(idx, { unitPrice })}
+                        />
+                      </div>
+                      <div className="lg:col-span-2 flex flex-col justify-center gap-1 rounded-md border border-border px-3 py-2 text-xs">
+                        <span>
+                          HT : <strong>{money(item.qty * item.unitPrice)}</strong>
+                        </span>
+                        <span className="text-[var(--graphite)]/75">
+                          TTC : {formatMoney(item.qty * htToTtc(item.unitPrice, vatRate))}
+                        </span>
+                        <button type="button" className={`self-end ${btnDanger}`} onClick={() => void removeItem(idx)}>
                           Supprimer
                         </button>
                       </div>
@@ -705,6 +884,8 @@ export function QuoteBuilder() {
             quoteNumber={quoteNumber}
             reference={reference}
             date={date}
+            dueDate={dueDate}
+            linkedFactureNumber={linkedFactureNumber}
             clientName={clientName}
             clientIce={clientIce}
             isPurchaseOrder={isPurchaseOrder}
@@ -720,13 +901,16 @@ export function QuoteBuilder() {
           <details className="mt-3 rounded-md border border-border p-3 bg-white">
             <summary className="cursor-pointer text-xs uppercase tracking-[0.1em] text-[var(--graphite)]/70">Template pied de page entreprise</summary>
             <div className="mt-3 grid gap-3">
-              <input className="rounded-md border border-border bg-[#f9f9f9] p-2.5" value={template.sellerAddress} onChange={(e) => setTemplate((t) => ({ ...t, sellerAddress: e.target.value }))} placeholder="Ligne adresse" />
-              <input className="rounded-md border border-border bg-[#f9f9f9] p-2.5" value={template.sellerLegal} onChange={(e) => setTemplate((t) => ({ ...t, sellerLegal: e.target.value }))} placeholder="Ligne legale" />
-              <input className="rounded-md border border-border bg-[#f9f9f9] p-2.5" value={template.sellerContact} onChange={(e) => setTemplate((t) => ({ ...t, sellerContact: e.target.value }))} placeholder="Ligne contact" />
+              <input className={inputClass} value={template.sellerAddress} onChange={(e) => setTemplate((t) => ({ ...t, sellerAddress: e.target.value }))} placeholder="Ligne adresse" />
+              <input className={inputClass} value={template.sellerLegal} onChange={(e) => setTemplate((t) => ({ ...t, sellerLegal: e.target.value }))} placeholder="Ligne legale" />
+              <input className={inputClass} value={template.sellerContact} onChange={(e) => setTemplate((t) => ({ ...t, sellerContact: e.target.value }))} placeholder="Ligne contact" />
             </div>
           </details>
 
-          <Link href="/admin/devis-saved" className="mt-3 inline-flex w-full rounded-md border border-border px-4 py-2 text-sm hover:bg-white justify-center">
+          <Link
+            href={facturationDocumentsPath(documentType)}
+            className="mt-3 inline-flex w-full rounded-md border border-border px-4 py-2 text-sm hover:bg-white justify-center"
+          >
             Documents enregistrés ({savedCount})
           </Link>
         </aside>
@@ -737,20 +921,36 @@ export function QuoteBuilder() {
           {saveStatus === "saving" ? (
             <span>Enregistrement en cours…</span>
           ) : saveStatus === "saved" ? (
-            <span className="text-emerald-700">Document enregistré.</span>
+            <span className="text-emerald-700">Document enregistré dans Supabase (base cloud).</span>
           ) : saveStatus === "error" ? (
-            <span className="text-rose-700">Échec de l'enregistrement.</span>
+            <span className="text-rose-700">
+              Échec de l&apos;enregistrement
+              {saveErrorMessage ? ` : ${saveErrorMessage}` : "."}
+            </span>
           ) : (
-            <span>Enregistrez puis téléchargez à tout moment depuis la page documents.</span>
+            <span>
+              Les documents sont stockés dans Supabase (pas dans le navigateur). Enregistrez puis exportez en PDF.
+            </span>
           )}
         </div>
         <div className="flex gap-3 flex-wrap">
           <Link href="/admin" className="rounded-md border border-border px-4 py-2 hover:bg-[#f7f7f7]">
             Annuler
           </Link>
+          {editingId && documentType === "facture" ? (
+            <Link
+              href={facturationBonLivraisonFromFacturePath(editingId)}
+              className="rounded-md border border-border px-4 py-2 hover:bg-[#f7f7f7]"
+            >
+              Créer bon de livraison
+            </Link>
+          ) : null}
           {editingId ? (
-            <Link href="/admin/devis-builder" className="rounded-md border border-border px-4 py-2 hover:bg-[#f7f7f7]">
-              Nouveau document
+            <Link
+              href={facturationBuilderPath(documentType)}
+              className="rounded-md border border-border px-4 py-2 hover:bg-[#f7f7f7]"
+            >
+              Nouveau {documentLabel.toLowerCase()}
             </Link>
           ) : null}
           <button type="button" onClick={saveDraft} className="rounded-md border border-border px-4 py-2 hover:bg-[#f7f7f7]">
@@ -783,17 +983,36 @@ export function QuoteBuilder() {
                 </button>
               </div>
             </div>
+            <div className="mt-3 flex flex-wrap gap-2 items-center">
+              <ProductCategorySelect
+                categories={productCategories}
+                value={pickerCategory}
+                onChange={setPickerCategory}
+                placeholder="Toutes catégories"
+              />
+              <Link href="/admin/products" className="text-xs text-[var(--navy)] underline underline-offset-2">
+                Gérer le catalogue
+              </Link>
+            </div>
             <div className="mt-3 max-h-[380px] overflow-auto space-y-2">
-              {products.length === 0 ? (
+              {pickerProducts.length === 0 ? (
                 <p className="rounded-md border border-border p-3 text-sm text-[var(--graphite)]/80">
                   Aucun produit enregistré. Cliquez sur <strong>+ Nouveau produit</strong> pour en créer un, ou utilisez <strong>+ Article passager</strong> pour une saisie unique.
                 </p>
               ) : (
-                products.map((p) => (
+                pickerProducts.map((p) => (
                   <div key={p.id} className="rounded-md border border-border p-3 flex items-center justify-between gap-3">
                     <div>
                       <p className="font-medium text-[var(--navy)]">{p.reference} - {p.designation}</p>
-                      <p className="text-sm text-[var(--graphite)]/75">Prix unitaire: {money(p.unitPrice)}</p>
+                      <p className="text-sm text-[var(--graphite)]/75">
+                        {p.category ? (
+                          <span className="inline-block rounded-full bg-[#f3f3f3] px-2 py-0.5 text-[10px] uppercase tracking-wide mr-2">
+                            {p.category}
+                          </span>
+                        ) : null}
+                        {p.unit ? `${p.unit} · ` : ""}
+                        HT {money(p.unitPrice)} · TTC {formatMoney(htToTtc(p.unitPrice, vatRate))}
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -827,23 +1046,24 @@ export function QuoteBuilder() {
             </p>
             <div className="mt-3 grid gap-2">
               <input
-                className="rounded-md border border-border bg-[#f9f9f9] p-2.5"
+                className={inputClass}
                 placeholder="Référence (ex: TVF, NN, …)"
                 value={newProductReference}
                 onChange={(e) => setNewProductReference(e.target.value)}
               />
               <input
-                className="rounded-md border border-border bg-[#f9f9f9] p-2.5"
+                className={inputClass}
                 placeholder="Désignation"
                 value={newProductDesignation}
                 onChange={(e) => setNewProductDesignation(e.target.value)}
               />
-              <NumberField
-                className="rounded-md border border-border bg-[#f9f9f9] p-2.5"
-                value={newProductPrice}
-                onChange={setNewProductPrice}
-                placeholder="Prix unitaire"
+              <ProductCategorySelect
+                categories={productCategories}
+                value={newProductCategory}
+                onChange={setNewProductCategory}
               />
+              <ProductUnitField value={newProductUnit} onChange={setNewProductUnit} required />
+              <HtTtcPriceFields vatRate={vatRate} valueHt={newProductPrice} onChangeHt={setNewProductPrice} />
             </div>
             <button
               type="button"
@@ -874,20 +1094,20 @@ export function QuoteBuilder() {
             </p>
             <div className="mt-3 grid gap-2">
               <input
-                className="rounded-md border border-border bg-[#f9f9f9] p-2.5"
+                className={inputClass}
                 placeholder={`Nom du ${counterpartyLabel}`}
                 value={newCustomerName}
                 onChange={(e) => setNewCustomerName(e.target.value)}
               />
               <input
-                className="rounded-md border border-border bg-[#f9f9f9] p-2.5"
+                className={inputClass}
                 placeholder={`ICE ${counterpartyLabel}`}
                 value={newCustomerIce}
                 onChange={(e) => setNewCustomerIce(e.target.value)}
               />
               <textarea
                 rows={2}
-                className="rounded-md border border-border bg-[#f9f9f9] p-2.5"
+                className={inputClass}
                 placeholder="Adresse (optionnel)"
                 value={newCustomerAddress}
                 onChange={(e) => setNewCustomerAddress(e.target.value)}
@@ -905,6 +1125,12 @@ export function QuoteBuilder() {
           </div>
         </div>
       ) : null}
+
+      <datalist id="admin-product-units">
+        {PRODUCT_UNITS.map((u) => (
+          <option key={u} value={u} />
+        ))}
+      </datalist>
     </div>
   );
 }

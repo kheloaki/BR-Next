@@ -1,0 +1,1 @@
+-- DEPRECATED — merged into 02-master-data.sql, 03-inventory.sql, 04-operations.sql

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { ensureAdminOrganizationMembership } from "@/lib/admin/organization";
 
 function getServerEnv(name: "NEXT_PUBLIC_SUPABASE_URL" | "SUPABASE_SERVICE_ROLE_KEY") {
   const value = process.env[name];
@@ -29,4 +30,5 @@ export async function ensureAdminUserRow(userId: string) {
   if (error) {
     throw new Error(error.message);
   }
+  await ensureAdminOrganizationMembership(userId);
 }
