@@ -5,11 +5,16 @@ import { csvResponse } from "@/lib/admin/csv-response";
 import {
   computeEstimatedHours,
   mapRentalContractRow,
+  RENTAL_LOCATAIRE_DEFAULT,
   resolveEquipmentName,
+  usageToDayFraction,
   type RentalBonBody,
+  type RentalBonLineBody,
 } from "@/lib/admin/map-rental-material";
+import { RENTAL_HOURS_PER_DAY } from "@/components/admin/operations-types";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
 import { opsId } from "@/lib/admin/ops-id";
+import { formatBonLocationNo } from "@/lib/admin/rental-bon-number-format";
 import { resolveBonLocationNo } from "@/lib/admin/rental-bon-number";
 import { resolveProjectFields } from "@/lib/admin/project-resolve";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -24,62 +29,93 @@ type MaterialRow = {
   owner_name: string;
 };
 
+function normalizeLines(body: RentalBonBody, materials: Map<string, MaterialRow>) {
+  const raw = body.lines ?? [];
+  return raw
+    .map((line: RentalBonLineBody) => {
+      const material = line.materialId ? materials.get(line.materialId) : undefined;
+      const usageUnit = line.usageUnit === "heure" ? ("heure" as const) : ("jour" as const);
+      return {
+        lineDate: line.lineDate?.slice(0, 10) || "",
+        materialId: line.materialId || "",
+        matricule: line.matricule?.trim() || material?.matricule || material?.reference || "",
+        designation:
+          line.designation?.trim() ||
+          material?.designation ||
+          [material?.designation, material?.sub_category].filter(Boolean).join(" — ") ||
+          "",
+        dailyRate: Number(line.dailyRate) || 0,
+        usageQty: Number(line.usageQty) || 1,
+        usageUnit,
+      };
+    })
+    .filter((l) => l.lineDate && (l.designation || l.matricule) && l.dailyRate > 0 && l.usageQty > 0);
+}
+
 function buildPayload(
   body: RentalBonBody,
   project: { project_id: string | null; site_name: string },
   bonLocationNo: string,
-  material: MaterialRow | null,
+  primaryMaterial: MaterialRow | null,
+  lines: ReturnType<typeof normalizeLines>,
 ) {
-  const dailyRate = Number(body.dailyRate) || 0;
-  const daysCount = Number(body.daysCount) || 0;
-  const transportMode = body.transportMode || "";
+  const firstLine = lines[0];
+
   const materialCategory = (
-    material?.material_category ?? body.materialCategory ?? "engin"
+    primaryMaterial?.material_category ?? body.materialCategory ?? "engin"
   ) as MaterialCategory;
-  const designation = material?.designation || body.designation?.trim() || "";
-  const equipmentName =
-    designation ||
-    material?.reference ||
-    material?.matricule ||
-    resolveEquipmentName(body);
+  const designation =
+    primaryMaterial?.designation || firstLine?.designation || body.designation?.trim() || "";
+  const dailyRate = lines.length > 0 ? lines[0]!.dailyRate : Number(body.dailyRate) || 0;
+  const daysCount =
+    lines.length > 0
+      ? lines.reduce((s, l) => s + usageToDayFraction(l.usageQty, l.usageUnit), 0)
+      : Number(body.daysCount) || 0;
+  const gasoilTotal = 0;
 
   return {
-    material_id: material?.id ?? body.materialId ?? null,
+    material_id: primaryMaterial?.id ?? firstLine?.materialId ?? body.materialId ?? null,
     project_id: project.project_id,
+    locataire: body.locataire?.trim() || RENTAL_LOCATAIRE_DEFAULT,
     material_category: materialCategory,
-    reference: material?.reference ?? body.reference?.trim() ?? "",
-    matricule: material?.matricule ?? body.matricule?.trim() ?? "",
+    reference: primaryMaterial?.reference ?? body.reference?.trim() ?? firstLine?.matricule ?? "",
+    matricule: primaryMaterial?.matricule ?? body.matricule?.trim() ?? firstLine?.matricule ?? "",
     designation,
-    sub_category: material?.sub_category ?? body.subCategory?.trim() ?? "",
-    owner_name: material?.owner_name ?? body.ownerName?.trim() ?? "",
-    employee_id: body.employeeId?.trim() || null,
+    sub_category: primaryMaterial?.sub_category ?? body.subCategory?.trim() ?? "",
+    owner_name: body.ownerName?.trim() || primaryMaterial?.owner_name || "",
+    employee_id: null,
     driver_name: body.driverName?.trim() || "",
+    driver_contact_id: body.driverContactId?.trim() || null,
     daily_rate: dailyRate,
     days_count: daysCount,
-    transport_mode: transportMode,
-    transport_price: transportMode === "depart" ? Number(body.transportPrice) || 0 : 0,
-    equipment_name: equipmentName,
+    line_date: firstLine?.lineDate || null,
+    gasoil: gasoilTotal,
+    bon_lines: lines,
+    transport_mode: "",
+    transport_price: 0,
+    equipment_name: designation || resolveEquipmentName(body),
     contract_no: bonLocationNo,
-    hourly_rate: dailyRate > 0 ? dailyRate / 9 : Number(body.hourlyRate) || 0,
+    hourly_rate: dailyRate > 0 ? dailyRate / RENTAL_HOURS_PER_DAY : Number(body.hourlyRate) || 0,
     hours_worked: daysCount > 0 ? computeEstimatedHours(daysCount) : Number(body.hoursWorked) || 0,
     status: body.status || "active",
     updated_at: new Date().toISOString(),
   };
 }
 
-async function loadMaterial(
+async function loadMaterials(
   supabase: ReturnType<typeof getSupabaseAdminClient>,
   organizationId: string,
-  materialId: string,
+  ids: string[],
 ) {
-  const { data, error } = await supabase
+  const map = new Map<string, MaterialRow>();
+  if (ids.length === 0) return map;
+  const { data } = await supabase
     .from("admin_rental_materials")
     .select("id, material_category, reference, matricule, designation, sub_category, owner_name")
-    .eq("id", materialId)
     .eq("organization_id", organizationId)
-    .single();
-  if (error || !data) return null;
-  return data as MaterialRow;
+    .in("id", ids);
+  for (const row of data ?? []) map.set(row.id as string, row as MaterialRow);
+  return map;
 }
 
 export async function GET(request: Request) {
@@ -101,30 +137,20 @@ export async function GET(request: Request) {
       "bons-location.csv",
       [
         "N° bon location",
-        "Catégorie",
-        "Chantier",
-        "Réf./Matricule",
-        "Désignation",
-        "Propriétaire",
-        "Chauffeur",
-        "Tarif/jr",
-        "Jr",
-        "Heures est.",
-        "Transport",
+        "Locataire",
+        "Loueur",
+        "Lieu travaux",
+        "Conducteur",
+        "Lignes",
         "Total MAD",
       ],
       rows.map((r) => [
         r.bonLocationNo,
-        MATERIAL_CATEGORY_LABELS[r.materialCategory],
-        r.projectId || "",
-        r.reference || r.matricule,
-        r.designation,
+        r.locataire,
         r.ownerName,
+        r.projectId || "",
         r.driverName,
-        String(r.dailyRate),
-        String(r.daysCount),
-        String(r.estimatedHours),
-        r.transportMode === "depart" ? `Départ ${r.transportPrice}` : r.transportMode || "—",
+        String(r.bonLines.length || r.daysCount),
         String(r.totalMad),
       ]),
     );
@@ -139,32 +165,35 @@ export async function POST(request: Request) {
   const { userId, organizationId } = auth;
   const body = (await request.json()) as RentalBonBody;
 
+  if (!body.projectId?.trim()) {
+    return NextResponse.json({ error: "Lieu de travaux (chantier) requis" }, { status: 400 });
+  }
+  if (!body.driverName?.trim() && !body.driverContactId?.trim()) {
+    return NextResponse.json({ error: "Conducteur requis" }, { status: 400 });
+  }
+
   const supabase = getSupabaseAdminClient();
-  let materialId = body.materialId?.trim() || "";
-  let material: MaterialRow | null = null;
+  const materialIds = [
+    ...new Set(
+      (body.lines ?? [])
+        .map((l) => l.materialId?.trim())
+        .filter(Boolean) as string[],
+    ),
+  ];
+  const materialsMap = await loadMaterials(supabase, organizationId, materialIds);
+  const lines = normalizeLines(body, materialsMap);
 
-  if (body.id && !materialId) {
-    const { data: existing } = await supabase
-      .from("admin_rental_contracts")
-      .select("material_id")
-      .eq("id", String(body.id))
-      .eq("organization_id", organizationId)
-      .single();
-    materialId = (existing?.material_id as string) || "";
+  if (lines.length === 0) {
+    return NextResponse.json({ error: "Au moins une ligne journalière valide requise" }, { status: 400 });
   }
 
-  if (materialId) {
-    material = await loadMaterial(supabase, organizationId, materialId);
-    if (!material) {
-      return NextResponse.json({ error: "Matériel introuvable" }, { status: 400 });
-    }
-  } else if (!body.id) {
-    return NextResponse.json({ error: "Sélectionnez un matériel" }, { status: 400 });
-  }
+  const primaryMaterial = lines[0]?.materialId
+    ? materialsMap.get(lines[0].materialId) ?? null
+    : null;
 
   const project = await resolveProjectFields(supabase, organizationId, body.projectId);
 
-  let bonLocationNo = (body.bonLocationNo ?? body.contractNo)?.trim() || "";
+  let bonLocationNo = formatBonLocationNo(body.bonLocationNo ?? body.contractNo ?? "");
   if (!bonLocationNo) {
     if (body.id) {
       const { data: existing } = await supabase
@@ -179,7 +208,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const payload = buildPayload(body, project, bonLocationNo, material);
+  const payload = buildPayload(body, project, bonLocationNo, primaryMaterial, lines);
 
   const result = body.id
     ? await supabase

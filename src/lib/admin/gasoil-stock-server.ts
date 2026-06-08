@@ -92,6 +92,63 @@ function stockQtyDelta(bonType: GasoilBonType, litres: number) {
   return bonType === "achat" ? n : -n;
 }
 
+/** Reverse stock movement when a bon is deleted. */
+export async function reverseGasoilStockForBon(
+  supabase: Supabase,
+  organizationId: string,
+  userId: string,
+  params: {
+    bonType: GasoilBonType;
+    litres: number;
+    projectId?: string | null;
+    bonNumber: string;
+  },
+) {
+  const litres = Math.max(0, Number(params.litres) || 0);
+  if (litres <= 0) return null;
+
+  const stock = await getGasoilStockItem(supabase, organizationId);
+  if (!stock) return null;
+
+  const reverseType: GasoilBonType = params.bonType === "achat" ? "sortie" : "achat";
+  const delta = stockQtyDelta(reverseType, litres);
+  const newQty = Math.max(0, stock.qty + delta);
+
+  const project = await resolveProjectFields(supabase, organizationId, params.projectId);
+  const movementType = reverseType === "achat" ? "entry" : "exit";
+
+  const { error: movErr } = await supabase.from("admin_stock_movements").insert({
+    id: opsId("mov"),
+    user_id: userId,
+    organization_id: organizationId,
+    item_id: stock.id,
+    movement_type: movementType,
+    movement_date: new Date().toISOString().slice(0, 10),
+    reference: stock.reference,
+    designation: stock.designation,
+    category: GASOIL_STOCK_CATEGORY,
+    qty: litres,
+    unit_price: stock.unitPrice,
+    supplier: "",
+    delivery_note: `Annulation ${params.bonNumber}`,
+    project_id: project.project_id,
+    site_name: project.site_name,
+    depot_id: null,
+    notes: `Annulation bon ${params.bonNumber}`,
+  });
+
+  if (movErr) throw new Error(movErr.message);
+
+  const { error: updErr } = await supabase
+    .from("admin_stock_items")
+    .update({ qty: newQty, updated_at: new Date().toISOString() })
+    .eq("id", stock.id)
+    .eq("organization_id", organizationId);
+
+  if (updErr) throw new Error(updErr.message);
+  return { newQty };
+}
+
 /** Adjust gasoil stock when a bon d'achat or bon de sortie is recorded. */
 export async function applyGasoilStockForBon(
   supabase: Supabase,
@@ -105,18 +162,37 @@ export async function applyGasoilStockForBon(
     supplier?: string;
     beneficiary?: string;
     bonNumber: string;
+    bonDate?: string;
+    unitPricePerLitre?: number;
   },
-): Promise<{ newQty: number } | null> {
+): Promise<{ newQty: number; unitPricePerLitre: number } | null> {
   const litres = Math.max(0, Number(params.litres) || 0);
   if (litres <= 0) return null;
 
-  const stock = await getGasoilStockItem(supabase, organizationId);
-  if (!stock) return null;
+  let stock = await getGasoilStockItem(supabase, organizationId);
+  if (!stock) {
+    stock = await getOrCreateGasoilStockItem(supabase, organizationId, userId);
+  }
+
+  const purchasePrice =
+    params.bonType === "achat" && params.unitPricePerLitre != null && params.unitPricePerLitre > 0
+      ? params.unitPricePerLitre
+      : null;
+  const movementUnitPrice = purchasePrice ?? stock.unitPrice;
 
   const delta = stockQtyDelta(params.bonType, litres);
   const newQty = Math.max(0, stock.qty + delta);
   if (params.bonType === "sortie" && stock.qty < litres) {
     throw new Error(`Stock insuffisant (${stock.qty.toLocaleString("fr-MA")} L disponibles).`);
+  }
+
+  if (purchasePrice != null) {
+    const { error: priceErr } = await supabase
+      .from("admin_stock_items")
+      .update({ unit_price: purchasePrice, updated_at: new Date().toISOString() })
+      .eq("id", stock.id)
+      .eq("organization_id", organizationId);
+    if (priceErr) throw new Error(priceErr.message);
   }
 
   const project = await resolveProjectFields(supabase, organizationId, params.projectId);
@@ -135,12 +211,12 @@ export async function applyGasoilStockForBon(
     organization_id: organizationId,
     item_id: stock.id,
     movement_type: movementType,
-    movement_date: new Date().toISOString().slice(0, 10),
+    movement_date: params.bonDate?.trim() || new Date().toISOString().slice(0, 10),
     reference: stock.reference,
     designation: stock.designation,
     category: GASOIL_STOCK_CATEGORY,
     qty: litres,
-    unit_price: stock.unitPrice,
+    unit_price: movementUnitPrice,
     supplier: params.supplier?.trim() || "",
     delivery_note: params.deliveryNote?.trim() || params.bonNumber,
     project_id: project.project_id,
@@ -158,7 +234,7 @@ export async function applyGasoilStockForBon(
     .eq("organization_id", organizationId);
 
   if (updErr) throw new Error(updErr.message);
-  return { newQty };
+  return { newQty, unitPricePerLitre: movementUnitPrice };
 }
 
 export async function assertNotGasoilStockItem(

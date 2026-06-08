@@ -5,18 +5,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import { StockStatusBadge } from "@/components/admin/StatusBadge";
-import { StockSortieMagasinPanel } from "@/components/admin/StockSortieMagasinPanel";
+import { StockMovementOrigin } from "@/components/admin/StockMovementOrigin";
 import { StockMovementHistoryPanel } from "@/components/admin/StockMovementHistoryPanel";
-import { DeliveryNoteSelect } from "@/components/admin/DeliveryNoteSelect";
-import { DepotSelect } from "@/components/admin/DepotSelect";
-import { ProjectSelect } from "@/components/admin/ProjectSelect";
 import { useOpsReferential } from "@/components/admin/useOpsReferential";
 import {
   STOCK_MOVEMENT_LABELS,
-  STOCK_UNITS,
   type StockItem,
   type StockMovement,
-  type StockMovementType,
 } from "@/components/admin/operations-types";
 import {
   btnDanger,
@@ -24,7 +19,6 @@ import {
   btnSecondary,
   formGridClass,
   inputClass,
-  inventoryTableClass,
   labelClass,
   inventoryTdClass,
   inventoryTdNumClass,
@@ -50,13 +44,14 @@ export function StockManager() {
   const [tab, setTab] = useState("inventory");
   const [items, setItems] = useState<StockItem[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
-  const { projects, depots, equipment, employees, refresh: refreshRef } = useOpsReferential();
+  const { projects, depots, equipment, refresh: refreshRef } = useOpsReferential();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editItemId, setEditItemId] = useState<string | null>(null);
+  const [editProductId, setEditProductId] = useState<string | null>(null);
   const [historyItemFilter, setHistoryItemFilter] = useState("");
 
   const [ref, setRef] = useState("");
@@ -67,15 +62,6 @@ export function StockManager() {
   const [qty, setQty] = useState(0);
   const [minQty, setMinQty] = useState(0);
   const [unitPrice, setUnitPrice] = useState(0);
-
-  const [movItemId, setMovItemId] = useState("");
-  const [movType, setMovType] = useState<StockMovementType>("entry");
-  const [movQty, setMovQty] = useState(0);
-  const [movProjectId, setMovProjectId] = useState("");
-  const [movDepotId, setMovDepotId] = useState("");
-  const [movSupplier, setMovSupplier] = useState("");
-  const [movBl, setMovBl] = useState("");
-  const [movNotes, setMovNotes] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -121,9 +107,14 @@ export function StockManager() {
     [items],
   );
 
+  const traitementMovements = useMemo(
+    () => movements.filter((m) => m.traitementLink != null).length,
+    [movements],
+  );
+
   async function saveItem() {
-    if (!designation.trim()) {
-      toast.error("La désignation est obligatoire.");
+    if (!editItemId) {
+      toast.error("Créez l'article dans Carnet → Produits ; l'inventaire sera créé automatiquement.");
       return;
     }
     setSaving(true);
@@ -131,15 +122,10 @@ export function StockManager() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        id: editItemId ?? undefined,
-        reference: ref.trim(),
-        designation: designation.trim(),
-        category: category.trim(),
-        articleCode: articleCode.trim(),
-        unit: unit.trim() || "PIECE",
+        id: editItemId,
         qty,
         minQty,
-        unitPrice,
+        articleCode,
       }),
     });
     setSaving(false);
@@ -147,13 +133,14 @@ export function StockManager() {
       toast.error(await readApiError(res));
       return;
     }
-    toast.success(editItemId ? "Article mis à jour." : "Article ajouté au stock.");
+    toast.success("Inventaire mis à jour.");
     resetItemForm();
     await load();
   }
 
   function resetItemForm() {
     setEditItemId(null);
+    setEditProductId(null);
     setRef("");
     setDesignation("");
     setCategory("");
@@ -167,6 +154,7 @@ export function StockManager() {
 
   function openEditItem(item: StockItem) {
     setEditItemId(item.id);
+    setEditProductId(item.productId ?? null);
     setRef(item.reference);
     setDesignation(item.designation);
     setCategory(item.category);
@@ -196,42 +184,6 @@ export function StockManager() {
     });
   }
 
-  async function submitMovement() {
-    if (!movItemId) {
-      toast.error("Sélectionnez un article.");
-      return;
-    }
-    if (movQty <= 0) {
-      toast.error("Indiquez une quantité valide.");
-      return;
-    }
-    setSaving(true);
-    const res = await fetch("/api/admin/stock/movements", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        itemId: movItemId,
-        movementType: movType,
-        qty: movQty,
-        projectId: movProjectId,
-        depotId: movDepotId,
-        supplier: movSupplier,
-        deliveryNote: movBl,
-        notes: movNotes,
-      }),
-    });
-    setSaving(false);
-    if (!res.ok) {
-      toast.error(await readApiError(res));
-      return;
-    }
-    toast.success("Mouvement enregistré — quantités mises à jour.");
-    setMovQty(0);
-    setMovNotes("");
-    await load();
-    setTab("inventory");
-  }
-
   async function removeItem(item: StockItem) {
     if (!(await confirmDelete(`${item.reference} — ${item.designation}`))) return;
     const res = await fetch(`/api/admin/stock/items?id=${encodeURIComponent(item.id)}`, {
@@ -249,12 +201,12 @@ export function StockManager() {
     <div className={moduleWrap}>
       <OpsModuleHeader
         title="Gestion de stock"
-        description="Pièces et consommables (hors gasoil — voir Carburant → Stock gasoil)."
+        description="Inventaire lié au catalogue articles — ajustez quantités et seuils. Créez les articles dans Carnet → Produits."
         exportHref="/api/admin/stock/items?format=csv"
         actions={
-          <button type="button" className={btnPrimary} onClick={openAddForm}>
-            Nouvel article
-          </button>
+          <Link href="/admin/products" className={btnPrimary}>
+            Catalogue articles
+          </Link>
         }
       />
 
@@ -270,7 +222,11 @@ export function StockManager() {
               accent: alerts.length > 0 ? "alert" : undefined,
             },
             { label: "Valeur stock", value: `${stockValue.toLocaleString("fr-MA")} MAD` },
-            { label: "Mouvements", value: String(movements.length), hint: "voir historique" },
+            {
+              label: "Via traitements",
+              value: String(traitementMovements),
+              hint: `${movements.length} mouvements au total`,
+            },
           ]}
         />
       ) : null}
@@ -278,9 +234,7 @@ export function StockManager() {
       <AdminTabs
         tabs={[
           { id: "inventory", label: "Inventaire" },
-          { id: "sortie", label: "Sortie magasin", badge: movements.filter((m) => m.movementType === "exit").length || undefined },
           { id: "history", label: "Historique", badge: movements.length || undefined },
-          { id: "movement", label: "Saisir mouvement" },
           { id: "alerts", label: "Alertes", badge: alerts.length },
         ]}
         active={tab}
@@ -349,8 +303,16 @@ export function StockManager() {
                       <td className={inventoryTdClass}>
                         <div className="flex flex-wrap gap-1">
                           <button type="button" className={btnSecondary} onClick={() => openEditItem(item)}>
-                            Modifier
+                            Inventaire
                           </button>
+                          {item.productId ? (
+                            <Link
+                              href={`/admin/products?edit=${encodeURIComponent(item.productId)}`}
+                              className={btnSecondary}
+                            >
+                              Article
+                            </Link>
+                          ) : null}
                           <button type="button" className={btnSecondary} onClick={() => openHistoryForItem(item.id)}>
                             Historique
                             {(movementCountByItem.get(item.id) ?? 0) > 0
@@ -369,14 +331,60 @@ export function StockManager() {
             )}
           </AdminInventoryCard>
 
+          <div className="mt-4">
+          <AdminFormCard
+            title="Derniers mouvements de stock"
+            hint="Entrées et sorties via traitements (BL/BR) — voir l'onglet Historique pour le détail complet."
+            footer={
+              movements.length > 0 ? (
+                <button type="button" className={btnSecondary} onClick={() => setTab("history")}>
+                  Voir tout l&apos;historique ({movements.length})
+                </button>
+              ) : undefined
+            }
+          >
+            {movements.length === 0 ? (
+              <p className="text-sm text-[var(--graphite)]/70">
+                Aucun mouvement encore. Créez un traitement achat ou vente et enregistrez le BL pour mettre à jour
+                les quantités.
+              </p>
+            ) : (
+              <AdminTableWrap>
+                <thead>
+                  <tr>
+                    <th className={thClass}>Date</th>
+                    <th className={thClass}>Article</th>
+                    <th className={thClass}>Type</th>
+                    <th className={thClass}>Origine</th>
+                    <th className={thClass}>Qté</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {movements.slice(0, 8).map((m) => (
+                    <tr key={m.id} className={rowHover}>
+                      <td className={tdClass}>{m.movementDate}</td>
+                      <td className={tdClass}>{m.designation}</td>
+                      <td className={tdClass}>{STOCK_MOVEMENT_LABELS[m.movementType]}</td>
+                      <td className={tdClass}>
+                        <StockMovementOrigin link={m.traitementLink} />
+                      </td>
+                      <td className={tdClass}>{m.qty}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </AdminTableWrap>
+            )}
+          </AdminFormCard>
+          </div>
+
           {showAddForm ? (
             <div id="stock-add-form" className="mt-4">
             <AdminFormCard
-              title={editItemId ? "Modifier l'article" : "Nouvel article"}
+              title="Ajuster l'inventaire"
               hint={
-                editItemId
-                  ? "Les mouvements passés ne sont pas modifiés — ajustez la quantité ici ou via l'historique."
-                  : "Le seuil minimum déclenche une alerte dans l'onglet Alertes."
+                editProductId
+                  ? "Référence, désignation et prix : bouton Article ou Carnet → Produits."
+                  : "Référence et désignation se modifient dans Carnet → Produits."
               }
               footer={
                 <div className="flex flex-wrap gap-2">
@@ -390,9 +398,26 @@ export function StockManager() {
               }
             >
               <div className={formGridClass}>
+                {editProductId ? (
+                  <div className="sm:col-span-2 rounded-md border border-border bg-[var(--background)]/60 px-3 py-2 text-sm">
+                    <p className="font-medium text-[var(--navy)]">
+                      {ref || "—"} · {designation}
+                    </p>
+                    <p className="text-xs text-[var(--graphite)]/70 mt-1">
+                      {category || "Sans catégorie"} · {unit} · {unitPrice.toLocaleString("fr-MA")} MAD HT
+                    </p>
+                    <Link
+                      href={`/admin/products?edit=${encodeURIComponent(editProductId)}`}
+                      className="mt-2 inline-block text-xs underline underline-offset-2 text-[var(--navy)]"
+                    >
+                      Modifier l&apos;article
+                    </Link>
+                  </div>
+                ) : (
+                  <>
                 <div>
                   <p className={labelClass}>Référence</p>
-                  <input className={`${inputClass} mt-1`} value={ref} onChange={(e) => setRef(e.target.value)} />
+                  <input className={`${inputClass} mt-1`} value={ref} onChange={(e) => setRef(e.target.value)} disabled />
                 </div>
                 <div className="sm:col-span-2">
                   <p className={labelClass}>Désignation *</p>
@@ -400,25 +425,14 @@ export function StockManager() {
                     className={`${inputClass} mt-1`}
                     value={designation}
                     onChange={(e) => setDesignation(e.target.value)}
+                    disabled
                   />
                 </div>
-                <div>
-                  <p className={labelClass}>Catégorie</p>
-                  <input className={`${inputClass} mt-1`} value={category} onChange={(e) => setCategory(e.target.value)} />
-                </div>
+                  </>
+                )}
                 <div>
                   <p className={labelClass}>Code article</p>
                   <input className={`${inputClass} mt-1`} value={articleCode} onChange={(e) => setArticleCode(e.target.value)} />
-                </div>
-                <div>
-                  <p className={labelClass}>Unité</p>
-                  <select className={`${inputClass} mt-1`} value={unit} onChange={(e) => setUnit(e.target.value)}>
-                    {STOCK_UNITS.map((u) => (
-                      <option key={u} value={u}>
-                        {u}
-                      </option>
-                    ))}
-                  </select>
                 </div>
                 <div>
                   <p className={labelClass}>Qté en stock</p>
@@ -428,27 +442,11 @@ export function StockManager() {
                   <p className={labelClass}>Seuil minimum</p>
                   <input type="number" min={0} className={`${inputClass} mt-1`} value={minQty || ""} onChange={(e) => setMinQty(Number(e.target.value) || 0)} />
                 </div>
-                <div>
-                  <p className={labelClass}>Prix unitaire (MAD)</p>
-                  <input type="number" min={0} className={`${inputClass} mt-1`} value={unitPrice || ""} onChange={(e) => setUnitPrice(Number(e.target.value) || 0)} />
-                </div>
               </div>
             </AdminFormCard>
             </div>
           ) : null}
         </>
-      )}
-
-      {!loading && tab === "sortie" && (
-        <StockSortieMagasinPanel
-          items={items}
-          movements={movements}
-          projects={projects}
-          saving={saving}
-          setSaving={setSaving}
-          onChanged={load}
-          toast={toast}
-        />
       )}
 
       {!loading && tab === "history" && (
@@ -464,69 +462,6 @@ export function StockManager() {
           onChanged={load}
           toast={toast}
         />
-      )}
-
-      {!loading && tab === "movement" && (
-        <div className="grid lg:grid-cols-2 gap-4">
-          <AdminFormCard
-            title="Enregistrer un mouvement"
-            hint="La quantité en stock est recalculée automatiquement."
-            footer={
-              <button type="button" className={btnPrimary} disabled={saving} onClick={() => void submitMovement()}>
-                {saving ? "Enregistrement…" : "Valider le mouvement"}
-              </button>
-            }
-          >
-            <select className={inputClass} value={movItemId} onChange={(e) => setMovItemId(e.target.value)}>
-              <option value="">Article…</option>
-              {items.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.reference} — {i.designation} (stock: {i.qty})
-                </option>
-              ))}
-            </select>
-            <select className={inputClass} value={movType} onChange={(e) => setMovType(e.target.value as StockMovementType)}>
-              {(Object.keys(STOCK_MOVEMENT_LABELS) as StockMovementType[]).map((k) => (
-                <option key={k} value={k}>
-                  {STOCK_MOVEMENT_LABELS[k]}
-                </option>
-              ))}
-            </select>
-            <input type="number" min={0} className={inputClass} placeholder="Quantité" value={movQty || ""} onChange={(e) => setMovQty(Number(e.target.value) || 0)} />
-            <DepotSelect depots={depots} value={movDepotId} onChange={setMovDepotId} placeholder="Dépôt" />
-            <ProjectSelect projects={projects} value={movProjectId} onChange={setMovProjectId} placeholder="Projet (optionnel)" />
-            <input className={inputClass} placeholder="Fournisseur (optionnel)" value={movSupplier} onChange={(e) => setMovSupplier(e.target.value)} />
-            <DeliveryNoteSelect value={movBl} onChange={setMovBl} label="N° bon de livraison" />
-            <textarea className={inputClass} placeholder="Notes" rows={2} value={movNotes} onChange={(e) => setMovNotes(e.target.value)} />
-          </AdminFormCard>
-
-          <AdminFormCard title="Derniers mouvements" hint="15 opérations les plus récentes">
-            {movements.length === 0 ? (
-              <p className="text-sm text-[var(--graphite)]/70">Aucun mouvement enregistré.</p>
-            ) : (
-              <AdminTableWrap>
-                <thead>
-                  <tr>
-                    <th className={thClass}>Date</th>
-                    <th className={thClass}>Article</th>
-                    <th className={thClass}>Type</th>
-                    <th className={thClass}>Qté</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {movements.slice(0, 15).map((m) => (
-                    <tr key={m.id} className={rowHover}>
-                      <td className={tdClass}>{m.movementDate}</td>
-                      <td className={tdClass}>{m.designation}</td>
-                      <td className={tdClass}>{STOCK_MOVEMENT_LABELS[m.movementType]}</td>
-                      <td className={tdClass}>{m.qty}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </AdminTableWrap>
-            )}
-          </AdminFormCard>
-        </div>
       )}
 
       {!loading && tab === "alerts" && (

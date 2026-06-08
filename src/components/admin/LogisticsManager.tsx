@@ -54,6 +54,11 @@ export function LogisticsManager() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "new") setTab("new");
+  }, [searchParams]);
+
   const totalKm = rows.reduce((a, r) => a + r.distanceKm, 0);
   const inTransit = rows.filter((r) => r.status === "in_transit").length;
 

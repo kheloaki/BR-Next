@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
+import { traitementStockHref } from "@/lib/admin/stock-traitement-link";
 import { HtTtcPriceFields } from "@/components/admin/HtTtcPriceFields";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
 import type { AdminProject, StockItem, StockMovement } from "@/components/admin/operations-types";
@@ -230,7 +232,11 @@ export function StockSortieMagasinPanel({
         onSearchChange={setSearch}
         searchPlaceholder="Référence, désignation, affectation, demandeur…"
         actions={
-          <button
+          <>
+            <p className="text-xs text-[var(--graphite)]/70 mr-2 self-center hidden lg:block">
+              Sorties internes uniquement — ventes client via Traitement vente → BL
+            </p>
+            <button
             type="button"
             className={btnPrimary}
             onClick={() => {
@@ -240,6 +246,7 @@ export function StockSortieMagasinPanel({
           >
             + Nouvelle sortie
           </button>
+          </>
         }
       >
         {filtered.length === 0 ? (
@@ -294,12 +301,23 @@ export function StockSortieMagasinPanel({
                   </td>
                   <td className={tdClass}>
                     <div className="flex flex-wrap gap-1">
-                      <button type="button" className={btnSecondary} onClick={() => openEdit(m)}>
-                        Modif.
-                      </button>
-                      <button type="button" className={btnDanger} onClick={() => void remove(m)}>
-                        Suppr.
-                      </button>
+                      {m.traitementLink ? (
+                        <Link
+                          href={traitementStockHref(m.traitementLink)}
+                          className={btnSecondary}
+                        >
+                          Traitement
+                        </Link>
+                      ) : (
+                        <>
+                          <button type="button" className={btnSecondary} onClick={() => openEdit(m)}>
+                            Modif.
+                          </button>
+                          <button type="button" className={btnDanger} onClick={() => void remove(m)}>
+                            Suppr.
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

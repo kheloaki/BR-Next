@@ -10,7 +10,7 @@ export const RENTAL_NAV_ITEMS: {
 }[] = [
   {
     href: "/admin/equipment-rental/materials",
-    label: "Matériel location",
+    label: "Catalogue matériel",
     section: "rental-materials",
     view: "materials",
   },
@@ -28,11 +28,11 @@ export const RENTAL_VIEW_META: Record<
 > = {
   materials: {
     title: "Matériel location",
-    description: "Catalogue engins, camions, voitures et groupes électrogènes.",
+    description: "Fiches matériel par catégorie — chantier, tarif journalier (9 h), chauffeur et transport.",
   },
   bons: {
     title: "Bons location",
-    description: "Bons journaliers liés au matériel du catalogue.",
+    description: "Bon de location avec conducteur — lieu de travaux, usage jr/h (1 jr = 9 h) et tarif.",
     exportHref: "/api/admin/rentals?format=csv",
   },
 };

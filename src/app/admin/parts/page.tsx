@@ -5,6 +5,7 @@ import { requireAdminPage } from "@/lib/admin/admin-page-auth";
 
 export const metadata: Metadata = {
   title: "Pièces & lubrifiants",
+  description: "Consommation pièces et lubrifiants par engin — BARANE INVEST.",
   robots: { index: false, follow: false },
 };
 

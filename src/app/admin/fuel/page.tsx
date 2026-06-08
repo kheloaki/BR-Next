@@ -10,7 +10,7 @@ export default async function AdminFuelIndexPage({
 }) {
   await requireAdminPage("/admin/fuel");
   const { tab, project } = await searchParams;
-  const base = (tab && FUEL_TAB_REDIRECT[tab]) || "/admin/fuel/journal";
+  const base = (tab && FUEL_TAB_REDIRECT[tab]) || "/admin/fuel/stock";
   const qs = project ? `?project=${encodeURIComponent(project)}` : "";
   redirect(`${base}${qs}`);
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
+import { AdminComingSoonPanel } from "@/components/admin/AdminComingSoonPanel";
 import { AdminShell } from "@/components/admin/AdminShell";
-import { LogisticsManager } from "@/components/admin/LogisticsManager";
 import { requireAdminPage } from "@/lib/admin/admin-page-auth";
 
 export const metadata: Metadata = {
@@ -12,7 +12,7 @@ export default async function AdminLogisticsPage() {
   await requireAdminPage("/admin/logistics");
   return (
     <AdminShell active="logistics">
-      <LogisticsManager />
+      <AdminComingSoonPanel title="Logistique & voyages" />
     </AdminShell>
   );
 }

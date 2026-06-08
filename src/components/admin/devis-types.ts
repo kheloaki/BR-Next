@@ -24,11 +24,17 @@ export type Customer = {
 
 export type Supplier = {
   id: string;
+  /** Libellé affiché (nom fournisseur, société, ou les deux). */
   name: string;
+  supplierName: string;
+  companyName: string;
   ice: string;
   city?: string;
   address?: string;
   contact?: string;
+  bankName?: string;
+  rib?: string;
+  supplyTypes?: import("@/lib/admin/supplier-types").SupplierSupplyType[];
 };
 
 export type CounterpartyKind = "client" | "supplier";
@@ -91,6 +97,12 @@ export type QuoteDraft = {
   deposit: number;
   items: LineItem[];
   includeCachet?: boolean;
+  /** Lien traitement achat/vente */
+  traitementId?: string;
+  traitementStep?: import("@/lib/admin/traitement-types").TraitementStepKey;
+  traitementType?: import("@/lib/admin/traitement-types").TraitementType;
+  traitementNumber?: string;
+  projectId?: string;
 };
 
 export type DevisTemplate = {

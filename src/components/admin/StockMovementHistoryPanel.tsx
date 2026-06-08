@@ -1,7 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { DeliveryNoteSelect } from "@/components/admin/DeliveryNoteSelect";
+import { StockMovementOrigin } from "@/components/admin/StockMovementOrigin";
+import { traitementStockHref } from "@/lib/admin/stock-traitement-link";
 import { DepotSelect } from "@/components/admin/DepotSelect";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
 import type { AdminDepot, AdminProject, StockItem, StockMovement, StockMovementType } from "@/components/admin/operations-types";
@@ -212,6 +215,7 @@ export function StockMovementHistoryPanel({
                 <th className={thClass}>Réf.</th>
                 <th className={thClass}>Article</th>
                 <th className={thClass}>Type</th>
+                <th className={thClass}>Origine</th>
                 <th className={thClass}>Qté</th>
                 <th className={thClass}>Unité</th>
                 <th className={`${thClass} text-right`}>Stock final</th>
@@ -233,6 +237,9 @@ export function StockMovementHistoryPanel({
                   <td className={`${tdClass} font-mono text-xs`}>{m.reference}</td>
                   <td className={tdClass}>{m.designation}</td>
                   <td className={tdClass}>{STOCK_MOVEMENT_LABELS[m.movementType]}</td>
+                  <td className={tdClass}>
+                    <StockMovementOrigin link={m.traitementLink} />
+                  </td>
                   <td className={`${tdClass} tabular-nums`}>{fmtQty(m.qty)}</td>
                   <td className={tdClass}>{m.unit || "—"}</td>
                   <td
@@ -254,12 +261,20 @@ export function StockMovementHistoryPanel({
                   </td>
                   <td className={tdClass}>
                     <div className="flex flex-wrap gap-1">
-                      <button type="button" className={btnSecondary} onClick={() => openEdit(m)}>
-                        Modifier
-                      </button>
-                      <button type="button" className={btnDanger} onClick={() => void removeMovement(m)}>
-                        Suppr.
-                      </button>
+                      {m.traitementLink ? (
+                        <Link href={traitementStockHref(m.traitementLink)} className={btnSecondary}>
+                          Traitement
+                        </Link>
+                      ) : (
+                        <>
+                          <button type="button" className={btnSecondary} onClick={() => openEdit(m)}>
+                            Modifier
+                          </button>
+                          <button type="button" className={btnDanger} onClick={() => void removeMovement(m)}>
+                            Suppr.
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -272,18 +287,34 @@ export function StockMovementHistoryPanel({
       {editing ? (
         <AdminFormCard
           title={`Modifier mouvement — ${editing.reference}`}
-          hint={`${editing.designation} · enregistré le ${new Date(editing.createdAt).toLocaleDateString("fr-MA")}`}
+          hint={
+            editing.traitementLink
+              ? "Ce mouvement est lié à un traitement — modification impossible depuis le stock."
+              : `${editing.designation} · enregistré le ${new Date(editing.createdAt).toLocaleDateString("fr-MA")}`
+          }
           footer={
-            <div className="flex flex-wrap gap-2">
+            editing.traitementLink ? (
               <button type="button" className={btnSecondary} onClick={closeEdit}>
-                Annuler
+                Fermer
               </button>
-              <button type="button" className={btnPrimary} disabled={saving} onClick={() => void saveEdit()}>
-                {saving ? "Enregistrement…" : "Enregistrer les modifications"}
-              </button>
-            </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className={btnSecondary} onClick={closeEdit}>
+                  Annuler
+                </button>
+                <button type="button" className={btnPrimary} disabled={saving} onClick={() => void saveEdit()}>
+                  {saving ? "Enregistrement…" : "Enregistrer les modifications"}
+                </button>
+              </div>
+            )
           }
         >
+          {editing.traitementLink ? (
+            <p className="text-sm text-[var(--graphite)]/80">
+              Ouvrez le traitement source pour corriger un BL/BR.{" "}
+              <StockMovementOrigin link={editing.traitementLink} />
+            </p>
+          ) : (
           <div className={`${formGridClass} max-w-3xl`}>
             <div>
               <p className={labelClass}>Type</p>
@@ -414,6 +445,7 @@ export function StockMovementHistoryPanel({
               />
             </div>
           </div>
+          )}
         </AdminFormCard>
       ) : null}
     </div>

@@ -1,15 +1,9 @@
 import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 
-export async function requireAdminPage(redirectPath: string) {
-  let userId: string | null = null;
-  try {
-    ({ userId } = await auth());
-  } catch {
-    redirect(`/sign-in?redirect_url=${encodeURIComponent(redirectPath)}`);
-  }
+export async function requireAdminPage(redirectPath: string): Promise<string> {
+  const { userId, redirectToSignIn } = await auth();
   if (!userId) {
-    redirect(`/sign-in?redirect_url=${encodeURIComponent(redirectPath)}`);
+    return redirectToSignIn({ returnBackUrl: redirectPath }) as never;
   }
   return userId;
 }

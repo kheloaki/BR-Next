@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
+import { AdminComingSoonPanel } from "@/components/admin/AdminComingSoonPanel";
 import { AdminShell } from "@/components/admin/AdminShell";
-import { ProductionManager } from "@/components/admin/ProductionManager";
 import { requireAdminPage } from "@/lib/admin/admin-page-auth";
 
 export const metadata: Metadata = {
@@ -13,9 +12,7 @@ export default async function AdminProductionPage() {
   await requireAdminPage("/admin/production");
   return (
     <AdminShell active="production">
-      <Suspense fallback={<p className="text-sm">Chargement…</p>}>
-        <ProductionManager />
-      </Suspense>
+      <AdminComingSoonPanel title="Production" />
     </AdminShell>
   );
 }

@@ -5,7 +5,7 @@ import type { AdminEmployee, AdminProject, PersonnelCategory } from "@/component
 import { btnPrimary, btnSecondary, inputClass, labelClass } from "@/components/admin/admin-form-styles";
 import { PersonnelCategorySelectWithAdd } from "@/components/admin/PersonnelCategorySelectWithAdd";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
-import { AdminDataSheet } from "@/components/admin/ux/AdminDataSheet";
+import { AdminDataSheet, AdminSheetField } from "@/components/admin/ux/AdminDataSheet";
 import { readApiError } from "@/components/admin/ux/useAdminToast";
 
 export function EmployeeSelectWithAdd({

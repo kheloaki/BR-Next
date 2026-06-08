@@ -6,6 +6,10 @@ import {
   PROJECT_STATUS_LABELS,
   type ProjectSummary,
 } from "@/components/admin/operations-types";
+import { AdminTabs } from "@/components/admin/AdminTabs";
+import { ProjectFinancePanel } from "@/components/admin/ProjectFinancePanel";
+import { ProjectReportsPanel } from "@/components/admin/ProjectReportsPanel";
+import { ProjectDocumentsPanel, ProjectHistoryPanel } from "@/components/admin/ProjectDocumentsPanel";
 import { btnSecondary, moduleWrap, tdClass, thClass } from "@/components/admin/admin-form-styles";
 import { AdminLoading } from "@/components/admin/ux/AdminLoading";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
@@ -13,22 +17,23 @@ import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 
 const MODULE_LINKS = [
-  { href: "fuel", label: "Carburant", path: "/admin/fuel/journal" },
-  { href: "production", label: "Production", path: "/admin/production" },
-  { href: "drilling", label: "Foration", path: "/admin/drilling" },
+  { href: "fuel", label: "Carburant", path: "/admin/fuel/stock" },
   { href: "hr", label: "RH & pointage", path: "/admin/hr" },
   { href: "stock", label: "Stock", path: "/admin/stock" },
-  { href: "parts", label: "Pièces", path: "/admin/parts" },
-  { href: "logistics", label: "Logistique", path: "/admin/logistics" },
   { href: "purchase-requests", label: "Demandes d'achat", path: "/admin/purchase-requests" },
   { href: "equipment-rental", label: "Matériel", path: "/admin/equipment-rental/materials" },
   { href: "rental-bons", label: "Bons location", path: "/admin/equipment-rental/bons" },
+  { href: "traitements-achat", label: "Traitement achat", path: "/admin/traitements-achat" },
+  { href: "traitements-vente", label: "Traitement vente", path: "/admin/traitements-vente" },
 ] as const;
 
 export function ProjectHub({ projectId }: { projectId: string }) {
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [tab, setTab] = useState<
+    "overview" | "etats" | "finance" | "rentabilite" | "documents" | "historique"
+  >("overview");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -140,16 +145,40 @@ export function ProjectHub({ projectId }: { projectId: string }) {
         </div>
       )}
 
+      <AdminTabs
+        tabs={[
+          { id: "overview", label: "Synthèse" },
+          { id: "etats", label: "États" },
+          { id: "finance", label: "Finance" },
+          { id: "rentabilite", label: "Rentabilité" },
+          { id: "documents", label: "Documents" },
+          { id: "historique", label: "Historique" },
+        ]}
+        active={tab}
+        onChange={(id) =>
+          setTab(id as "overview" | "etats" | "finance" | "rentabilite" | "documents" | "historique")
+        }
+      />
+
+      {tab === "etats" ? (
+        <ProjectReportsPanel projectId={projectId} />
+      ) : tab === "finance" ? (
+        <ProjectFinancePanel projectId={projectId} />
+      ) : tab === "rentabilite" ? (
+        <ProjectReportsPanel projectId={projectId} defaultModule="profitability" />
+      ) : tab === "documents" ? (
+        <ProjectDocumentsPanel projectId={projectId} />
+      ) : tab === "historique" ? (
+        <ProjectHistoryPanel projectId={projectId} />
+      ) : (
+        <>
       <AdminMiniStats
         items={[
           { label: "Litres carburant", value: `${summary.fuel.totalLitres.toLocaleString("fr-MA")} L` },
-          { label: "Tonnage prod.", value: `${summary.production.totalTonnage.toLocaleString("fr-MA")} t` },
-          { label: "Mètres forés", value: `${summary.drilling.totalMeters.toLocaleString("fr-MA")} m` },
           { label: "Présences RH", value: String(summary.attendance.presentCount) },
-          { label: "Pièces (MAD)", value: summary.parts.totalCost.toLocaleString("fr-MA") },
-          { label: "Km logistique", value: `${summary.trips.totalKm.toLocaleString("fr-MA")} km` },
           { label: "DA en attente", value: String(summary.purchaseRequests.pendingCount) },
           { label: "Location (MAD)", value: summary.rentals.totalMad.toLocaleString("fr-MA") },
+          { label: "Mouvements stock", value: String(summary.stock.movementCount) },
         ]}
       />
 
@@ -193,58 +222,6 @@ export function ProjectHub({ projectId }: { projectId: string }) {
         </section>
 
         <section>
-          <h3 className="text-sm font-semibold text-[var(--navy)] mb-2">Production récente</h3>
-          {summary.production.recent.length === 0 ? (
-            <p className="text-sm text-[var(--graphite)]/70">Aucune saisie.</p>
-          ) : (
-            <AdminTableWrap>
-              <thead>
-                <tr>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>Tonnage</th>
-                  <th className={thClass}>Cible</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summary.production.recent.map((r) => (
-                  <tr key={r.id}>
-                    <td className={tdClass}>{r.entryDate}</td>
-                    <td className={tdClass}>{r.tonnage}</td>
-                    <td className={tdClass}>{r.targetTonnage}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </AdminTableWrap>
-          )}
-        </section>
-
-        <section>
-          <h3 className="text-sm font-semibold text-[var(--navy)] mb-2">Foration récente</h3>
-          {summary.drilling.recent.length === 0 ? (
-            <p className="text-sm text-[var(--graphite)]/70">Aucun rapport.</p>
-          ) : (
-            <AdminTableWrap>
-              <thead>
-                <tr>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>Foreuse</th>
-                  <th className={thClass}>m</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summary.drilling.recent.map((r) => (
-                  <tr key={r.id}>
-                    <td className={tdClass}>{r.reportDate}</td>
-                    <td className={tdClass}>{r.rigName}</td>
-                    <td className={tdClass}>{r.metersDrilled}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </AdminTableWrap>
-          )}
-        </section>
-
-        <section>
           <h3 className="text-sm font-semibold text-[var(--navy)] mb-2">Pointage récent</h3>
           {summary.attendance.recent.length === 0 ? (
             <p className="text-sm text-[var(--graphite)]/70">Aucun pointage.</p>
@@ -277,6 +254,8 @@ export function ProjectHub({ projectId }: { projectId: string }) {
           voir le stock
         </Link>
       </p>
+        </>
+      )}
     </div>
   );
 }

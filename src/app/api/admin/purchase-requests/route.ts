@@ -3,42 +3,21 @@ import type { PurchaseCategory, PurchaseRequestStatus } from "@/components/admin
 import { csvResponse } from "@/lib/admin/csv-response";
 import { nextDaNumber } from "@/lib/admin/da-number";
 import { getGasoilStockItem } from "@/lib/admin/gasoil-stock-server";
+import { mapPurchaseRequestRow } from "@/lib/admin/map-purchase-request";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
 import { opsId } from "@/lib/admin/ops-id";
 import { resolveProjectFields } from "@/lib/admin/project-resolve";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
-function mapRow(r: Record<string, unknown>) {
-  return {
-    id: r.id as string,
-    projectId: (r.project_id as string) || null,
-    number: r.number as string,
-    category: r.category as PurchaseCategory,
-    subject: r.subject as string,
-    qty: Number(r.qty ?? 0),
-    unitPrice: Number(r.unit_price ?? 0),
-    totalAmount: Number(r.total_amount ?? 0),
-    supplier: r.supplier as string,
-    urgency: r.urgency as string,
-    deliveryDate: (r.delivery_date as string) || "",
-    justification: r.justification as string,
-    requester: r.requester as string,
-    status: r.status as PurchaseRequestStatus,
-    createdAt: r.created_at as string,
-    pumpMeter: r.pump_meter != null ? Number(r.pump_meter) : null,
-    stockItemId: (r.stock_item_id as string) || null,
-    stockQtyAtRequest: r.stock_qty_snapshot != null ? Number(r.stock_qty_snapshot) : null,
-  };
-}
-
 export async function GET(request: Request) {
   const auth = await requireAdminUserId();
   if ("error" in auth) return auth.error;
-  const { userId, organizationId } = auth;
+  const { organizationId } = auth;
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
   const category = searchParams.get("category");
   const gasoilOnly = searchParams.get("gasoil") === "1";
+  const id = searchParams.get("id");
 
   let query = getSupabaseAdminClient()
     .from("admin_purchase_requests")
@@ -46,6 +25,7 @@ export async function GET(request: Request) {
     .eq("organization_id", organizationId)
     .order("created_at", { ascending: false });
 
+  if (id) query = query.eq("id", id).limit(1);
   if (status) query = query.eq("status", status);
   if (category) query = query.eq("category", category);
   if (gasoilOnly) query = query.like("number", "DA-GASOIL-%");
@@ -53,7 +33,12 @@ export async function GET(request: Request) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const rows = (data ?? []).map((r) => mapRow(r as Record<string, unknown>));
+  const rows = (data ?? []).map((r) => mapPurchaseRequestRow(r as Record<string, unknown>));
+
+  if (id) {
+    if (rows.length === 0) return NextResponse.json({ error: "DA introuvable" }, { status: 404 });
+    return NextResponse.json(rows[0]);
+  }
 
   if (searchParams.get("format") === "csv") {
     return csvResponse(
@@ -81,6 +66,10 @@ export async function POST(request: Request) {
     kind?: "gasoil" | "standard";
     category?: PurchaseCategory;
     subject?: string;
+    reference?: string;
+    designation?: string;
+    unit?: string;
+    productId?: string;
     qty?: number;
     unitPrice?: number;
     supplier?: string;
@@ -92,6 +81,7 @@ export async function POST(request: Request) {
     pumpMeter?: number;
     prefillReference?: string;
     prefillDesignation?: string;
+    stockItemId?: string;
   };
 
   const isGasoil = body.kind === "gasoil";
@@ -109,7 +99,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Quantité demandée requise" }, { status: 400 });
   }
 
-  let stockItemId: string | null = null;
+  let stockItemId: string | null = body.stockItemId?.trim() || null;
   let stockQtySnapshot: number | null = null;
   if (isGasoil) {
     const gasoil = await getGasoilStockItem(supabase, organizationId);
@@ -119,14 +109,20 @@ export async function POST(request: Request) {
     }
   }
 
+  const designation =
+    body.designation?.trim() ||
+    body.prefillDesignation?.trim() ||
+    "";
+  const reference = body.reference?.trim() || body.prefillReference?.trim() || "";
+
   const subject =
     body.subject?.trim() ||
     (isGasoil
       ? `Gasoil — ${project.site_name || "chantier"}`
-      : body.prefillDesignation
-        ? `Réappro — ${body.prefillDesignation}`
-        : body.prefillReference
-          ? `Réappro — ${body.prefillReference}`
+      : designation
+        ? `Réappro — ${designation}`
+        : reference
+          ? `Réappro — ${reference}`
           : "");
 
   if (!subject) {
@@ -143,11 +139,16 @@ export async function POST(request: Request) {
     .from("admin_purchase_requests")
     .insert({
       id: opsId("da"),
-      user_id: userId, organization_id: organizationId,
+      user_id: userId,
+      organization_id: organizationId,
       project_id: project.project_id,
       number,
       category: isGasoil ? "fuel" : body.category || "misc",
       subject,
+      reference,
+      designation: designation || subject,
+      unit: body.unit?.trim() || "PIECE",
+      product_id: body.productId?.trim() || null,
       qty,
       unit_price: unitPrice,
       total_amount: totalAmount,
@@ -165,7 +166,7 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(mapRow(data as Record<string, unknown>));
+  return NextResponse.json(mapPurchaseRequestRow(data as Record<string, unknown>));
 }
 
 export async function PATCH(request: Request) {
@@ -178,14 +179,28 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "id et status requis" }, { status: 400 });
   }
 
+  const payload: Record<string, unknown> = {
+    status: body.status,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (body.status === "approved") {
+    payload.approved_at = new Date().toISOString();
+    payload.approved_by = userId;
+  }
+  if (body.status === "pending" || body.status === "rejected") {
+    payload.approved_at = null;
+    payload.approved_by = null;
+  }
+
   const { data, error } = await getSupabaseAdminClient()
     .from("admin_purchase_requests")
-    .update({ status: body.status, updated_at: new Date().toISOString() })
+    .update(payload)
     .eq("id", body.id)
     .eq("organization_id", organizationId)
     .select("*")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(mapRow(data as Record<string, unknown>));
+  return NextResponse.json(mapPurchaseRequestRow(data as Record<string, unknown>));
 }

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { PersonnelCategory } from "@/components/admin/operations-types";
 import { btnPrimary, btnSecondary, inputClass, labelClass } from "@/components/admin/admin-form-styles";
-import { AdminDataSheet } from "@/components/admin/ux/AdminDataSheet";
+import { AdminDataSheet, AdminSheetField } from "@/components/admin/ux/AdminDataSheet";
 import { readApiError } from "@/components/admin/ux/useAdminToast";
 
 export function PersonnelCategorySelectWithAdd({
@@ -96,15 +96,17 @@ export function PersonnelCategorySelectWithAdd({
           </>
         }
       >
-        <input
-          className={inputClass}
-          placeholder="Nom du poste *"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void submitCategory();
-          }}
-        />
+        <AdminSheetField label="Nom du poste" required>
+          <input
+            className={inputClass}
+            placeholder="Ex. Chauffeur, Mécanicien…"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void submitCategory();
+            }}
+          />
+        </AdminSheetField>
         {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
       </AdminDataSheet>
     </>

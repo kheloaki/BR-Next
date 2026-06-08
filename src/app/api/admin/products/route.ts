@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminContext } from "@/lib/admin/require-admin";
+import { ensureInventoryForProduct, syncInventoryFromProduct } from "@/lib/admin/article-inventory";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 function mapProduct(row: {
@@ -94,7 +95,16 @@ export async function POST(request: Request) {
     if (!data) {
       return NextResponse.json({ error: "Produit introuvable." }, { status: 404 });
     }
-    return NextResponse.json(mapProduct(data));
+    const product = mapProduct(data);
+    try {
+      await syncInventoryFromProduct(supabase, organizationId, userId, existingId, product);
+    } catch (e) {
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : "Sync inventaire impossible" },
+        { status: 400 },
+      );
+    }
+    return NextResponse.json(product);
   }
 
   const { data, error } = await supabase
@@ -105,6 +115,16 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  try {
+    await ensureInventoryForProduct(supabase, organizationId, userId, data.id as string);
+  } catch (e) {
+    await supabase.from("admin_products").delete().eq("id", data.id).eq("organization_id", organizationId);
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Création inventaire impossible" },
+      { status: 400 },
+    );
   }
 
   return NextResponse.json(mapProduct(data));

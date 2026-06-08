@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
+import { AdminComingSoonPanel } from "@/components/admin/AdminComingSoonPanel";
 import { AdminShell } from "@/components/admin/AdminShell";
-import { DrillingManager } from "@/components/admin/DrillingManager";
 import { requireAdminPage } from "@/lib/admin/admin-page-auth";
 
 export const metadata: Metadata = {
@@ -13,9 +12,7 @@ export default async function AdminDrillingPage() {
   await requireAdminPage("/admin/drilling");
   return (
     <AdminShell active="drilling">
-      <Suspense fallback={<p className="text-sm">Chargement…</p>}>
-        <DrillingManager />
-      </Suspense>
+      <AdminComingSoonPanel title="Rapport foration" />
     </AdminShell>
   );
 }

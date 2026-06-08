@@ -33,6 +33,14 @@ export type MaterialCategory = "engin" | "camion" | "voiture" | "groupe_electrog
 
 export type MaterialTransportMode = "" | "rendre" | "depart";
 
+export type RentalLocationMode = "jour" | "mois" | "forfait";
+
+export const RENTAL_LOCATION_MODE_LABELS: Record<RentalLocationMode, string> = {
+  jour: "Par jour",
+  mois: "Par mois",
+  forfait: "Forfait contractuel",
+};
+
 export const RENTAL_HOURS_PER_DAY = 9;
 
 /** @deprecated Use AdminProject — kept for gradual migration */
@@ -121,8 +129,15 @@ export interface PersonnelCategory {
   name: string;
 }
 
+export interface MaterialDetailCategory {
+  id: string;
+  materialCategory: MaterialCategory;
+  name: string;
+}
+
 export interface StockItem {
   id: string;
+  productId?: string | null;
   reference: string;
   designation: string;
   category: string;
@@ -133,6 +148,8 @@ export interface StockItem {
   unitPrice: number;
   status: StockStatus;
 }
+
+import type { StockTraitementLink } from "@/lib/admin/stock-traitement-link";
 
 export interface StockMovement {
   id: string;
@@ -159,6 +176,7 @@ export interface StockMovement {
   depotId: string | null;
   notes: string;
   createdAt: string;
+  traitementLink: StockTraitementLink | null;
 }
 
 export interface PurchaseRequest {
@@ -167,6 +185,10 @@ export interface PurchaseRequest {
   number: string;
   category: PurchaseCategory;
   subject: string;
+  reference: string;
+  designation: string;
+  unit: string;
+  productId: string | null;
   qty: number;
   unitPrice: number;
   totalAmount: number;
@@ -177,6 +199,9 @@ export interface PurchaseRequest {
   requester: string;
   status: PurchaseRequestStatus;
   createdAt: string;
+  approvedAt: string | null;
+  approvedBy: string | null;
+  traitementId: string | null;
   pumpMeter: number | null;
   stockItemId: string | null;
   stockQtyAtRequest: number | null;
@@ -186,12 +211,24 @@ export type GasoilBonType = "achat" | "sortie";
 
 export type GasoilVehicleCategory = "engin" | "camion" | "voiture" | "groupe_electrogene";
 
+export type GasoilContactRole = "conducteur" | "pompiste";
+
+export interface GasoilContact {
+  id: string;
+  role: GasoilContactRole;
+  name: string;
+  cin: string;
+  jobTitle: string;
+  projectIds: string[];
+}
+
 export interface GasoilBon {
   id: string;
   number: string;
   bonType: GasoilBonType;
   vehicleCategory: GasoilVehicleCategory;
   projectId: string | null;
+  materialId: string | null;
   equipmentId: string | null;
   vehicleLabel: string;
   equipmentName: string;
@@ -201,15 +238,26 @@ export interface GasoilBon {
   pumpMeter: number | null;
   supplier: string;
   beneficiary: string;
+  driverContactId: string | null;
+  pompisteContactId: string | null;
+  fuelTime: string;
   deliveryNote: string;
   notes: string;
+  fuelEntryId: string | null;
+  unitPrice?: number;
+  totalAmount?: number;
+  traitementId?: string | null;
   createdAt: string;
 }
 
+export type FuelEntrySource = "bon";
+
 export interface FuelEntry {
   id: string;
+  materialId: string;
   equipmentId: string;
   equipmentName: string;
+  vehicleLabel?: string;
   entryDate: string;
   litres: number;
   meterStart: number | null;
@@ -219,6 +267,15 @@ export interface FuelEntry {
   fueledBy: string;
   ticketNo: string;
   notes: string;
+  fuelTime?: string;
+  bonType?: GasoilBonType;
+  vehicleCategory?: GasoilVehicleCategory;
+  source?: FuelEntrySource;
+  /** Prix MAD/L enregistré sur le bon (variable par BC / sortie). */
+  unitPrice?: number;
+  totalAmount?: number;
+  /** Origine du prix appliqué pour le coût (rapport consommation). */
+  priceSource?: "bon" | "movement" | "stock" | "none";
 }
 
 export interface DrillingReport {
@@ -256,18 +313,48 @@ export interface Trip {
 export interface RentalMaterial {
   id: string;
   materialCategory: MaterialCategory;
+  projectId: string | null;
   reference: string;
   matricule: string;
   designation: string;
   subCategory: string;
   ownerName: string;
+  supplierId: string;
+  employeeId: string | null;
+  driverName: string;
+  driverContactId: string | null;
+  rentalMode: RentalLocationMode;
+  contractStartDate: string | null;
+  contractEndDate: string | null;
+  contractOpenEnded: boolean;
+  dailyRate: number;
+  daysCount: number;
+  monthlyPriceHt: number;
+  forfaitPriceHt: number;
+  vatRate: number;
+  transportMode: MaterialTransportMode;
+  transportPrice: number;
   active: boolean;
+}
+
+export type RentalUsageUnit = "jour" | "heure";
+
+export interface RentalBonLine {
+  lineDate: string;
+  materialId: string;
+  matricule: string;
+  designation: string;
+  dailyRate: number;
+  /** Quantité d'usage — en jours (9 h) ou en heures selon usageUnit. */
+  usageQty: number;
+  usageUnit: RentalUsageUnit;
 }
 
 export interface RentalContract {
   id: string;
   materialId: string | null;
   projectId: string | null;
+  locataire: string;
   materialCategory: MaterialCategory;
   reference: string;
   matricule: string;
@@ -276,9 +363,13 @@ export interface RentalContract {
   ownerName: string;
   employeeId: string | null;
   driverName: string;
+  driverContactId: string | null;
   dailyRate: number;
   daysCount: number;
   estimatedHours: number;
+  lineDate: string | null;
+  gasoil: number;
+  bonLines: RentalBonLine[];
   transportMode: MaterialTransportMode;
   transportPrice: number;
   equipmentName: string;

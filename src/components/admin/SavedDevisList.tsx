@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { FacturationNewDocumentButton } from "@/components/admin/FacturationNewDocumentButton";
 import { downloadDevisPdf } from "@/components/admin/devis-pdf";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import {
-  btnPrimary,
   btnSecondary,
   moduleWrap,
   rowHover,
@@ -18,6 +18,7 @@ import { AdminEmptyState } from "@/components/admin/ux/AdminEmptyState";
 import { AdminFilterBar } from "@/components/admin/ux/AdminFilterBar";
 import { AdminLoading } from "@/components/admin/ux/AdminLoading";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminToast } from "@/components/admin/ux/AdminToast";
 import {
   DOCUMENT_BADGE_CLASS,
   DOCUMENT_LABELS,
@@ -26,10 +27,9 @@ import {
   type DocumentType,
   type QuoteDraft,
 } from "@/components/admin/devis-types";
-import { confirmDelete } from "@/components/admin/ux/useAdminToast";
+import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import {
   facturationBonLivraisonFromFacturePath,
-  facturationBuilderPath,
   facturationDocumentsPath,
   facturationEditPath,
   parseDocumentsFilterParam,
@@ -37,39 +37,31 @@ import {
 
 type Filter = "all" | DocumentType;
 
-const FILTER_COPY: Record<
-  Filter,
-  { title: string; description: string; empty: string; createLabel: string }
-> = {
+const FILTER_COPY: Record<Filter, { title: string; description: string; empty: string }> = {
   all: {
     title: "Documents enregistrés",
     description: "Retrouvez, modifiez ou exportez vos devis, bons de commande, factures et bons de livraison.",
     empty: "Les documents enregistrés depuis la facturation apparaîtront ici.",
-    createLabel: "Nouveau devis",
   },
   devis: {
     title: "Devis enregistrés",
     description: "Historique des devis clients sauvegardés.",
     empty: "Aucun devis enregistré pour le moment.",
-    createLabel: "Nouveau devis",
   },
   bon_commande: {
     title: "Bons de commande",
     description: "Historique des bons de commande fournisseurs.",
     empty: "Aucun bon de commande enregistré.",
-    createLabel: "Nouveau bon de commande",
   },
   facture: {
     title: "Factures",
     description: "Historique des factures clients.",
     empty: "Aucune facture enregistrée.",
-    createLabel: "Nouvelle facture",
   },
   bon_livraison: {
     title: "Bons de livraison",
     description: "Bons de livraison liés aux factures clients.",
     empty: "Aucun bon de livraison enregistré.",
-    createLabel: "Nouveau bon de livraison",
   },
 };
 
@@ -94,6 +86,7 @@ const tableActionDanger = `${tableAction} border-red-200/80 bg-white text-red-70
 export function SavedDevisList() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const toast = useAdminToast();
   const filter = parseDocumentsFilterParam(searchParams.get("filter")) as Filter;
 
   const [quotes, setQuotes] = useState<QuoteDraft[]>([]);
@@ -134,6 +127,19 @@ export function SavedDevisList() {
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [loadData]);
+
+  async function registerInFinance(quote: QuoteDraft) {
+    const res = await fetch("/api/admin/finance/documents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "register_quote", quoteId: quote.id }),
+    });
+    if (!res.ok) {
+      toast.error(await readApiError(res));
+      return;
+    }
+    toast.success("Facture enregistrée en finance.");
+  }
 
   async function removeQuote(quote: QuoteDraft) {
     const label = `N° ${quote.quoteNumber || "—"} · ${quote.clientName || "Sans nom"}`;
@@ -178,8 +184,6 @@ export function SavedDevisList() {
   }, [byType, search]);
 
   const copy = FILTER_COPY[filter];
-  const createHref =
-    filter === "all" ? facturationBuilderPath("devis") : facturationBuilderPath(filter);
 
   return (
     <div className={moduleWrap}>
@@ -191,9 +195,7 @@ export function SavedDevisList() {
             <button type="button" className={btnSecondary} onClick={() => void loadData()}>
               Actualiser
             </button>
-            <Link href={createHref} className={btnPrimary}>
-              + {copy.createLabel}
-            </Link>
+            <FacturationNewDocumentButton />
           </div>
         }
       />
@@ -231,8 +233,13 @@ export function SavedDevisList() {
               ? "Essayez un autre terme ou effacez la recherche."
               : copy.empty
           }
-          actionLabel={search.trim() ? undefined : copy.createLabel}
-          actionHref={search.trim() ? undefined : createHref}
+          action={
+            search.trim() ? undefined : (
+              <div className="mt-4 flex justify-center">
+                <FacturationNewDocumentButton />
+              </div>
+            )
+          }
         />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border">
@@ -283,12 +290,21 @@ export function SavedDevisList() {
                           Modifier
                         </Link>
                         {docType === "facture" ? (
-                          <Link
-                            href={facturationBonLivraisonFromFacturePath(quote.id)}
-                            className={tableActionNeutral}
-                          >
-                            Bon livr.
-                          </Link>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => void registerInFinance(quote)}
+                              className={tableActionNeutral}
+                            >
+                              Finance
+                            </button>
+                            <Link
+                              href={facturationBonLivraisonFromFacturePath(quote.id)}
+                              className={tableActionNeutral}
+                            >
+                              Bon livr.
+                            </Link>
+                          </>
                         ) : null}
                         <button
                           type="button"
@@ -313,6 +329,7 @@ export function SavedDevisList() {
           </AdminTableWrap>
         </div>
       )}
+      <AdminToast message={toast.toast?.message ?? null} kind={toast.toast?.kind} onDismiss={toast.dismiss} />
     </div>
   );
 }

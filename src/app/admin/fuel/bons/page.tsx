@@ -5,7 +5,7 @@ import { FuelManager } from "@/components/admin/FuelManager";
 import { requireAdminPage } from "@/lib/admin/admin-page-auth";
 
 export const metadata: Metadata = {
-  title: "Bons gasoil",
+  title: "Bons de sortie gasoil",
   robots: { index: false, follow: false },
 };
 

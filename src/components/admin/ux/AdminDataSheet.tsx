@@ -1,7 +1,32 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { btnSecondary } from "@/components/admin/admin-form-styles";
+import { btnSecondary, labelClass } from "@/components/admin/admin-form-styles";
+
+export function AdminSheetField({
+  label,
+  required,
+  hint,
+  className,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  hint?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={className}>
+      <p className={labelClass}>
+        {label}
+        {required ? " *" : ""}
+      </p>
+      {hint ? <p className="mt-0.5 text-xs text-[var(--graphite)]/65">{hint}</p> : null}
+      <div className="mt-1">{children}</div>
+    </div>
+  );
+}
 
 export function AdminDataSheet({
   open,

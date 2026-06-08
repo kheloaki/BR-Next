@@ -1,54 +1,37 @@
 import { NextResponse } from "next/server";
-import { computeStockStatus } from "@/components/admin/operations-types";
 import { csvResponse } from "@/lib/admin/csv-response";
+import {
+  inventoryToStockItem,
+  loadArticlesWithInventory,
+  loadInventoryRows,
+  loadProducts,
+} from "@/lib/admin/article-inventory";
 import { excludeGasoilFromStockList, isGasoilStockItem } from "@/lib/admin/gasoil-stock";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
-import { opsId } from "@/lib/admin/ops-id";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-
-function mapItem(row: {
-  id: string;
-  reference: string;
-  designation: string;
-  category: string;
-  article_code?: string;
-  unit?: string;
-  qty: number;
-  min_qty: number;
-  unit_price: number;
-}) {
-  const qty = Number(row.qty ?? 0);
-  const minQty = Number(row.min_qty ?? 0);
-  return {
-    id: row.id,
-    reference: row.reference,
-    designation: row.designation,
-    category: row.category,
-    articleCode: row.article_code?.trim() || "",
-    unit: row.unit?.trim() || "PIECE",
-    qty,
-    minQty,
-    unitPrice: Number(row.unit_price ?? 0),
-    status: computeStockStatus(qty, minQty),
-  };
-}
 
 export async function GET(request: Request) {
   const auth = await requireAdminUserId();
   if ("error" in auth) return auth.error;
-  const { userId, organizationId } = auth;
+  const { organizationId } = auth;
   const { searchParams } = new URL(request.url);
   const alertsOnly = searchParams.get("alerts") === "1";
 
-  const { data, error } = await getSupabaseAdminClient()
-    .from("admin_stock_items")
-    .select("id, reference, designation, category, article_code, unit, qty, min_qty, unit_price")
-    .eq("organization_id", organizationId)
-    .order("designation");
+  const supabase = getSupabaseAdminClient();
+  const [products, inventoryRows] = await Promise.all([
+    loadProducts(supabase, organizationId),
+    loadInventoryRows(supabase, organizationId),
+  ]);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const productById = new Map(products.map((p) => [p.id, p]));
+  const merged = inventoryRows
+    .map((inv) => {
+      const product = inv.productId ? productById.get(inv.productId) : null;
+      return inventoryToStockItem(inv, product);
+    })
+    .filter((item) => !isGasoilStockItem(item));
 
-  let items = excludeGasoilFromStockList((data ?? []).map(mapItem));
+  let items = excludeGasoilFromStockList(merged);
   if (alertsOnly) items = items.filter((i) => i.status !== "ok");
 
   if (searchParams.get("format") === "csv") {
@@ -73,85 +56,97 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const auth = await requireAdminUserId();
   if ("error" in auth) return auth.error;
-  const { userId, organizationId } = auth;
+  const { organizationId } = auth;
   const body = (await request.json()) as {
     id?: string;
-    reference?: string;
-    designation?: string;
-    category?: string;
-    articleCode?: string;
-    unit?: string;
+    productId?: string;
     qty?: number;
     minQty?: number;
-    unitPrice?: number;
+    articleCode?: string;
   };
-  if (!body.designation?.trim()) {
-    return NextResponse.json({ error: "Désignation requise" }, { status: 400 });
-  }
 
-  if (
-    isGasoilStockItem({
-      category: body.category,
-      reference: body.reference,
-      designation: body.designation,
-    })
-  ) {
+  if (!body.id?.trim() && !body.productId?.trim()) {
     return NextResponse.json(
-      { error: "Le stock gasoil se gère dans le module Carburant." },
+      { error: "Sélectionnez un article du catalogue (productId) ou un inventaire existant (id)." },
       { status: 400 },
     );
   }
 
-  const payload = {
-    reference: body.reference?.trim() || "",
-    designation: body.designation.trim(),
-    category: body.category?.trim() || "",
-    article_code: body.articleCode?.trim() || "",
-    unit: body.unit?.trim() || "PIECE",
-    qty: Math.max(0, Number(body.qty) || 0),
-    min_qty: Math.max(0, Number(body.minQty) || 0),
-    unit_price: Math.max(0, Number(body.unitPrice) || 0),
-    updated_at: new Date().toISOString(),
-  };
-
   const supabase = getSupabaseAdminClient();
-  if (body.id?.trim()) {
-    const { data: existingRow } = await supabase
+  let inventoryId = body.id?.trim() || "";
+
+  if (!inventoryId && body.productId?.trim()) {
+    const { data } = await supabase
       .from("admin_stock_items")
-      .select("reference, designation, category")
-      .eq("id", body.id.trim())
+      .select("id")
       .eq("organization_id", organizationId)
+      .eq("product_id", body.productId.trim())
       .maybeSingle();
-    if (existingRow && isGasoilStockItem(existingRow)) {
-      return NextResponse.json(
-        { error: "Le stock gasoil se gère dans le module Carburant." },
-        { status: 400 },
-      );
-    }
+    inventoryId = (data?.id as string) || "";
   }
 
-  const result = body.id?.trim()
-    ? await supabase
-        .from("admin_stock_items")
-        .update(payload)
-        .eq("id", body.id.trim())
-        .eq("organization_id", organizationId)
-        .select("id, reference, designation, category, article_code, unit, qty, min_qty, unit_price")
-        .single()
-    : await supabase
-        .from("admin_stock_items")
-        .insert({ id: opsId("stk"), user_id: userId, organization_id: organizationId, ...payload })
-        .select("id, reference, designation, category, article_code, unit, qty, min_qty, unit_price")
-        .single();
+  if (!inventoryId) {
+    return NextResponse.json({ error: "Inventaire introuvable pour cet article." }, { status: 404 });
+  }
 
-  if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
-  return NextResponse.json(mapItem(result.data));
+  const { data: existing } = await supabase
+    .from("admin_stock_items")
+    .select("id, product_id, reference, designation, category")
+    .eq("id", inventoryId)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (!existing) {
+    return NextResponse.json({ error: "Inventaire introuvable." }, { status: 404 });
+  }
+  if (isGasoilStockItem(existing)) {
+    return NextResponse.json({ error: "Le stock gasoil se gère dans le module Carburant." }, { status: 400 });
+  }
+
+  const payload: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+  if (body.qty != null) payload.qty = Math.max(0, Number(body.qty) || 0);
+  if (body.minQty != null) payload.min_qty = Math.max(0, Number(body.minQty) || 0);
+  if (body.articleCode != null) payload.article_code = body.articleCode.trim();
+
+  const { data, error } = await supabase
+    .from("admin_stock_items")
+    .update(payload)
+    .eq("id", inventoryId)
+    .eq("organization_id", organizationId)
+    .select("id, product_id, reference, designation, category, article_code, unit, qty, min_qty, unit_price")
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const product = existing.product_id
+    ? (await loadArticlesWithInventory(supabase, organizationId)).find((a) => a.id === existing.product_id)
+    : null;
+
+  return NextResponse.json(
+    inventoryToStockItem(
+      {
+        id: data.id as string,
+        productId: (data.product_id as string) || null,
+        reference: (data.reference as string) || "",
+        designation: (data.designation as string) || "",
+        category: (data.category as string) || "",
+        articleCode: ((data.article_code as string) || "").trim(),
+        unit: ((data.unit as string) || "PIECE").trim(),
+        qty: Number(data.qty ?? 0),
+        minQty: Number(data.min_qty ?? 0),
+        unitPrice: Number(data.unit_price ?? 0),
+      },
+      product,
+    ),
+  );
 }
 
 export async function DELETE(request: Request) {
   const auth = await requireAdminUserId();
   if ("error" in auth) return auth.error;
-  const { userId, organizationId } = auth;
+  const { organizationId } = auth;
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 

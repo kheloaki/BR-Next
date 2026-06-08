@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { OrganizationMembersManager } from "@/components/admin/OrganizationMembersManager";
+import { requireAdminPage } from "@/lib/admin/admin-page-auth";
 
 export const metadata: Metadata = {
   title: "Utilisateurs",
@@ -14,16 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminUtilisateursPage() {
-  let userId: string | null = null;
-  try {
-    ({ userId } = await auth());
-  } catch {
-    redirect("/sign-in?redirect_url=/admin/utilisateurs");
-  }
-
-  if (!userId) {
-    redirect("/sign-in?redirect_url=/admin/utilisateurs");
-  }
+  await requireAdminPage("/admin/utilisateurs");
 
   return (
     <AdminShell active="utilisateurs">

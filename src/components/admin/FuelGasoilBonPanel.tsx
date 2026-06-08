@@ -1,20 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { DeliveryNoteSelect } from "@/components/admin/DeliveryNoteSelect";
-import { EquipmentSelect } from "@/components/admin/EquipmentSelect";
-import { ProjectSelect } from "@/components/admin/ProjectSelect";
+import {
+  EMPTY_GASOIL_BON_FORM,
+  FuelGasoilBonForm,
+  gasoilBonNotesFromForm,
+  gasoilBonRowToForm,
+  validateGasoilBonForm,
+  type GasoilBonFormState,
+} from "@/components/admin/FuelGasoilBonForm";
 import type {
-  AdminEquipment,
   AdminProject,
   GasoilBon,
   GasoilBonType,
+  GasoilContact,
   GasoilVehicleCategory,
+  RentalMaterial,
   StockItem,
 } from "@/components/admin/operations-types";
+import type { Supplier } from "@/components/admin/devis-types";
+import type { GasoilUnitPriceInfo } from "@/lib/admin/gasoil-unit-price";
 import {
-  GASOIL_BON_TYPE_LABELS,
-  GASOIL_BON_TYPES,
   GASOIL_VEHICLE_CATEGORIES,
   GASOIL_VEHICLE_CATEGORY_LABELS,
 } from "@/lib/admin/gasoil-bon";
@@ -22,91 +28,89 @@ import {
   btnDanger,
   btnPrimary,
   btnSecondary,
-  formGridClass,
   inputClass,
-  labelClass,
   rowHover,
   tdClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
-import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { AdminLoading } from "@/components/admin/ux/AdminLoading";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 
-type PanelTab = "list" | "new";
-
-const BON_TYPE_BADGE: Record<GasoilBonType, string> = {
-  achat: "bg-emerald-50 text-emerald-900 border border-emerald-200/80",
-  sortie: "bg-amber-50 text-amber-900 border border-amber-200/80",
-};
+type PanelTab = "list" | "form";
 
 export function FuelGasoilBonPanel({
   projects,
-  equipment,
+  materials,
   projectIdFromUrl,
   onStockUpdated,
+  fixedBonType,
 }: {
   projects: AdminProject[];
-  equipment: AdminEquipment[];
+  materials: RentalMaterial[];
   projectIdFromUrl?: string;
   onStockUpdated?: () => void;
+  fixedBonType: GasoilBonType;
 }) {
+  const isCommande = fixedBonType === "achat";
+  const listTitle = isCommande ? "Bons de commande gasoil" : "Bons de sortie gasoil";
+  const newLabel = isCommande ? "Nouveau bon de commande" : "Nouveau bon de sortie";
+  const saveLabel = isCommande ? "Enregistrer la commande" : "Enregistrer le bon";
   const toast = useAdminToast();
   const [panelTab, setPanelTab] = useState<PanelTab>("list");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [rows, setRows] = useState<GasoilBon[]>([]);
   const [gasoilStock, setGasoilStock] = useState<StockItem | null>(null);
+  const [avgUnitPriceInfo, setAvgUnitPriceInfo] = useState<GasoilUnitPriceInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
-
-  const [bonType, setBonType] = useState<GasoilBonType>("sortie");
-  const [vehicleCategory, setVehicleCategory] = useState<GasoilVehicleCategory>("engin");
-  const [projectId, setProjectId] = useState(projectIdFromUrl ?? "");
-  const [equipmentId, setEquipmentId] = useState("");
-  const [vehicleLabel, setVehicleLabel] = useState("");
-  const [litres, setLitres] = useState<number | "">("");
-  const [bonDate, setBonDate] = useState(new Date().toISOString().slice(0, 10));
-  const [pumpMeter, setPumpMeter] = useState("");
-  const [supplier, setSupplier] = useState("");
-  const [beneficiary, setBeneficiary] = useState("");
-  const [deliveryNote, setDeliveryNote] = useState("");
-  const [notes, setNotes] = useState("");
-  const [syncStock, setSyncStock] = useState(true);
+  const [form, setForm] = useState<GasoilBonFormState>({
+    ...EMPTY_GASOIL_BON_FORM,
+    bonType: fixedBonType,
+  });
+  const [gasoilContacts, setGasoilContacts] = useState<GasoilContact[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
-    if (filterType) params.set("bonType", filterType);
-    if (filterCategory) params.set("vehicleCategory", filterCategory);
+    params.set("bonType", fixedBonType);
+    if (!isCommande && filterCategory) params.set("vehicleCategory", filterCategory);
     const qs = params.toString();
-    const [bonRes, stockRes] = await Promise.all([
+    const supplierFetch = isCommande
+      ? fetch("/api/admin/suppliers?supplyType=gasoil", { cache: "no-store" })
+      : Promise.resolve(null);
+    const [bonRes, stockRes, contactsRes, suppliersRes] = await Promise.all([
       fetch(`/api/admin/fuel/bons${qs ? `?${qs}` : ""}`, { cache: "no-store" }),
       fetch("/api/admin/fuel/stock", { cache: "no-store" }),
+      fetch("/api/admin/gasoil-contacts", { cache: "no-store" }),
+      supplierFetch,
     ]);
     if (bonRes.ok) setRows((await bonRes.json()) as GasoilBon[]);
     if (stockRes.ok) {
-      const { item } = (await stockRes.json()) as { item: StockItem | null };
-      setGasoilStock(item);
+      const data = (await stockRes.json()) as {
+        item: StockItem | null;
+        unitPriceInfo?: GasoilUnitPriceInfo;
+      };
+      setGasoilStock(data.item);
+      setAvgUnitPriceInfo(data.unitPriceInfo ?? null);
     }
+    if (contactsRes.ok) setGasoilContacts((await contactsRes.json()) as GasoilContact[]);
+    if (suppliersRes?.ok) setSuppliers((await suppliersRes.json()) as Supplier[]);
     setLoading(false);
-  }, [filterType, filterCategory]);
+  }, [fixedBonType, filterCategory, isCommande]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   useEffect(() => {
-    if (projectIdFromUrl) setProjectId(projectIdFromUrl);
+    if (projectIdFromUrl) setForm((f) => ({ ...f, projectId: projectIdFromUrl }));
   }, [projectIdFromUrl]);
-
-  useEffect(() => {
-    if (vehicleCategory !== "engin") setEquipmentId("");
-  }, [vehicleCategory]);
 
   const projectName = (id: string | null) => {
     if (!id) return "—";
@@ -122,66 +126,101 @@ export function FuelGasoilBonPanel({
         projectName(r.projectId).toLowerCase().includes(q) ||
         r.equipmentName.toLowerCase().includes(q) ||
         r.vehicleLabel.toLowerCase().includes(q) ||
+        r.beneficiary.toLowerCase().includes(q) ||
+        r.supplier.toLowerCase().includes(q) ||
         GASOIL_VEHICLE_CATEGORY_LABELS[r.vehicleCategory].toLowerCase().includes(q),
     );
   }, [rows, search, projects]);
 
+  const fetchNextBonNumber = useCallback(async () => {
+    const params = new URLSearchParams({ next: "1", bonType: fixedBonType });
+    const res = await fetch(`/api/admin/fuel/bons?${params.toString()}`, { cache: "no-store" });
+    if (!res.ok) return "";
+    const data = (await res.json()) as { number?: string };
+    return data.number ?? "";
+  }, [fixedBonType]);
+
+  async function resetForm() {
+    const bonNumber = await fetchNextBonNumber();
+    const avgPrice = avgUnitPriceInfo?.unitPricePerLitre ?? 0;
+    const stockPrice = gasoilStock?.unitPrice ?? 0;
+    const defaultPrice = isCommande ? stockPrice : avgPrice > 0 ? avgPrice : stockPrice;
+    setEditingId(null);
+    setForm({
+      ...EMPTY_GASOIL_BON_FORM,
+      bonType: fixedBonType,
+      projectId: projectIdFromUrl ?? "",
+      bonNumber,
+      unitPricePerLitre: defaultPrice > 0 ? defaultPrice : "",
+    });
+  }
+
+  async function openNew() {
+    await resetForm();
+    setPanelTab("form");
+  }
+
+  function openEdit(row: GasoilBon) {
+    if (row.traitementId) {
+      toast.error("Ce bon est lié à un traitement. Modifiez-le depuis Traitements.");
+      return;
+    }
+    setEditingId(row.id);
+    setForm(gasoilBonRowToForm(row));
+    setPanelTab("form");
+  }
+
   async function submitBon() {
-    if (!projectId) {
-      toast.error("Sélectionnez un chantier.");
-      return;
-    }
-    const L = typeof litres === "number" ? litres : Number(litres);
-    if (!L || L <= 0) {
-      toast.error("Indiquez la quantité en litres.");
-      return;
-    }
-    if (vehicleCategory === "engin" && !equipmentId && !vehicleLabel.trim()) {
-      toast.error("Sélectionnez un engin ou saisissez une identification.");
-      return;
-    }
-    if (vehicleCategory !== "engin" && !vehicleLabel.trim()) {
-      toast.error("Indiquez l'identification du véhicule (immat., n°…).");
+    const err = validateGasoilBonForm(form);
+    if (err) {
+      toast.error(err);
       return;
     }
 
-    const eq = equipment.find((e) => e.id === equipmentId);
+    const L = typeof form.litres === "number" ? form.litres : Number(form.litres);
+
     setSaving(true);
+    const payload = {
+      number: form.bonNumber || undefined,
+      bonType: fixedBonType,
+      vehicleCategory: isCommande ? "engin" : form.vehicleCategory,
+      projectId: form.projectId,
+      materialId: isCommande ? undefined : form.materialId || undefined,
+      vehicleLabel: isCommande ? "" : form.vehicleLabel,
+      bonDate: form.bonDate,
+      litres: L,
+      pumpMeter: form.pumpMeter.trim() ? Number(form.pumpMeter) : null,
+      supplier: isCommande ? form.supplier : form.pumpAttendant,
+      beneficiary: isCommande ? "" : form.driverName,
+      driverContactId: isCommande ? undefined : form.driverContactId || undefined,
+      pompisteContactId: isCommande ? undefined : form.pompisteContactId || undefined,
+      fuelTime: isCommande ? "" : form.fuelTime,
+      deliveryNote: "",
+      notes: gasoilBonNotesFromForm(form),
+      syncStock: form.syncStock,
+      unitPricePerLitre:
+        typeof form.unitPricePerLitre === "number" && form.unitPricePerLitre > 0
+          ? form.unitPricePerLitre
+          : undefined,
+    };
+
     const res = await fetch("/api/admin/fuel/bons", {
-      method: "POST",
+      method: editingId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        bonType,
-        vehicleCategory,
-        projectId,
-        equipmentId: vehicleCategory === "engin" ? equipmentId : undefined,
-        equipmentName: eq?.name || "",
-        vehicleLabel,
-        bonDate,
-        litres: L,
-        pumpMeter: pumpMeter.trim() ? Number(pumpMeter) : null,
-        supplier: bonType === "achat" ? supplier : "",
-        beneficiary: bonType === "sortie" ? beneficiary : "",
-        deliveryNote,
-        notes,
-        syncStock,
-      }),
+      body: JSON.stringify(editingId ? { id: editingId, ...payload } : payload),
     });
     setSaving(false);
     if (!res.ok) {
       toast.error(await readApiError(res));
       return;
     }
-    const created = (await res.json()) as GasoilBon;
-    toast.success(`${GASOIL_BON_TYPE_LABELS[created.bonType]} : ${created.number}`);
-    setLitres("");
-    setPumpMeter("");
-    setSupplier("");
-    setBeneficiary("");
-    setDeliveryNote("");
-    setNotes("");
-    setVehicleLabel("");
-    setEquipmentId("");
+    const saved = (await res.json()) as GasoilBon;
+    toast.success(
+      editingId
+        ? `${isCommande ? "Bon de commande" : "Bon de sortie"} N° ${saved.number} mis à jour.`
+        : `${isCommande ? "Bon de commande" : "Bon de sortie"} — N° ${saved.number}`,
+    );
+    await resetForm();
     await load();
     onStockUpdated?.();
     setPanelTab("list");
@@ -200,12 +239,23 @@ export function FuelGasoilBonPanel({
     await load();
   }
 
+  function exportBon(row: GasoilBon, format: "pdf" | "excel") {
+    const url = `/api/admin/fuel/bons/export?id=${encodeURIComponent(row.id)}&format=${format}`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "";
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
   if (loading) return <AdminLoading />;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 rounded-md border border-border bg-[var(--background)] px-3 py-2 text-sm">
-        <span className="text-[var(--graphite)]/70">Stock ins :</span>
+        <span className="text-[var(--graphite)]/70">Stock gasoil :</span>
         <span className="font-medium text-[var(--navy)]">
           {gasoilStock ? `${gasoilStock.qty.toLocaleString("fr-MA")} L` : "Non configuré"}
         </span>
@@ -219,72 +269,59 @@ export function FuelGasoilBonPanel({
         >
           Liste des bons
         </button>
-        <button
-          type="button"
-          className={panelTab === "new" ? btnPrimary : btnSecondary}
-          onClick={() => setPanelTab("new")}
-        >
-          Nouveau bon gasoil
+        <button type="button" className={panelTab === "form" ? btnPrimary : btnSecondary} onClick={openNew}>
+          {newLabel}
         </button>
       </div>
 
       {panelTab === "list" ? (
         <AdminInventoryCard
-          title="Bons gasoil"
+          title={listTitle}
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="N° bon, chantier, véhicule…"
+          searchPlaceholder={isCommande ? "N° document, chantier, fournisseur…" : "N° bon, chantier, véhicule…"}
           actions={
-            <button type="button" className={btnPrimary} onClick={() => setPanelTab("new")}>
-              Nouveau bon
+            <button type="button" className={btnPrimary} onClick={openNew}>
+              {isCommande ? "Nouvelle commande" : "Nouveau bon"}
             </button>
           }
         >
-          <div className="flex flex-wrap gap-2 border-b border-border px-4 py-3">
-            <select
-              className={`${inputClass} max-w-[160px]`}
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-            >
-              <option value="">Tous types</option>
-              {GASOIL_BON_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {GASOIL_BON_TYPE_LABELS[t]}
-                </option>
-              ))}
-            </select>
-            <select
-              className={`${inputClass} max-w-[200px]`}
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-            >
-              <option value="">Toutes catégories</option>
-              {GASOIL_VEHICLE_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {GASOIL_VEHICLE_CATEGORY_LABELS[c]}
-                </option>
-              ))}
-            </select>
-          </div>
+          {!isCommande ? (
+            <div className="flex flex-wrap gap-2 border-b border-border px-4 py-3">
+              <select
+                className={`${inputClass} max-w-[200px]`}
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+              >
+                <option value="">Toutes catégories</option>
+                {GASOIL_VEHICLE_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {GASOIL_VEHICLE_CATEGORY_LABELS[c]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
 
           {filtered.length === 0 ? (
             <div className="px-5 py-12 text-center text-sm text-[var(--graphite)]/70">
-              Aucun bon gasoil.
-              <button type="button" className={`mt-4 block mx-auto ${btnPrimary}`} onClick={() => setPanelTab("new")}>
-                Créer un bon
+              {isCommande ? "Aucun bon de commande gasoil." : "Aucun bon de sortie gasoil."}
+              <button type="button" className={`mt-4 block mx-auto ${btnPrimary}`} onClick={openNew}>
+                {isCommande ? "Créer une commande" : "Créer un bon"}
               </button>
             </div>
           ) : (
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>N° bon</th>
-                  <th className={thClass}>Type</th>
-                  <th className={thClass}>Catégorie</th>
+                  <th className={thClass}>{isCommande ? "N° document" : "N° bon"}</th>
+                  {!isCommande ? <th className={thClass}>Catégorie</th> : null}
                   <th className={thClass}>Chantier</th>
-                  <th className={thClass}>Véhicule</th>
+                  {!isCommande ? <th className={thClass}>Véhicule</th> : null}
                   <th className={thClass}>Litres</th>
-                  <th className={thClass}>Cpt. pompe</th>
+                  {!isCommande ? <th className={thClass}>Prix/L</th> : null}
+                  <th className={thClass}>Compteur</th>
+                  <th className={thClass}>{isCommande ? "Fournisseur" : "Conducteur"}</th>
                   <th className={thClass}>Date</th>
                   <th className={thClass} />
                 </tr>
@@ -293,25 +330,53 @@ export function FuelGasoilBonPanel({
                 {filtered.map((r) => (
                   <tr key={r.id} className={rowHover}>
                     <td className={`${tdClass} font-mono text-xs`}>{r.number}</td>
-                    <td className={tdClass}>
-                      <span
-                        className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${BON_TYPE_BADGE[r.bonType]}`}
-                      >
-                        {r.bonType === "achat" ? "Achat" : "Sortie"}
-                      </span>
-                    </td>
-                    <td className={tdClass}>{GASOIL_VEHICLE_CATEGORY_LABELS[r.vehicleCategory]}</td>
+                    {!isCommande ? (
+                      <td className={tdClass}>{GASOIL_VEHICLE_CATEGORY_LABELS[r.vehicleCategory]}</td>
+                    ) : null}
                     <td className={tdClass}>{projectName(r.projectId)}</td>
-                    <td className={tdClass}>{r.equipmentName || r.vehicleLabel || "—"}</td>
+                    {!isCommande ? (
+                      <td className={tdClass}>{r.equipmentName || r.vehicleLabel || "—"}</td>
+                    ) : null}
                     <td className={tdClass}>{r.litres.toLocaleString("fr-MA")} L</td>
+                    {!isCommande ? (
+                      <td className={`${tdClass} tabular-nums`}>
+                        {r.unitPrice && r.unitPrice > 0
+                          ? `${r.unitPrice.toLocaleString("fr-MA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MAD`
+                          : "—"}
+                      </td>
+                    ) : null}
                     <td className={tdClass}>
                       {r.pumpMeter != null ? r.pumpMeter.toLocaleString("fr-MA") : "—"}
                     </td>
+                    <td className={tdClass}>{isCommande ? r.supplier || "—" : r.beneficiary || "—"}</td>
                     <td className={tdClass}>{r.bonDate}</td>
                     <td className={tdClass}>
-                      <button type="button" className={btnDanger} onClick={() => void remove(r)}>
-                        Supprimer
-                      </button>
+                      <div className="flex flex-wrap gap-1">
+                        <button
+                          type="button"
+                          className={`${btnSecondary} px-2 py-1 text-[10px]`}
+                          onClick={() => openEdit(r)}
+                        >
+                          Modifier
+                        </button>
+                        <button
+                          type="button"
+                          className={`${btnSecondary} px-2 py-1 text-[10px]`}
+                          onClick={() => exportBon(r, "pdf")}
+                        >
+                          PDF
+                        </button>
+                        <button
+                          type="button"
+                          className={`${btnSecondary} px-2 py-1 text-[10px]`}
+                          onClick={() => exportBon(r, "excel")}
+                        >
+                          Excel
+                        </button>
+                        <button type="button" className={btnDanger} onClick={() => void remove(r)}>
+                          Supprimer
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -321,172 +386,49 @@ export function FuelGasoilBonPanel({
         </AdminInventoryCard>
       ) : null}
 
-      {panelTab === "new" ? (
-        <AdminFormCard
-          title="Nouveau bon gasoil"
-          hint="Bon d'achat (entrée stock) ou bon de sortie (distribution). Quatre catégories : engin, camion, voiture, groupe électrogène."
-          footer={
-            <div className="flex flex-wrap gap-2">
-              <button type="button" className={btnSecondary} onClick={() => setPanelTab("list")}>
-                Annuler
-              </button>
-              <button type="button" className={btnPrimary} disabled={saving} onClick={() => void submitBon()}>
-                {saving ? "Enregistrement…" : "Enregistrer le bon"}
-              </button>
-            </div>
-          }
-        >
-          <div className="grid max-w-2xl gap-4">
-            <div>
-              <p className={labelClass}>Type de bon *</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {GASOIL_BON_TYPES.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    className={
-                      bonType === t
-                        ? btnPrimary
-                        : `${btnSecondary} border border-border`
-                    }
-                    onClick={() => setBonType(t)}
-                  >
-                    {GASOIL_BON_TYPE_LABELS[t]}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className={labelClass}>Catégorie *</p>
-              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {GASOIL_VEHICLE_CATEGORIES.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    className={
-                      vehicleCategory === c
-                        ? `${btnPrimary} min-h-[44px] text-xs`
-                        : `${btnSecondary} min-h-[44px] border border-border text-xs`
-                    }
-                    onClick={() => setVehicleCategory(c)}
-                  >
-                    {GASOIL_VEHICLE_CATEGORY_LABELS[c]}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className={labelClass}>N° bon</p>
-              <p className="mt-1 text-sm text-[var(--graphite)]/75">
-                Généré à l&apos;enregistrement (ex. BON-GASOIL-SORTIE-2026-001)
-              </p>
-            </div>
-
-            <div>
-              <p className={labelClass}>Chantier *</p>
-              <div className="mt-1">
-                <ProjectSelect projects={projects} value={projectId} onChange={setProjectId} />
-              </div>
-            </div>
-
-            {vehicleCategory === "engin" ? (
-              <div>
-                <p className={labelClass}>Engin</p>
-                <div className="mt-1">
-                  <EquipmentSelect equipment={equipment} value={equipmentId} onChange={setEquipmentId} />
-                </div>
-              </div>
-            ) : null}
-
-            <div>
-              <p className={labelClass}>
-                {vehicleCategory === "engin" ? "Identification (si hors parc)" : "Identification véhicule *"}
-              </p>
-              <input
-                className={`${inputClass} mt-1`}
-                placeholder={
-                  vehicleCategory === "camion"
-                    ? "Immat. camion"
-                    : vehicleCategory === "voiture"
-                      ? "Immat. voiture"
-                      : vehicleCategory === "groupe_electrogene"
-                        ? "N° groupe / localisation"
-                        : "Complément"
-                }
-                value={vehicleLabel}
-                onChange={(e) => setVehicleLabel(e.target.value)}
-              />
-            </div>
-
-            <div className={formGridClass}>
-              <div>
-                <p className={labelClass}>Qté (L) *</p>
-                <input
-                  type="number"
-                  className={`${inputClass} mt-1`}
-                  value={litres}
-                  onChange={(e) => setLitres(e.target.value === "" ? "" : Number(e.target.value) || 0)}
-                />
-              </div>
-              <div>
-                <p className={labelClass}>Compteur pompe</p>
-                <input
-                  type="number"
-                  className={`${inputClass} mt-1`}
-                  value={pumpMeter}
-                  onChange={(e) => setPumpMeter(e.target.value)}
-                />
-              </div>
-              <div>
-                <p className={labelClass}>Date *</p>
-                <input
-                  type="date"
-                  className={`${inputClass} mt-1`}
-                  value={bonDate}
-                  onChange={(e) => setBonDate(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {bonType === "achat" ? (
-              <div>
-                <p className={labelClass}>Fournisseur</p>
-                <input
-                  className={`${inputClass} mt-1`}
-                  value={supplier}
-                  onChange={(e) => setSupplier(e.target.value)}
-                />
-              </div>
-            ) : (
-              <div>
-                <p className={labelClass}>Bénéficiaire</p>
-                <input
-                  className={`${inputClass} mt-1`}
-                  value={beneficiary}
-                  onChange={(e) => setBeneficiary(e.target.value)}
-                />
-              </div>
-            )}
-
-            <DeliveryNoteSelect value={deliveryNote} onChange={setDeliveryNote} />
-
-            <div>
-              <p className={labelClass}>Notes</p>
-              <input className={`${inputClass} mt-1`} value={notes} onChange={(e) => setNotes(e.target.value)} />
-            </div>
-
-            <label className="flex items-center gap-2 text-sm text-[var(--graphite)]/85">
-              <input
-                type="checkbox"
-                checked={syncStock}
-                onChange={(e) => setSyncStock(e.target.checked)}
-              />
-              Mettre à jour le stock gasoil (entrée pour achat, sortie pour bon de sortie)
-            </label>
+      {panelTab === "form" ? (
+        <div className="space-y-4">
+          <FuelGasoilBonForm
+            form={form}
+            onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+            projects={projects}
+            materials={materials}
+            gasoilContacts={gasoilContacts}
+            fixedBonType={fixedBonType}
+            lockBonNumber={!!editingId}
+            avgUnitPriceInfo={avgUnitPriceInfo}
+            suppliers={suppliers}
+            onSupplierAdded={(supplier) =>
+              setSuppliers((prev) => (prev.some((s) => s.id === supplier.id) ? prev : [...prev, supplier]))
+            }
+            onGasoilContactAdded={(contact) =>
+              setGasoilContacts((prev) =>
+                prev.some((c) => c.id === contact.id) ? prev : [...prev, contact],
+              )
+            }
+          />
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              className={btnSecondary}
+              onClick={() => {
+                setEditingId(null);
+                setPanelTab("list");
+              }}
+            >
+              Annuler
+            </button>
+            <button type="button" className={btnPrimary} disabled={saving} onClick={() => void submitBon()}>
+              {saving
+                ? "Enregistrement…"
+                : editingId
+                  ? isCommande
+                    ? "Enregistrer les modifications"
+                    : "Enregistrer le bon"
+                  : saveLabel}
+            </button>
           </div>
-        </AdminFormCard>
+        </div>
       ) : null}
 
       <AdminToast message={toast.toast?.message ?? null} kind={toast.toast?.kind} onDismiss={toast.dismiss} />

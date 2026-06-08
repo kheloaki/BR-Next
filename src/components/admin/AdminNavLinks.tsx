@@ -8,7 +8,9 @@ import { ADMIN_NAV_GROUPS } from "@/lib/admin/admin-nav";
 import { ADMIN_SECTION_ICON } from "@/components/admin/admin-nav-icons";
 import type { AdminSection } from "@/components/admin/AdminSidebar";
 import { isFacturationPath } from "@/lib/admin/facturation-nav";
-import { isFuelPath } from "@/lib/admin/fuel-nav";
+import { isFinancePath } from "@/lib/admin/finance-nav";
+import { isFuelConsommationPath, isFuelPath } from "@/lib/admin/fuel-nav";
+import { isRentalPath } from "@/lib/admin/rental-nav";
 
 const OPEN_GROUPS_KEY = "admin-nav-open-groups";
 
@@ -59,8 +61,17 @@ export function AdminNavLinks({
     if (isFuelPath(pathname)) {
       setOpenGroups((prev) => ({ ...prev, Carburant: true }));
     }
+    if (isFuelConsommationPath(pathname)) {
+      setOpenGroups((prev) => ({ ...prev, Chantiers: true }));
+    }
+    if (isRentalPath(pathname)) {
+      setOpenGroups((prev) => ({ ...prev, "Matériel & location": true }));
+    }
     if (isFacturationPath(pathname)) {
-      setOpenGroups((prev) => ({ ...prev, Facturation: true }));
+      setOpenGroups((prev) => ({ ...prev, Commercial: true }));
+    }
+    if (isFinancePath(pathname)) {
+      setOpenGroups((prev) => ({ ...prev, Finance: true }));
     }
   }, [pathname]);
 
@@ -133,9 +144,8 @@ export function AdminNavLinks({
                   const activeItem = isActive(pathname, item.href);
                   const nested =
                     (group.label === "Carburant" && item.href.startsWith("/admin/fuel/")) ||
-                    (group.label === "Facturation" &&
-                      (item.href === "/admin/facturation/bon-commande" ||
-                        item.href === "/admin/facturation/facture"));
+                    (group.label === "Matériel & location" &&
+                      item.href.startsWith("/admin/equipment-rental/"));
                   return (
                     <Link
                       key={item.href}

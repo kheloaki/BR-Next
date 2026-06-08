@@ -56,6 +56,10 @@ export function DrillingManager() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (searchParams.get("tab") === "new") setTab("new");
+  }, [searchParams]);
+
   const byRig = useMemo(() => {
     const map = new Map<string, number>();
     for (const r of rows) map.set(r.rigName || "—", (map.get(r.rigName || "—") ?? 0) + r.metersDrilled);

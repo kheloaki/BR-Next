@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import type { QuoteDraft } from "@/components/admin/devis-types";
 import { requireAdminContext } from "@/lib/admin/require-admin";
+import { syncTraitementAfterQuoteSave } from "@/lib/admin/traitement-sync-server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+
+function quoteProjectIdColumn(quote: QuoteDraft): string | null {
+  const id = quote.projectId?.trim();
+  return id || null;
+}
 
 export async function GET(request: Request) {
   const auth = await requireAdminContext();
@@ -66,7 +72,7 @@ export async function POST(request: Request) {
   const { userId, organizationId } = auth;
 
   const quote = (await request.json()) as QuoteDraft;
-  if (!quote?.clientName || !Array.isArray(quote.items)) {
+  if (!quote?.clientName?.trim() || !Array.isArray(quote.items)) {
     return NextResponse.json({ error: "Invalid quote payload" }, { status: 400 });
   }
 
@@ -92,11 +98,19 @@ export async function POST(request: Request) {
   if (existing) {
     const { error } = await supabase
       .from("admin_quotes")
-      .update({ payload })
+      .update({ payload, project_id: quoteProjectIdColumn(payload) })
       .eq("id", quoteId)
       .eq("organization_id", organizationId);
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    try {
+      await syncTraitementAfterQuoteSave(supabase, organizationId, userId, payload, { isCreate: false });
+    } catch (e) {
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : "Sync traitement impossible" },
+        { status: 400 },
+      );
     }
     return NextResponse.json({ ok: true, id: quoteId, updated: true });
   }
@@ -105,6 +119,7 @@ export async function POST(request: Request) {
     id: quoteId,
     user_id: userId,
     organization_id: organizationId,
+    project_id: quoteProjectIdColumn(payload),
     payload,
   });
 
@@ -112,7 +127,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, id: quoteId, created: true });
+  try {
+    const sync = await syncTraitementAfterQuoteSave(supabase, organizationId, userId, payload, {
+      isCreate: true,
+    });
+    return NextResponse.json({ ok: true, id: quoteId, created: true, traitementSync: sync });
+  } catch (e) {
+    await supabase.from("admin_quotes").delete().eq("id", quoteId).eq("organization_id", organizationId);
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Sync traitement impossible" },
+      { status: 400 },
+    );
+  }
 }
 
 export async function DELETE(request: Request) {

@@ -1,7 +1,7 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
-export type OrganizationRole = "owner" | "admin" | "member";
+export type OrganizationRole = "owner" | "admin" | "member" | "financier" | "accountant" | "project_manager";
 
 export type AdminOrganizationContext = {
   organizationId: string;
@@ -87,9 +87,79 @@ export async function resolveAdminOrganizationForUser(userId: string) {
   } catch {
     email = null;
   }
-  return ensureAdminOrganizationMembership(userId, email ?? displayName);
+  const ctx = await ensureAdminOrganizationMembership(userId, email ?? displayName);
+  const promoted = await ensureOrganizationHasOwner(ctx.organizationId, userId);
+  if (promoted) {
+    return { ...ctx, role: promoted };
+  }
+  return ctx;
 }
 
 export function canManageMembers(role: OrganizationRole) {
   return role === "owner" || role === "admin";
+}
+
+/** Roles assignable when inviting or editing members (excluding owner transfer). */
+export const ASSIGNABLE_MEMBER_ROLES = [
+  "admin",
+  "member",
+  "financier",
+  "accountant",
+  "project_manager",
+] as const;
+
+export type AssignableMemberRole = (typeof ASSIGNABLE_MEMBER_ROLES)[number];
+
+export function isAssignableMemberRole(role: string): role is AssignableMemberRole {
+  return (ASSIGNABLE_MEMBER_ROLES as readonly string[]).includes(role);
+}
+
+/** If the org has no owner (legacy migration), promote the current user. */
+export async function ensureOrganizationHasOwner(
+  organizationId: string,
+  userId: string,
+): Promise<OrganizationRole | null> {
+  const supabase = getSupabaseAdminClient();
+  const { count } = await supabase
+    .from("admin_organization_members")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
+    .eq("role", "owner");
+
+  if ((count ?? 0) > 0) return null;
+
+  const { data: member } = await supabase
+    .from("admin_organization_members")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!member) return null;
+
+  await supabase.from("admin_organization_members").update({ role: "owner" }).eq("id", member.id);
+  return "owner";
+}
+
+export function canViewReports(_role: OrganizationRole) {
+  return true;
+}
+
+/** All org members may export — same trust model as fuel, stock, traitements. */
+export function canExportReports(_role: OrganizationRole) {
+  return true;
+}
+
+/** Financial totals in preview + financial états: owner/admin/financier/accountant. */
+export function canSeeFinancialTotals(role: OrganizationRole) {
+  return role === "owner" || role === "admin" || role === "financier" || role === "accountant";
+}
+
+/** Sign / validate procès-verbaux (owner + admin). */
+export function canSignPv(role: OrganizationRole) {
+  return role === "owner" || role === "admin";
+}
+
+export function canManageReportTemplates(role: OrganizationRole) {
+  return role === "owner";
 }

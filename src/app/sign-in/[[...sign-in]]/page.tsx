@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { SignIn } from "@clerk/nextjs";
+import { Suspense } from "react";
+import { SignInPanel } from "@/components/auth/SignInPanel";
 
 export const metadata: Metadata = {
   title: "Connexion",
@@ -10,10 +11,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default function SignInPage() {
+/** Clerk sub-routes (factor-one, SSO, …) */
+export default function SignInCatchAllPage() {
   return (
-    <div className="min-h-[70vh] pt-28 pb-16 px-6 lg:px-16 flex items-start justify-center">
-      <SignIn />
-    </div>
+    <Suspense fallback={<div className="min-h-[70vh] pt-28 pb-16 px-6" />}>
+      <SignInPanel />
+    </Suspense>
   );
 }

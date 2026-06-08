@@ -7,7 +7,7 @@ import { DocumentPreview } from "@/components/admin/DocumentPreview";
 import { HtTtcPriceFields } from "@/components/admin/HtTtcPriceFields";
 import { ProductCategorySelect } from "@/components/admin/ProductCategorySelect";
 import { ProductUnitField } from "@/components/admin/ProductUnitField";
-import { formatMoney, htToTtc } from "@/lib/admin/price-ht-ttc";
+import { DEFAULT_VAT_RATE, formatMoney, htToTtc } from "@/lib/admin/price-ht-ttc";
 import { downloadDevisPdf } from "@/components/admin/devis-pdf";
 import {
   DOCUMENT_LABELS,
@@ -33,6 +33,14 @@ import {
   facturationDocumentsPath,
   facturationEditPath,
 } from "@/lib/admin/facturation-nav";
+import {
+  buildQuoteDraftFromTraitement,
+  traitementDocumentBuilderPath,
+  traitementReturnPath,
+  traitementStepToDocumentType,
+} from "@/lib/admin/traitement-document";
+import type { Traitement } from "@/lib/admin/traitement-types";
+import { TRAITEMENT_STEP_LABELS, type TraitementStepKey, type TraitementType } from "@/lib/admin/traitement-types";
 
 function money(value: number) {
   return new Intl.NumberFormat("fr-MA", {
@@ -108,6 +116,9 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
   const searchParams = useSearchParams();
   const editingId = searchParams.get("id");
   const fromFactureId = searchParams.get("fromFacture");
+  const traitementIdParam = searchParams.get("traitementId");
+  const traitementStepParam = searchParams.get("step") as TraitementStepKey | null;
+  const traitementTypeParam = searchParams.get("traitementType") as TraitementType | null;
 
   const [products, setProducts] = useState<Product[]>([]);
   const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
@@ -128,6 +139,10 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const [newCustomerName, setNewCustomerName] = useState("");
+  const [newSupplierName, setNewSupplierName] = useState("");
+  const [newCompanyName, setNewCompanyName] = useState("");
+  const [newSupplierRib, setNewSupplierRib] = useState("");
+  const [newSupplierBankName, setNewSupplierBankName] = useState("");
   const [newCustomerIce, setNewCustomerIce] = useState("");
   const [newCustomerAddress, setNewCustomerAddress] = useState("");
   const [counterpartyMode, setCounterpartyMode] = useState<"saved" | "passager">("saved");
@@ -143,7 +158,7 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
   const [reference, setReference] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState("");
-  const [vatRate, setVatRate] = useState(20);
+  const [vatRate, setVatRate] = useState(DEFAULT_VAT_RATE);
   const [discount, setDiscount] = useState(0);
   const [deposit, setDeposit] = useState(0);
   const [linkedFactureId, setLinkedFactureId] = useState<string | undefined>();
@@ -153,6 +168,14 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
   const [items, setItems] = useState<LineItem[]>([]);
   const [allQuotes, setAllQuotes] = useState<QuoteDraft[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [traitementLink, setTraitementLink] = useState<{
+    id: string;
+    number: string;
+    step: TraitementStepKey;
+    type: TraitementType;
+    projectId?: string | null;
+  } | null>(null);
+  const traitementPrefillRef = useRef(false);
 
   useEffect(() => {
     let mounted = true;
@@ -221,10 +244,18 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
       setReference(draft.reference ?? "");
       setDate(draft.date ?? new Date().toISOString().slice(0, 10));
       setDueDate(draft.dueDate ?? "");
-      setVatRate(typeof draft.vatRate === "number" ? draft.vatRate : 20);
+      setVatRate(typeof draft.vatRate === "number" ? draft.vatRate : DEFAULT_VAT_RATE);
       setDiscount(typeof draft.discount === "number" ? draft.discount : 0);
       setDeposit(typeof draft.deposit === "number" ? draft.deposit : 0);
       setItems(Array.isArray(draft.items) ? draft.items : []);
+      if (draft.traitementId && draft.traitementStep && draft.traitementType) {
+        setTraitementLink({
+          id: draft.traitementId,
+          number: draft.traitementNumber ?? "",
+          step: draft.traitementStep,
+          type: draft.traitementType,
+        });
+      }
     }
     void loadQuote();
     return () => {
@@ -263,7 +294,7 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
     setReference(draft.reference ?? "");
     setDate(draft.date ?? new Date().toISOString().slice(0, 10));
     setDueDate("");
-    setVatRate(draft.vatRate ?? 20);
+    setVatRate(draft.vatRate ?? DEFAULT_VAT_RATE);
     setDiscount(0);
     setDeposit(0);
     setItems(draft.items ?? []);
@@ -272,6 +303,77 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
     setLinkedFactureNumber(draft.linkedFactureNumber);
     autoNumberInitRef.current = true;
   }, [editingId, fromFactureId, dataLoaded, allQuotes]);
+
+  useEffect(() => {
+    if (editingId || !traitementIdParam || !traitementStepParam || !traitementTypeParam) return;
+    if (!dataLoaded || traitementPrefillRef.current) return;
+
+    let mounted = true;
+    async function loadTraitementPrefill() {
+      const res = await fetch(`/api/admin/traitements?id=${encodeURIComponent(traitementIdParam!)}`, {
+        cache: "no-store",
+      });
+      if (!res.ok || !mounted) return;
+      const traitement = (await res.json()) as Traitement;
+      const step = traitementStepParam!;
+      const existing = traitement.steps[step];
+      if (existing?.quoteId) {
+        const docType = traitementStepToDocumentType(step, traitement.traitementType);
+        if (docType) {
+          router.replace(facturationEditPath({ id: existing.quoteId, documentType: docType }));
+        }
+        return;
+      }
+
+      const expectedDocType = traitementStepToDocumentType(step, traitement.traitementType);
+      if (!expectedDocType) return;
+      if (fixedDocumentType && fixedDocumentType !== expectedDocType) {
+        router.replace(traitementDocumentBuilderPath(traitement.traitementType, step, traitement.id) ?? traitementReturnPath(traitement.traitementType, traitement.id));
+        return;
+      }
+
+      const draft = buildQuoteDraftFromTraitement(
+        traitement,
+        step,
+        expectedDocType,
+        computeNextNumber(allQuotes, expectedDocType),
+      );
+
+      setDocumentType(expectedDocType);
+      setClientName(draft.clientName ?? traitement.partnerName);
+      setReference(draft.reference ?? traitement.label);
+      setQuoteNumber(draft.quoteNumber ?? computeNextNumber(allQuotes, expectedDocType));
+      setDate(draft.date ?? new Date().toISOString().slice(0, 10));
+      setItems(draft.items ?? []);
+      setLinkedFactureId(draft.linkedFactureId);
+      setLinkedFactureNumber(draft.linkedFactureNumber);
+      if (traitement.supplierId) setSelectedSupplierId(traitement.supplierId);
+      if (traitement.customerId) setSelectedCustomerId(traitement.customerId);
+      setTraitementLink({
+        id: traitement.id,
+        number: traitement.number,
+        step,
+        type: traitement.traitementType,
+        projectId: traitement.projectId,
+      });
+      traitementPrefillRef.current = true;
+      autoNumberInitRef.current = true;
+    }
+
+    void loadTraitementPrefill();
+    return () => {
+      mounted = false;
+    };
+  }, [
+    editingId,
+    traitementIdParam,
+    traitementStepParam,
+    traitementTypeParam,
+    dataLoaded,
+    allQuotes,
+    fixedDocumentType,
+    router,
+  ]);
 
   useEffect(() => {
     if (loading) return;
@@ -457,15 +559,30 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
   }
 
   async function createCounterpartyFromBuilder() {
-    if (!newCustomerName.trim()) return;
+    if (isPurchaseOrder) {
+      if (!newSupplierName.trim() && !newCompanyName.trim()) return;
+    } else if (!newCustomerName.trim()) {
+      return;
+    }
     const res = await fetch(counterpartyApi, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: newCustomerName.trim(),
-        ice: newCustomerIce.trim(),
-        address: newCustomerAddress.trim(),
-      }),
+      body: JSON.stringify(
+        isPurchaseOrder
+          ? {
+              supplierName: newSupplierName.trim(),
+              companyName: newCompanyName.trim(),
+              ice: newCustomerIce.trim(),
+              address: newCustomerAddress.trim(),
+              rib: newSupplierRib.trim(),
+              bankName: newSupplierBankName.trim(),
+            }
+          : {
+              name: newCustomerName.trim(),
+              ice: newCustomerIce.trim(),
+              address: newCustomerAddress.trim(),
+            },
+      ),
     });
     if (!res.ok) return;
     const created = (await res.json()) as Customer | Supplier;
@@ -484,6 +601,10 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
     setClientAddress(newCustomerAddress.trim());
     setCounterpartyMode("saved");
     setNewCustomerName("");
+    setNewSupplierName("");
+    setNewCompanyName("");
+    setNewSupplierRib("");
+    setNewSupplierBankName("");
     setNewCustomerIce("");
     setNewCustomerAddress("");
     setCustomerPickerOpen(false);
@@ -508,6 +629,11 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
       deposit: isDeliveryNote(documentType) ? 0 : deposit,
       items,
       includeCachet,
+      traitementId: traitementLink?.id ?? traitementIdParam ?? undefined,
+      traitementStep: traitementLink?.step ?? traitementStepParam ?? undefined,
+      traitementType: traitementLink?.type ?? traitementTypeParam ?? undefined,
+      traitementNumber: traitementLink?.number,
+      projectId: traitementLink?.projectId ?? undefined,
     };
   }
 
@@ -534,8 +660,21 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
         setAllQuotes(quotes);
         setSavedCount(quotes.length);
       }
-      if (!editingId && result.id) {
-        router.replace(`${facturationBuilderPath(documentType)}?id=${encodeURIComponent(result.id)}`);
+      const savedId = result.id ?? editingId;
+      const returnPath =
+        traitementLink || traitementIdParam
+          ? traitementReturnPath(
+              traitementLink?.type ?? traitementTypeParam ?? "achat",
+              traitementLink?.id ?? traitementIdParam!,
+            )
+          : null;
+
+      if (returnPath && result.created) {
+        router.push(returnPath);
+        return;
+      }
+      if (!editingId && savedId) {
+        router.replace(`${facturationBuilderPath(documentType)}?id=${encodeURIComponent(savedId)}`);
       }
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 2500);
@@ -548,6 +687,19 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
 
   return (
     <div className={moduleWrap}>
+      {traitementLink ? (
+        <div className="mb-4 rounded-lg border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-4 py-3 text-sm text-[var(--navy)]">
+          Traitement <span className="font-mono font-semibold">{traitementLink.number}</span> — étape{" "}
+          <span className="font-semibold">{TRAITEMENT_STEP_LABELS[traitementLink.step]}</span>. Enregistrer met à jour
+          le suivi et le stock si applicable (BL / BR).
+          <Link
+            href={traitementReturnPath(traitementLink.type, traitementLink.id)}
+            className="ml-2 font-medium underline underline-offset-2"
+          >
+            Retour traitement
+          </Link>
+        </div>
+      ) : null}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
         <div>
           <h2 className="text-3xl font-semibold text-[var(--navy)]">
@@ -1093,12 +1245,44 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
               Cette fiche sera enregistrée dans votre carnet pour réutilisation. Pour une saisie unique, utilisez le mode <strong>Passager</strong>.
             </p>
             <div className="mt-3 grid gap-2">
-              <input
-                className={inputClass}
-                placeholder={`Nom du ${counterpartyLabel}`}
-                value={newCustomerName}
-                onChange={(e) => setNewCustomerName(e.target.value)}
-              />
+              {isPurchaseOrder ? (
+                <>
+                  <input
+                    className={inputClass}
+                    placeholder="Nom fournisseur"
+                    value={newSupplierName}
+                    onChange={(e) => setNewSupplierName(e.target.value)}
+                  />
+                  <input
+                    className={inputClass}
+                    placeholder="Société"
+                    value={newCompanyName}
+                    onChange={(e) => setNewCompanyName(e.target.value)}
+                  />
+                  <p className="text-xs text-[var(--graphite)]/65">
+                    Au moins l&apos;un des deux champs est requis.
+                  </p>
+                  <input
+                    className={inputClass}
+                    placeholder="Banque"
+                    value={newSupplierBankName}
+                    onChange={(e) => setNewSupplierBankName(e.target.value)}
+                  />
+                  <input
+                    className={inputClass}
+                    placeholder="RIB (relevé d'identité bancaire)"
+                    value={newSupplierRib}
+                    onChange={(e) => setNewSupplierRib(e.target.value)}
+                  />
+                </>
+              ) : (
+                <input
+                  className={inputClass}
+                  placeholder={`Nom du ${counterpartyLabel}`}
+                  value={newCustomerName}
+                  onChange={(e) => setNewCustomerName(e.target.value)}
+                />
+              )}
               <input
                 className={inputClass}
                 placeholder={`ICE ${counterpartyLabel}`}

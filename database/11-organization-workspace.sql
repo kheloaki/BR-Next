@@ -60,6 +60,7 @@ begin
     'admin_purchase_requests',
     'admin_fuel_entries',
     'admin_gasoil_bons',
+    'admin_gasoil_contacts',
     'admin_drilling_reports',
     'admin_trips',
     'admin_rental_contracts',

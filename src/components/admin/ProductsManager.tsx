@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { ProductCategorySelect } from "@/components/admin/ProductCategorySelect";
@@ -21,6 +21,7 @@ import {
   tdClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
+import { AdminDataSheet, AdminSheetField } from "@/components/admin/ux/AdminDataSheet";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { AdminLoading } from "@/components/admin/ux/AdminLoading";
@@ -37,6 +38,7 @@ const PRODUCT_TABS = new Set(["products", "categories"]);
 
 export function ProductsManager() {
   const toast = useAdminToast();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get("tab");
   const [tab, setTab] = useState(() =>
@@ -55,7 +57,8 @@ export function ProductsManager() {
   const [newUnitPrice, setNewUnitPrice] = useState(0);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [categorySearch, setCategorySearch] = useState("");
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [productSheetOpen, setProductSheetOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -107,15 +110,56 @@ export function ProductsManager() {
     return map;
   }, [products]);
 
-  function resetCreateForm() {
+  function clearEditParam() {
+    if (!searchParams.get("edit")) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("edit");
+    const qs = params.toString();
+    router.replace(qs ? `/admin/products?${qs}` : "/admin/products", { scroll: false });
+  }
+
+  function closeProductSheet() {
+    setProductSheetOpen(false);
+    setEditingId(null);
     setNewReference("");
     setNewDesignation("");
     setNewCategory("");
     setNewUnit("u");
     setNewUnitPrice(0);
+    clearEditParam();
   }
 
-  async function addProduct() {
+  function openCreateForm() {
+    setEditingId(null);
+    setNewReference("");
+    setNewDesignation("");
+    setNewCategory("");
+    setNewUnit("u");
+    setNewUnitPrice(0);
+    setProductSheetOpen(true);
+  }
+
+  function openEditProduct(product: Product) {
+    setEditingId(product.id);
+    setNewReference(product.reference);
+    setNewDesignation(product.designation);
+    setNewCategory(product.category);
+    setNewUnit(product.unit || "u");
+    setNewUnitPrice(product.unitPrice);
+    setProductSheetOpen(true);
+  }
+
+  useEffect(() => {
+    const editId = searchParams.get("edit");
+    if (!editId || loading || products.length === 0) return;
+    const product = products.find((p) => p.id === editId);
+    if (product && editingId !== editId) {
+      setTab("products");
+      openEditProduct(product);
+    }
+  }, [searchParams, loading, products, editingId]);
+
+  async function saveProduct() {
     if (!newDesignation.trim()) {
       toast.error("La désignation est obligatoire.");
       return;
@@ -129,6 +173,7 @@ export function ProductsManager() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        id: editingId ?? undefined,
         reference: newReference.trim() || "NN",
         designation: newDesignation.trim(),
         category: newCategory,
@@ -141,29 +186,9 @@ export function ProductsManager() {
       toast.error(await readApiError(res));
       return;
     }
-    toast.success("Produit ajouté.");
-    resetCreateForm();
-    setShowCreateForm(false);
+    toast.success(editingId ? "Article mis à jour." : "Article ajouté.");
+    closeProductSheet();
     await load();
-  }
-
-  async function updateProduct(id: string, patch: Partial<Product>) {
-    const current = products.find((p) => p.id === id);
-    if (!current) return;
-    const res = await fetch("/api/admin/products", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id,
-        reference: patch.reference ?? current.reference,
-        designation: patch.designation ?? current.designation,
-        category: patch.category ?? current.category,
-        unit: patch.unit ?? current.unit,
-        unitPrice: patch.unitPrice ?? current.unitPrice,
-      }),
-    });
-    if (!res.ok) toast.error(await readApiError(res));
-    else await load();
   }
 
   async function removeProduct(product: Product) {
@@ -224,22 +249,11 @@ export function ProductsManager() {
   return (
     <div className={moduleWrap}>
       <OpsModuleHeader
-        title="Catalogue produits"
-        description="Organisez par catégories et réutilisez les articles dans le générateur de devis."
+        title="Catalogue articles"
+        description="Référentiel unique — référence, désignation, prix. L'inventaire (qté) se met à jour automatiquement."
         actions={
-          <button
-            type="button"
-            className={btnPrimary}
-            onClick={() => {
-              if (showCreateForm) {
-                resetCreateForm();
-                setShowCreateForm(false);
-              } else {
-                setShowCreateForm(true);
-              }
-            }}
-          >
-            {showCreateForm ? "Annuler" : "Créer un produit"}
+          <button type="button" className={btnPrimary} onClick={openCreateForm}>
+            Créer un article
           </button>
         }
       />
@@ -336,57 +350,6 @@ export function ProductsManager() {
 
       {tab === "products" && !loading && (
         <>
-          {showCreateForm ? (
-            <div className="mb-4">
-            <AdminFormCard
-              title="Nouveau produit"
-              hint={categories.length === 0 ? "Créez d'abord une catégorie dans l'onglet Catégories." : undefined}
-              footer={
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className={btnSecondary}
-                    onClick={() => {
-                      resetCreateForm();
-                      setShowCreateForm(false);
-                    }}
-                  >
-                    Annuler
-                  </button>
-                  <button type="button" className={btnPrimary} disabled={saving} onClick={() => void addProduct()}>
-                    {saving ? "Enregistrement…" : "Ajouter le produit"}
-                  </button>
-                </div>
-              }
-            >
-              <div className={formGridClass}>
-                <input
-                  className={inputClass}
-                  placeholder="Référence"
-                  value={newReference}
-                  onChange={(e) => setNewReference(e.target.value)}
-                />
-                <input
-                  className={`${inputClass} sm:col-span-2`}
-                  placeholder="Désignation *"
-                  value={newDesignation}
-                  onChange={(e) => setNewDesignation(e.target.value)}
-                />
-                <ProductCategorySelect categories={categories} value={newCategory} onChange={setNewCategory} />
-                <ProductUnitField value={newUnit} onChange={setNewUnit} required />
-                <div className="sm:col-span-2">
-                  <HtTtcPriceFields
-                    showLabels={false}
-                    vatRate={DEFAULT_VAT_RATE}
-                    valueHt={newUnitPrice}
-                    onChangeHt={setNewUnitPrice}
-                  />
-                </div>
-              </div>
-            </AdminFormCard>
-            </div>
-          ) : null}
-
           <AdminInventoryCard
             title="Catalogue des produits"
             search={search}
@@ -412,11 +375,9 @@ export function ProductsManager() {
                 {search || filterCategory
                   ? "Aucun résultat pour ce filtre."
                   : "Aucun produit dans le catalogue."}
-                {!showCreateForm ? (
-                  <button type="button" className={`mt-4 ${btnPrimary}`} onClick={() => setShowCreateForm(true)}>
-                    Créer un produit
-                  </button>
-                ) : null}
+                <button type="button" className={`mt-4 ${btnPrimary}`} onClick={openCreateForm}>
+                  Créer un article
+                </button>
               </div>
             ) : (
               <AdminTableWrap>
@@ -443,9 +404,14 @@ export function ProductsManager() {
                         {formatMoney(htToTtc(product.unitPrice, DEFAULT_VAT_RATE))}
                       </td>
                       <td className={inventoryTdClass}>
-                        <button type="button" className={btnDanger} onClick={() => void removeProduct(product)}>
-                          Supprimer
-                        </button>
+                        <div className="flex flex-wrap gap-1">
+                          <button type="button" className={btnSecondary} onClick={() => openEditProduct(product)}>
+                            Modifier
+                          </button>
+                          <button type="button" className={btnDanger} onClick={() => void removeProduct(product)}>
+                            Supprimer
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -455,6 +421,61 @@ export function ProductsManager() {
           </AdminInventoryCard>
         </>
       )}
+
+      <AdminDataSheet
+        open={productSheetOpen}
+        onClose={closeProductSheet}
+        title={editingId ? "Modifier l'article" : "Nouvel article"}
+        description={
+          editingId
+            ? "Les changements sont propagés à l'inventaire et aux traitements."
+            : categories.length === 0
+              ? "Créez d'abord une catégorie dans l'onglet Catégories."
+              : undefined
+        }
+        footer={
+          <>
+            <button type="button" className={btnSecondary} onClick={closeProductSheet}>
+              Annuler
+            </button>
+            <button type="button" className={btnPrimary} disabled={saving} onClick={() => void saveProduct()}>
+              {saving ? "Enregistrement…" : editingId ? "Enregistrer" : "Ajouter l'article"}
+            </button>
+          </>
+        }
+      >
+        <div className={formGridClass}>
+          <AdminSheetField label="Référence">
+            <input
+              className={inputClass}
+              placeholder="NN si vide"
+              value={newReference}
+              onChange={(e) => setNewReference(e.target.value)}
+            />
+          </AdminSheetField>
+          <AdminSheetField label="Désignation" required className="sm:col-span-2">
+            <input
+              className={inputClass}
+              placeholder="Libellé de l'article"
+              value={newDesignation}
+              onChange={(e) => setNewDesignation(e.target.value)}
+            />
+          </AdminSheetField>
+          <AdminSheetField label="Catégorie">
+            <ProductCategorySelect categories={categories} value={newCategory} onChange={setNewCategory} />
+          </AdminSheetField>
+          <AdminSheetField label="Unité" required>
+            <ProductUnitField value={newUnit} onChange={setNewUnit} required />
+          </AdminSheetField>
+          <AdminSheetField label="Prix unitaire HT / TTC" className="sm:col-span-2">
+            <HtTtcPriceFields
+              vatRate={DEFAULT_VAT_RATE}
+              valueHt={newUnitPrice}
+              onChangeHt={setNewUnitPrice}
+            />
+          </AdminSheetField>
+        </div>
+      </AdminDataSheet>
 
       <AdminToast message={toast.toast?.message ?? null} kind={toast.toast?.kind} onDismiss={toast.dismiss} />
     </div>

@@ -1,13 +1,19 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
+import { PurchaseRequestSheet } from "@/components/admin/PurchaseRequestSheet";
+import {
+  PurchaseRequestKindPickerSheet,
+  type PurchaseRequestDaKind,
+} from "@/components/admin/PurchaseRequestKindPickerSheet";
 import { PurchaseStatusBadge } from "@/components/admin/StatusBadge";
+import type { Product } from "@/components/admin/devis-types";
 import {
   PURCHASE_CATEGORY_LABELS,
-  type PurchaseCategory,
   type PurchaseRequest,
   type PurchaseRequestStatus,
 } from "@/components/admin/operations-types";
@@ -17,60 +23,68 @@ import {
   btnPrimary,
   btnSecondary,
   inputClass,
-  labelClass,
   moduleWrap,
   rowHover,
   tdClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
-import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { AdminLoading } from "@/components/admin/ux/AdminLoading";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
-import { HtTtcPriceFields } from "@/components/admin/HtTtcPriceFields";
-import { ProjectSelect } from "@/components/admin/ProjectSelect";
-import { useOpsReferential } from "@/components/admin/useOpsReferential";
-import { DEFAULT_VAT_RATE, formatMoney, htToTtc } from "@/lib/admin/price-ht-ttc";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
+import { useOpsReferential } from "@/components/admin/useOpsReferential";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { isGasoilPurchaseRequest } from "@/lib/admin/map-purchase-request";
 
 export function PurchaseRequestsManager() {
   const toast = useAdminToast();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { projects } = useOpsReferential();
   const [tab, setTab] = useState("list");
   const [rows, setRows] = useState<PurchaseRequest[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [kindPickerOpen, setKindPickerOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createKind, setCreateKind] = useState<PurchaseRequestDaKind>("articles");
+  const [viewRequest, setViewRequest] = useState<PurchaseRequest | null>(null);
+  const [convertingId, setConvertingId] = useState<string | null>(null);
 
-  const [projectId, setProjectId] = useState(searchParams.get("project") ?? "");
-  const [category, setCategory] = useState<PurchaseCategory>(
-    (searchParams.get("category") as PurchaseCategory) || "parts",
+  function openNewDa() {
+    setKindPickerOpen(true);
+  }
+
+  function startCreate(kind: PurchaseRequestDaKind) {
+    setCreateKind(kind);
+    setKindPickerOpen(false);
+    setCreateOpen(true);
+  }
+
+  const stockPrefill = useMemo(
+    () => ({
+      projectId: searchParams.get("project") ?? undefined,
+      reference: searchParams.get("ref") ?? undefined,
+      designation: searchParams.get("designation") ?? undefined,
+      stockItemId: searchParams.get("stockItemId") ?? undefined,
+    }),
+    [searchParams],
   );
-  const [subject, setSubject] = useState(
-    searchParams.get("designation")
-      ? `Réappro — ${searchParams.get("designation")}`
-      : searchParams.get("ref")
-        ? `Réappro — ${searchParams.get("ref")}`
-        : "",
-  );
-  const [qty, setQty] = useState(1);
-  const [unitPrice, setUnitPrice] = useState(0);
-  const [supplier, setSupplier] = useState("");
-  const [urgency, setUrgency] = useState("Normale");
-  const [requester, setRequester] = useState("");
-  const [justification, setJustification] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     const url = statusFilter
       ? `/api/admin/purchase-requests?status=${encodeURIComponent(statusFilter)}`
       : "/api/admin/purchase-requests";
-    const res = await fetch(url, { cache: "no-store" });
-    if (res.ok) setRows((await res.json()) as PurchaseRequest[]);
+    const [daRes, productsRes] = await Promise.all([
+      fetch(url, { cache: "no-store" }),
+      fetch("/api/admin/products", { cache: "no-store" }),
+    ]);
+    if (daRes.ok) setRows((await daRes.json()) as PurchaseRequest[]);
+    if (productsRes.ok) setProducts((await productsRes.json()) as Product[]);
     setLoading(false);
   }, [statusFilter]);
 
@@ -79,8 +93,24 @@ export function PurchaseRequestsManager() {
   }, [load]);
 
   useEffect(() => {
+    const newParam = searchParams.get("new");
+    if (newParam === "gasoil") {
+      setCreateKind("gasoil");
+      setCreateOpen(true);
+      return;
+    }
+    if (newParam === "articles") {
+      setCreateKind("articles");
+      setCreateOpen(true);
+      return;
+    }
+    if (newParam === "1") {
+      setKindPickerOpen(true);
+      return;
+    }
     if (searchParams.get("ref") || searchParams.get("designation")) {
-      setTab("new");
+      setCreateKind("articles");
+      setCreateOpen(true);
     }
   }, [searchParams]);
 
@@ -97,41 +127,6 @@ export function PurchaseRequestsManager() {
         (r.supplier || "").toLowerCase().includes(q),
     );
   }, [rows, search]);
-
-  async function createDa() {
-    if (!subject.trim()) {
-      toast.error("Indiquez l'objet de la demande.");
-      return;
-    }
-    setSaving(true);
-    const res = await fetch("/api/admin/purchase-requests", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        category,
-        subject,
-        qty,
-        unitPrice,
-        supplier,
-        urgency,
-        requester,
-        justification,
-        projectId: projectId || undefined,
-        prefillReference: searchParams.get("ref") || undefined,
-        prefillDesignation: searchParams.get("designation") || undefined,
-      }),
-    });
-    setSaving(false);
-    if (!res.ok) {
-      toast.error(await readApiError(res));
-      return;
-    }
-    toast.success("Demande d'achat soumise.");
-    setSubject("");
-    setJustification("");
-    await load();
-    setTab("list");
-  }
 
   async function setStatus(id: string, status: PurchaseRequestStatus) {
     const row = rows.find((r) => r.id === id);
@@ -157,14 +152,30 @@ export function PurchaseRequestsManager() {
     await load();
   }
 
+  async function convertToTraitement(row: PurchaseRequest) {
+    setConvertingId(row.id);
+    const res = await fetch(`/api/admin/purchase-requests/${encodeURIComponent(row.id)}/traitement`, {
+      method: "POST",
+    });
+    setConvertingId(null);
+    if (!res.ok) {
+      toast.error(await readApiError(res));
+      return;
+    }
+    const { traitementId } = (await res.json()) as { traitementId: string };
+    toast.success("Traitement achat créé — BC, réception/BL, facture.");
+    await load();
+    router.push(`/admin/traitements-achat?id=${encodeURIComponent(traitementId)}`);
+  }
+
   return (
     <div className={moduleWrap}>
       <OpsModuleHeader
         title="Demandes d'achat"
-        description="Suivi des DA, validation et lien avec les alertes stock."
+        description="Articles ou gasoil — validation → traitement achat (BC, BL/réception, facture)."
         exportHref="/api/admin/purchase-requests?format=csv"
         actions={
-          <button type="button" className={btnPrimary} onClick={() => setTab("new")}>
+          <button type="button" className={btnPrimary} onClick={openNewDa}>
             Nouvelle DA
           </button>
         }
@@ -183,7 +194,7 @@ export function PurchaseRequestsManager() {
       <AdminTabs
         tabs={[
           { id: "list", label: "Liste", badge: pending || undefined },
-          { id: "new", label: "Nouvelle DA" },
+          { id: "workflow", label: "Workflow" },
         ]}
         active={tab}
         onChange={setTab}
@@ -191,31 +202,51 @@ export function PurchaseRequestsManager() {
 
       {loading ? <AdminLoading /> : null}
 
+      {!loading && tab === "workflow" ? (
+        <AdminInventoryCard title="Circuit DA → traitement">
+          <ol className="list-decimal space-y-2 px-5 py-4 text-sm text-[var(--graphite)]/90">
+            <li>
+              <strong>Nouvelle DA</strong> — choisissez <em>Articles</em> ou <em>Gasoil</em> dans la popup.
+            </li>
+            <li>
+              <strong>Soumettre</strong> — document PDF téléchargeable à tout moment.
+            </li>
+            <li>
+              <strong>Approuver</strong> ou rejeter depuis la liste ou en ouvrant le N° de DA.
+            </li>
+            <li>
+              <strong>Créer traitement achat</strong> — BC → BL (articles) ou réception gasoil → Facture.
+            </li>
+            <li>Le stock se met à jour au BL / réception ; la facture clôt le traitement automatiquement.</li>
+          </ol>
+        </AdminInventoryCard>
+      ) : null}
+
       {!loading && tab === "list" ? (
         <AdminInventoryCard
-            title="Liste des demandes"
-            search={search}
-            onSearchChange={setSearch}
-            searchPlaceholder="N°, objet, fournisseur…"
-            actions={
-              <select
-                className={`${inputClass} max-w-[200px] min-h-[38px] py-2`}
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="">Tous statuts</option>
-                <option value="pending">En attente</option>
-                <option value="approved">Approuvée</option>
-                <option value="rejected">Rejetée</option>
-              </select>
-            }
-          >
+          title="Liste des demandes"
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="N°, objet, fournisseur…"
+          actions={
+            <select
+              className={`${inputClass} max-w-[200px] min-h-[38px] py-2`}
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="">Tous statuts</option>
+              <option value="pending">En attente</option>
+              <option value="approved">Approuvée</option>
+              <option value="rejected">Rejetée</option>
+            </select>
+          }
+        >
           {filtered.length === 0 ? (
             <div className="px-5 py-12 text-center text-sm text-[var(--graphite)]/70">
               {search || statusFilter
                 ? "Aucun résultat pour ce filtre."
                 : "Aucune demande d'achat enregistrée."}
-              <button type="button" className={`mt-4 ${btnPrimary}`} onClick={() => setTab("new")}>
+              <button type="button" className={`mt-4 ${btnPrimary}`} onClick={openNewDa}>
                 Nouvelle DA
               </button>
             </div>
@@ -224,22 +255,60 @@ export function PurchaseRequestsManager() {
               <thead>
                 <tr>
                   <th className={thClass}>N°</th>
+                  <th className={thClass}>Type</th>
                   <th className={thClass}>Objet</th>
                   <th className={thClass}>Catégorie</th>
                   <th className={thClass}>Montant</th>
                   <th className={thClass}>Statut</th>
+                  <th className={thClass}>Traitement</th>
                   <th className={thClass}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => (
+                {filtered.map((r) => {
+                  const gasoil = isGasoilPurchaseRequest(r);
+                  return (
                   <tr key={r.id} className={rowHover}>
-                    <td className={tdClass}>{r.number}</td>
+                    <td className={tdClass}>
+                      <button
+                        type="button"
+                        className="font-mono text-xs text-[var(--navy)] underline underline-offset-2"
+                        onClick={() => setViewRequest(r)}
+                      >
+                        {r.number}
+                      </button>
+                    </td>
+                    <td className={tdClass}>
+                      <span className={`text-xs font-medium ${gasoil ? "text-sky-800" : "text-[var(--graphite)]/75"}`}>
+                        {gasoil ? "Gasoil" : "Articles"}
+                      </span>
+                    </td>
                     <td className={tdClass}>{r.subject}</td>
                     <td className={tdClass}>{PURCHASE_CATEGORY_LABELS[r.category]}</td>
                     <td className={tdClass}>{r.totalAmount.toLocaleString("fr-MA")} MAD</td>
                     <td className={tdClass}>
                       <PurchaseStatusBadge status={r.status} />
+                    </td>
+                    <td className={tdClass}>
+                      {r.traitementId ? (
+                        <Link
+                          href={`/admin/traitements-achat?id=${encodeURIComponent(r.traitementId)}`}
+                          className="text-sm text-[var(--navy)] underline underline-offset-2"
+                        >
+                          Ouvrir
+                        </Link>
+                      ) : r.status === "approved" ? (
+                        <button
+                          type="button"
+                          className={btnLinkSuccess}
+                          disabled={convertingId === r.id}
+                          onClick={() => void convertToTraitement(r)}
+                        >
+                          {convertingId === r.id ? "Création…" : "Créer traitement"}
+                        </button>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className={tdClass}>
                       {r.status === "pending" ? (
@@ -252,119 +321,49 @@ export function PurchaseRequestsManager() {
                           </button>
                         </div>
                       ) : (
-                        "—"
+                        <button type="button" className={btnSecondary} onClick={() => setViewRequest(r)}>
+                          Voir
+                        </button>
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </AdminTableWrap>
           )}
         </AdminInventoryCard>
       ) : null}
 
-      {!loading && tab === "new" ? (
-        <AdminFormCard
-          title="Nouvelle demande"
-          hint={
-            searchParams.get("designation")
-              ? `Prérempli depuis l'alerte stock : ${searchParams.get("designation")}`
-              : undefined
-          }
-          footer={
-            <button type="button" className={btnPrimary} disabled={saving} onClick={() => void createDa()}>
-              {saving ? "Envoi…" : "Soumettre la DA"}
-            </button>
-          }
-        >
-          <div className="max-w-xl space-y-4">
-            <div>
-              <p className={labelClass}>Projet / chantier</p>
-              <div className="mt-1">
-                <ProjectSelect projects={projects} value={projectId} onChange={setProjectId} allowEmpty />
-              </div>
-            </div>
-            <div>
-              <p className={labelClass}>Catégorie</p>
-              <select
-                className={`${inputClass} mt-1`}
-                value={category}
-                onChange={(e) => setCategory(e.target.value as PurchaseCategory)}
-              >
-                {(Object.keys(PURCHASE_CATEGORY_LABELS) as PurchaseCategory[]).map((k) => (
-                  <option key={k} value={k}>
-                    {PURCHASE_CATEGORY_LABELS[k]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <p className={labelClass}>Objet *</p>
-              <input
-                className={`${inputClass} mt-1`}
-                placeholder="Description de la demande"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-              />
-            </div>
-            <div>
-              <p className={labelClass}>Quantité</p>
-              <input
-                type="number"
-                min={0}
-                className={`${inputClass} mt-1`}
-                value={qty}
-                onChange={(e) => setQty(Number(e.target.value) || 0)}
-              />
-            </div>
-            <HtTtcPriceFields vatRate={DEFAULT_VAT_RATE} valueHt={unitPrice} onChangeHt={setUnitPrice} />
-            <div>
-              <p className={labelClass}>Fournisseur</p>
-              <input
-                className={`${inputClass} mt-1`}
-                placeholder="Nom du fournisseur"
-                value={supplier}
-                onChange={(e) => setSupplier(e.target.value)}
-              />
-            </div>
-            <div>
-              <p className={labelClass}>Urgence</p>
-              <input
-                className={`${inputClass} mt-1`}
-                placeholder="Normale, Urgente…"
-                value={urgency}
-                onChange={(e) => setUrgency(e.target.value)}
-              />
-            </div>
-            <div>
-              <p className={labelClass}>Demandeur</p>
-              <input
-                className={`${inputClass} mt-1`}
-                placeholder="Nom du demandeur"
-                value={requester}
-                onChange={(e) => setRequester(e.target.value)}
-              />
-            </div>
-            <div>
-              <p className={labelClass}>Justification</p>
-              <textarea
-                className={`${inputClass} mt-1`}
-                rows={3}
-                placeholder="Motif et contexte de la demande"
-                value={justification}
-                onChange={(e) => setJustification(e.target.value)}
-              />
-            </div>
-            <p className="text-sm text-[var(--navy)]">
-              Montant HT : <strong>{formatMoney(qty * unitPrice)} MAD</strong>
-              <span className="text-[var(--graphite)]/75">
-                {" "}
-                · TTC : {formatMoney(qty * htToTtc(unitPrice, DEFAULT_VAT_RATE))} MAD
-              </span>
-            </p>
-          </div>
-        </AdminFormCard>
-      ) : null}
+      <PurchaseRequestKindPickerSheet
+        open={kindPickerOpen}
+        onClose={() => setKindPickerOpen(false)}
+        onPick={startCreate}
+      />
+
+      <PurchaseRequestSheet
+        mode="create"
+        daKind={createKind}
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        projects={projects}
+        products={products}
+        initial={stockPrefill}
+        onCreated={load}
+        onSuccess={(m) => toast.success(m)}
+        onError={(m) => toast.error(m)}
+      />
+
+      <PurchaseRequestSheet
+        mode="view"
+        open={Boolean(viewRequest)}
+        onClose={() => setViewRequest(null)}
+        request={viewRequest}
+        projects={projects}
+        onChanged={load}
+        onSuccess={(m) => toast.success(m)}
+        onError={(m) => toast.error(m)}
+      />
 
       <AdminToast message={toast.toast?.message ?? null} kind={toast.toast?.kind} onDismiss={toast.dismiss} />
     </div>

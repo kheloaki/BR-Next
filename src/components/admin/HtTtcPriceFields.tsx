@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { inputClass } from "@/components/admin/admin-form-styles";
+import { inputClass, labelClass } from "@/components/admin/admin-form-styles";
 import { formatMoney, htToTtc, ttcToHt } from "@/lib/admin/price-ht-ttc";
 
 function parseAmount(raw: string): number | null {
@@ -27,7 +27,7 @@ export function HtTtcPriceFields({
   valueHt,
   onChangeHt,
   className = "",
-  compact = false,
+  compact: _compact = false,
   disabled = false,
   showLabels = true,
 }: HtTtcPriceFieldsProps) {
@@ -55,9 +55,6 @@ export function HtTtcPriceFields({
     onChangeHt(n == null ? 0 : ttcToHt(n, vatRate));
   }
 
-  const labelClass = compact
-    ? "text-[10px] uppercase tracking-wide text-[var(--graphite)]/65"
-    : "text-xs text-[var(--graphite)]/70";
   const fieldClass = `${inputClass} tabular-nums`;
 
   return (
@@ -68,7 +65,7 @@ export function HtTtcPriceFields({
           type="text"
           inputMode="decimal"
           disabled={disabled}
-          className={fieldClass}
+          className={`${fieldClass}${showLabels ? " mt-1" : ""}`}
           value={editing === "ht" ? htDraft : valueHt === 0 ? "" : String(valueHt)}
           onFocus={() => {
             setEditing("ht");
@@ -95,7 +92,7 @@ export function HtTtcPriceFields({
           type="text"
           inputMode="decimal"
           disabled={disabled}
-          className={fieldClass}
+          className={`${fieldClass}${showLabels ? " mt-1" : ""}`}
           value={editing === "ttc" ? ttcDraft : ttc === 0 ? "" : String(ttc)}
           onFocus={() => {
             setEditing("ttc");

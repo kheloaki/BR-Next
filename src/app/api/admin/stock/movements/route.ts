@@ -12,6 +12,7 @@ import {
 } from "@/lib/admin/map-stock-movement";
 import { resolveDepotFields, resolveProjectFields } from "@/lib/admin/project-resolve";
 import { stockMovementQtyDelta } from "@/lib/admin/stock-movement-qty";
+import { isTraitementStockMovement } from "@/lib/admin/stock-traitement-link";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 function qtyDelta(type: StockMovementType, qty: number) {
@@ -181,6 +182,16 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Mouvement introuvable" }, { status: 404 });
   }
 
+  if (isTraitementStockMovement(String(mov.notes ?? ""))) {
+    return NextResponse.json(
+      {
+        error:
+          "Ce mouvement provient d'un traitement achat/vente. Modifiez-le via Traitements (BL ou BR), pas depuis le stock.",
+      },
+      { status: 400 },
+    );
+  }
+
   const { data: item, error: itemErr } = await fetchStockItemForMovement(organizationId, mov.item_id as string);
 
   if (itemErr || !item) {
@@ -282,6 +293,16 @@ export async function DELETE(request: Request) {
 
   if (movErr || !mov) {
     return NextResponse.json({ error: "Mouvement introuvable" }, { status: 404 });
+  }
+
+  if (isTraitementStockMovement(String(mov.notes ?? ""))) {
+    return NextResponse.json(
+      {
+        error:
+          "Ce mouvement provient d'un traitement achat/vente. Annulez-le via un bon de retour (BR) dans Traitements.",
+      },
+      { status: 400 },
+    );
   }
 
   const { data: item, error: itemErr } = await fetchStockItemForMovement(organizationId, mov.item_id as string);

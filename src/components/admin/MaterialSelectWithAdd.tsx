@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import type { RentalMaterial } from "@/components/admin/operations-types";
+import type {
+  AdminProject,
+  GasoilContact,
+  MaterialDetailCategory,
+  RentalMaterial,
+} from "@/components/admin/operations-types";
+import type { Supplier } from "@/components/admin/devis-types";
 import { MATERIAL_CATEGORY_LABELS } from "@/components/admin/operations-types";
 import { btnPrimary, btnSecondary, formGridClass, inputClass, labelClass } from "@/components/admin/admin-form-styles";
 import {
@@ -18,6 +24,13 @@ export function MaterialSelectWithAdd({
   value,
   onChange,
   onMaterialAdded,
+  projects = [],
+  suppliers = [],
+  gasoilContacts = [],
+  materialDetailCategories = [],
+  onMaterialDetailCategoriesChange,
+  onSuppliersChange,
+  onGasoilContactsChange,
   label = "Matériel *",
   placeholder = "— Sélectionner un matériel —",
 }: {
@@ -25,6 +38,13 @@ export function MaterialSelectWithAdd({
   value: string;
   onChange: (id: string) => void;
   onMaterialAdded?: (material: RentalMaterial) => void | Promise<void>;
+  projects?: AdminProject[];
+  suppliers?: Supplier[];
+  gasoilContacts?: GasoilContact[];
+  materialDetailCategories?: MaterialDetailCategory[];
+  onMaterialDetailCategoriesChange?: (cats: MaterialDetailCategory[]) => void;
+  onSuppliersChange?: (suppliers: Supplier[]) => void;
+  onGasoilContactsChange?: (contacts: GasoilContact[]) => void;
   label?: string;
   placeholder?: string;
 }) {
@@ -46,7 +66,13 @@ export function MaterialSelectWithAdd({
     const res = await fetch("/api/admin/rental-materials", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({
+        ...form,
+        projectId: form.projectId || null,
+        supplierId: form.supplierId || null,
+        driverContactId: form.driverContactId || null,
+        employeeId: null,
+      }),
     });
     setSaving(false);
     if (!res.ok) {
@@ -102,13 +128,32 @@ export function MaterialSelectWithAdd({
               Annuler
             </button>
             <button type="button" className={btnPrimary} disabled={saving} onClick={() => void submitMaterial()}>
-              {saving ? "Enregistrement…" : "Enregistrer le matériel"}
+              {saving ? "Enregistrement…" : "Enregistrer le matériel"
+              }
             </button>
           </>
         }
       >
         <div className={formGridClass}>
-          <RentalMaterialFormFields values={form} onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
+          <RentalMaterialFormFields
+            values={form}
+            onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+            projects={projects}
+            suppliers={suppliers}
+            gasoilContacts={gasoilContacts}
+            materialDetailCategories={materialDetailCategories}
+            onSupplierAdded={(supplier) =>
+              onSuppliersChange?.(
+                suppliers.some((s) => s.id === supplier.id) ? suppliers : [...suppliers, supplier],
+              )
+            }
+            onGasoilContactAdded={(contact) =>
+              onGasoilContactsChange?.(
+                gasoilContacts.some((c) => c.id === contact.id) ? gasoilContacts : [...gasoilContacts, contact],
+              )
+            }
+            onMaterialDetailCategoriesChange={onMaterialDetailCategoriesChange}
+          />
         </div>
         {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
       </AdminDataSheet>

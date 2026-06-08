@@ -1,4 +1,5 @@
 import type { DocumentType, QuoteDraft } from "@/components/admin/devis-types";
+import { DEFAULT_VAT_RATE } from "@/lib/admin/price-ht-ttc";
 
 function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
@@ -47,7 +48,7 @@ export function buildBonLivraisonFromFacture(
     quoteNumber: computeNextDocumentNumber(allQuotes, "bon_livraison"),
     reference: facture.reference ? `${facture.reference}-BL` : `BL-${facture.quoteNumber || ""}`,
     date: today,
-    vatRate: facture.vatRate ?? 20,
+    vatRate: facture.vatRate ?? DEFAULT_VAT_RATE,
     discount: 0,
     deposit: 0,
     items: facture.items.map((item) => ({ ...item })),

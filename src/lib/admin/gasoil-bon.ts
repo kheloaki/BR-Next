@@ -1,4 +1,5 @@
 import type { GasoilBonType, GasoilVehicleCategory } from "@/components/admin/operations-types";
+import { roundMoney } from "@/lib/admin/price-ht-ttc";
 
 export const GASOIL_BON_TYPES: GasoilBonType[] = ["achat", "sortie"];
 
@@ -10,7 +11,7 @@ export const GASOIL_VEHICLE_CATEGORIES: GasoilVehicleCategory[] = [
 ];
 
 export const GASOIL_BON_TYPE_LABELS: Record<GasoilBonType, string> = {
-  achat: "Bon d'achat",
+  achat: "Bon de commande",
   sortie: "Bon de sortie",
 };
 
@@ -20,3 +21,20 @@ export const GASOIL_VEHICLE_CATEGORY_LABELS: Record<GasoilVehicleCategory, strin
   voiture: "Voiture",
   groupe_electrogene: "Groupe électrogène",
 };
+
+/** Persisted on admin_gasoil_bons — each bon carries its own purchase / applied price. */
+export function gasoilBonPriceFields(litres: number, unitPricePerLitre: number) {
+  const unitPrice = Math.max(0, Number(unitPricePerLitre) || 0);
+  const qty = Math.max(0, Number(litres) || 0);
+  return {
+    unit_price: unitPrice,
+    total_amount: roundMoney(qty * unitPrice),
+  };
+}
+
+export function fuelEntryCostMad(entry: { litres: number; unitPrice?: number; totalAmount?: number }) {
+  if (entry.totalAmount != null && entry.totalAmount > 0) return entry.totalAmount;
+  const price = Math.max(0, Number(entry.unitPrice) || 0);
+  if (price <= 0) return 0;
+  return roundMoney(entry.litres * price);
+}

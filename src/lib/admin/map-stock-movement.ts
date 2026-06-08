@@ -1,5 +1,6 @@
 import type { StockMovementType } from "@/components/admin/operations-types";
 import { nextExitVoucherNumber } from "@/lib/admin/exit-voucher-number";
+import { parseStockTraitementLink } from "@/lib/admin/stock-traitement-link";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export function mapStockMovementRow(r: Record<string, unknown>) {
@@ -30,6 +31,7 @@ export function mapStockMovementRow(r: Record<string, unknown>) {
     depotId: (r.depot_id as string) || null,
     notes: (r.notes as string) || "",
     createdAt: r.created_at as string,
+    traitementLink: parseStockTraitementLink((r.notes as string) || ""),
   };
 }
 

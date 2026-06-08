@@ -1,32 +1,21 @@
 import type { AdminSection } from "@/components/admin/AdminSidebar";
 import type { DocumentType, QuoteDraft } from "@/components/admin/devis-types";
 
-export const FACTURATION_NAV_ITEMS: {
+/** Sidebar Facturation — liste uniquement ; création via « Nouveau » sur Documents enregistrés. */
+export const FACTURATION_SIDEBAR_ITEMS: {
   href: string;
   label: string;
   section: AdminSection;
-  documentType?: DocumentType;
+}[] = [{ href: "/admin/facturation/documents", label: "Documents enregistrés", section: "saved" }];
+
+export const FACTURATION_NEW_DOCUMENT_OPTIONS: {
+  type: DocumentType;
+  shortLabel: string;
 }[] = [
-  { href: "/admin/facturation/devis", label: "Nouveau devis", section: "builder-devis", documentType: "devis" },
-  {
-    href: "/admin/facturation/bon-commande",
-    label: "Nouveau bon de commande",
-    section: "builder-bon-commande",
-    documentType: "bon_commande",
-  },
-  {
-    href: "/admin/facturation/facture",
-    label: "Nouvelle facture",
-    section: "builder-facture",
-    documentType: "facture",
-  },
-  {
-    href: "/admin/facturation/bon-livraison",
-    label: "Nouveau bon de livraison",
-    section: "builder-bon-livraison",
-    documentType: "bon_livraison",
-  },
-  { href: "/admin/facturation/documents", label: "Documents enregistrés", section: "saved" },
+  { type: "devis", shortLabel: "DV" },
+  { type: "bon_commande", shortLabel: "BC" },
+  { type: "bon_livraison", shortLabel: "BL" },
+  { type: "facture", shortLabel: "F" },
 ];
 
 export function isFacturationPath(pathname: string) {

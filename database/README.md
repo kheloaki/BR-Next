@@ -65,7 +65,7 @@ If the app was already deployed before carburant / facturation updates, run incr
 node scripts/run-patches-pg.mjs
 ```
 
-Or paste into Supabase **SQL Editor** (in order): `06` → `07` → `08` → `09`.
+Or paste into Supabase **SQL Editor** (in order): `06` → `07` → … → `18` (bon location `bon_lines`), `19` (gasoil contacts).
 
 **Factures / devis / bons de commande** — no separate table. Each row in `admin_quotes` stores the full document in `payload` (jsonb), including `documentType`, `dueDate`, lines, etc. Patch `09` adds a generated `document_type` column for faster filtering.
 

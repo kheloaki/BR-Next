@@ -1,21 +1,14 @@
-import type { Metadata } from "next";
-import { Suspense } from "react";
-import { AdminShell } from "@/components/admin/AdminShell";
-import { FuelManager } from "@/components/admin/FuelManager";
+import { redirect } from "next/navigation";
 import { requireAdminPage } from "@/lib/admin/admin-page-auth";
 
-export const metadata: Metadata = {
-  title: "Nouvelle saisie carburant",
-  robots: { index: false, follow: false },
-};
-
-export default async function AdminFuelSaisiePage() {
+/** Legacy route — saisie remplacée par les bons gasoil (achat / sortie). */
+export default async function AdminFuelSaisiePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ project?: string }>;
+}) {
   await requireAdminPage("/admin/fuel/saisie");
-  return (
-    <AdminShell active="fuel-saisie">
-      <Suspense fallback={<p className="text-sm">Chargement…</p>}>
-        <FuelManager view="saisie" />
-      </Suspense>
-    </AdminShell>
-  );
+  const { project } = await searchParams;
+  const qs = project ? `?project=${encodeURIComponent(project)}` : "";
+  redirect(`/admin/fuel/bons${qs}`);
 }
