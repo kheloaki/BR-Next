@@ -3,6 +3,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/react";
 import { headers } from "next/headers";
 import "./globals.css";
+import { PwaInstallPrompt } from "@/components/pwa/PwaInstallPrompt";
 import { PageLayout } from "@/components/site/PageLayout";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { siteUrl } from "@/lib/site-config";
@@ -27,6 +28,14 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary",
     site: "@baraneinvest",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "BARANE INVEST",
+  },
+  icons: {
+    apple: "/web-app-manifest-192x192.png",
   },
 };
 
@@ -58,6 +67,7 @@ export default async function RootLayout({
             </>
           ) : null}
           {showWebsiteChrome ? <PageLayout>{children}</PageLayout> : children}
+          <PwaInstallPrompt />
           {showWebsiteChrome ? <Analytics /> : null}
         </body>
       </html>
