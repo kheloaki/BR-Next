@@ -13,6 +13,19 @@ import { GASOIL_VEHICLE_CATEGORIES, GASOIL_VEHICLE_CATEGORY_LABELS } from "@/lib
 import { buildMaterialUsageSummary } from "@/lib/admin/material-fuel-usage";
 import { fuelEntriesEstimatedPriceLitres } from "@/lib/admin/fuel-bon-sync";
 import { materialLabel } from "@/lib/admin/map-rental-material-catalog";
+import {
+  bonMatchesDateRange,
+  rentalContractMaterialLabels,
+  rentalContractMatchesMaterialLabel,
+} from "@/lib/admin/map-rental-material";
+import {
+  applyFacetScope,
+  facetEnumOptions,
+  projectsForFacetScope,
+  pruneFilterValue,
+  pruneProjectId,
+  uniqueSortedLabels,
+} from "@/lib/admin/filter-scope";
 import { formatMoney } from "@/lib/admin/price-ht-ttc";
 import { traitementsHref } from "@/lib/admin/traitement-nav";
 import {
@@ -78,6 +91,134 @@ export function FuelMaterialConsumptionPanel() {
 
   const activeMaterials = useMemo(() => materials.filter((m) => m.active), [materials]);
 
+  const fuelFacetChecks = useMemo(
+    () => [
+      {
+        key: "projectId",
+        active: filterProjectId,
+        test: (r: FuelEntry) => r.projectId === filterProjectId,
+      },
+      {
+        key: "category",
+        active: filterCategory,
+        test: (r: FuelEntry) => r.vehicleCategory === filterCategory,
+      },
+      {
+        key: "material",
+        active: filterMaterial,
+        test: (r: FuelEntry) => r.equipmentName.trim() === filterMaterial,
+      },
+      {
+        key: "driver",
+        active: filterDriver,
+        test: (r: FuelEntry) => r.fueledBy.trim() === filterDriver,
+      },
+      {
+        key: "dates",
+        active: filterDateFrom || filterDateTo ? "1" : "",
+        test: (r: FuelEntry) => {
+          const d = r.entryDate.slice(0, 10);
+          if (filterDateFrom && d < filterDateFrom) return false;
+          if (filterDateTo && d > filterDateTo) return false;
+          return true;
+        },
+      },
+    ],
+    [filterProjectId, filterCategory, filterMaterial, filterDriver, filterDateFrom, filterDateTo],
+  );
+
+  const rentalFacetChecks = useMemo(
+    () => [
+      {
+        key: "projectId",
+        active: filterProjectId,
+        test: (r: RentalContract) => r.projectId === filterProjectId,
+      },
+      {
+        key: "material",
+        active: filterMaterial,
+        test: (r: RentalContract) => rentalContractMatchesMaterialLabel(r, filterMaterial, materials),
+      },
+      {
+        key: "driver",
+        active: filterDriver,
+        test: (r: RentalContract) => r.driverName.trim() === filterDriver,
+      },
+      {
+        key: "dates",
+        active: filterDateFrom || filterDateTo ? "1" : "",
+        test: (r: RentalContract) => bonMatchesDateRange(r, filterDateFrom, filterDateTo),
+      },
+    ],
+    [filterProjectId, filterMaterial, filterDriver, filterDateFrom, filterDateTo, materials],
+  );
+
+  const scopeFuelFor = useCallback(
+    (excludeKey: string) => applyFacetScope(fuelRows, fuelFacetChecks, excludeKey),
+    [fuelRows, fuelFacetChecks],
+  );
+
+  const scopeRentalFor = useCallback(
+    (excludeKey: string) => applyFacetScope(rentalRows, rentalFacetChecks, excludeKey),
+    [rentalRows, rentalFacetChecks],
+  );
+
+  const filterProjects = useMemo(() => {
+    const scoped = [
+      ...scopeFuelFor("projectId"),
+      ...scopeRentalFor("projectId"),
+    ] as { projectId: string | null }[];
+    return projectsForFacetScope(projects, scoped);
+  }, [projects, scopeFuelFor, scopeRentalFor]);
+
+  const materialFilterOptions = useMemo(() => {
+    const labels = new Set<string>();
+    for (const row of scopeFuelFor("material")) {
+      const name = row.equipmentName.trim();
+      if (name) labels.add(name);
+    }
+    for (const row of scopeRentalFor("material")) {
+      for (const label of rentalContractMaterialLabels(row, materials)) labels.add(label);
+    }
+    if (labels.size === 0 && fuelRows.length === 0 && rentalRows.length === 0) {
+      for (const material of activeMaterials) labels.add(materialLabel(material));
+    }
+    return [...labels].sort((a, b) => a.localeCompare(b, "fr"));
+  }, [scopeFuelFor, scopeRentalFor, materials, activeMaterials, fuelRows.length, rentalRows.length]);
+
+  const driverOptions = useMemo(
+    () =>
+      uniqueSortedLabels([
+        ...scopeFuelFor("driver").map((r) => r.fueledBy),
+        ...scopeRentalFor("driver").map((r) => r.driverName),
+      ]),
+    [scopeFuelFor, scopeRentalFor],
+  );
+
+  const categoryOptions = useMemo(
+    () =>
+      facetEnumOptions(
+        GASOIL_VEHICLE_CATEGORIES,
+        scopeFuelFor("category"),
+        fuelRows.length,
+        (r) => r.vehicleCategory ?? null,
+      ),
+    [scopeFuelFor, fuelRows.length],
+  );
+
+  const categoryLabelOptions = useMemo(() => {
+    const labels: Partial<Record<(typeof GASOIL_VEHICLE_CATEGORIES)[number], string>> = {};
+    for (const category of categoryOptions) labels[category] = GASOIL_VEHICLE_CATEGORY_LABELS[category];
+    return labels as Record<(typeof GASOIL_VEHICLE_CATEGORIES)[number], string>;
+  }, [categoryOptions]);
+
+  useEffect(() => {
+    setFilterProjectId((current) => pruneProjectId(current, filterProjects));
+    setFilterMaterial((current) => pruneFilterValue(current, materialFilterOptions));
+    setFilterDriver((current) => pruneFilterValue(current, driverOptions));
+    setFilterCategory((current) => pruneFilterValue(current, categoryOptions));
+  }, [filterProjects, materialFilterOptions, driverOptions, categoryOptions]);
+
   const usageFilters = useMemo(
     () => ({
       projectId: filterProjectId || undefined,
@@ -99,20 +240,6 @@ export function FuelMaterialConsumptionPanel() {
     if (!q) return materialUsage;
     return materialUsage.filter((row) => row.label.toLowerCase().includes(q));
   }, [materialUsage, search]);
-
-  const materialFilterOptions = useMemo(() => {
-    const labels = new Set<string>();
-    for (const m of activeMaterials) labels.add(materialLabel(m));
-    for (const row of materialUsage) labels.add(row.label);
-    return [...labels].sort((a, b) => a.localeCompare(b, "fr"));
-  }, [activeMaterials, materialUsage]);
-
-  const driverOptions = useMemo(() => {
-    const names = new Set<string>();
-    for (const r of fuelRows) if (r.fueledBy.trim()) names.add(r.fueledBy.trim());
-    for (const r of rentalRows) if (r.driverName.trim()) names.add(r.driverName.trim());
-    return [...names].sort((a, b) => a.localeCompare(b, "fr"));
-  }, [fuelRows, rentalRows]);
 
   const hasActiveFilters =
     filterProjectId !== "" ||
@@ -233,7 +360,7 @@ export function FuelMaterialConsumptionPanel() {
             <p className={labelClass}>Chantier</p>
             <div className="mt-1">
               <ProjectSelect
-                projects={projects}
+                projects={filterProjects}
                 value={filterProjectId}
                 onChange={setFilterProjectId}
                 allowEmpty
@@ -245,7 +372,7 @@ export function FuelMaterialConsumptionPanel() {
           <div className={filterFieldWrap}>
             <p className={labelClass}>Catégorie</p>
             <SearchableEnumSelect
-              options={withEmptyOption(enumToOptions(GASOIL_VEHICLE_CATEGORY_LABELS), "Toutes catégories")}
+              options={withEmptyOption(enumToOptions(categoryLabelOptions), "Toutes catégories")}
               value={filterCategory}
               onChange={setFilterCategory}
               placeholder="Toutes catégories"

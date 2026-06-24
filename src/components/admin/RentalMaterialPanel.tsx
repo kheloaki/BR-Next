@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import type {
   AdminProject,
@@ -40,6 +40,7 @@ import { RentalMaterialsPanelSkeleton } from "@/components/admin/skeletons/pages
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { materialLabel, materialMatchesDateRange, rentalMaterialPriceSummary } from "@/lib/admin/map-rental-material-catalog";
+import { pruneFilterValue, applyFacetScope, facetEnumOptions, projectsForFacetScope, pruneProjectId, uniqueSortedLabels } from "@/lib/admin/filter-scope";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
 import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
 import { SearchableSelect } from "@/components/admin/SearchableSelect";
@@ -95,17 +96,107 @@ export function RentalMaterialPanel({
     return projects.find((p) => p.id === id)?.name ?? "—";
   };
 
-  const ownerOptions = useMemo(() => {
-    return [...new Set(materials.map((m) => m.ownerName.trim()).filter(Boolean))].sort((a, b) =>
-      a.localeCompare(b, "fr"),
-    );
-  }, [materials]);
+  const materialFacetChecks = useMemo(
+    () => [
+      {
+        key: "projectId",
+        active: filterProjectId,
+        test: (m: RentalMaterial) => m.projectId === filterProjectId,
+      },
+      {
+        key: "category",
+        active: filterCategory,
+        test: (m: RentalMaterial) => m.materialCategory === filterCategory,
+      },
+      {
+        key: "mode",
+        active: filterMode,
+        test: (m: RentalMaterial) => m.rentalMode === filterMode,
+      },
+      {
+        key: "owner",
+        active: filterOwner,
+        test: (m: RentalMaterial) => m.ownerName.trim() === filterOwner,
+      },
+      {
+        key: "driver",
+        active: filterDriver,
+        test: (m: RentalMaterial) => m.driverName.trim() === filterDriver,
+      },
+      {
+        key: "active",
+        active: filterActive,
+        test: (m: RentalMaterial) =>
+          filterActive === "active" ? m.active : filterActive === "inactive" ? !m.active : true,
+      },
+      {
+        key: "dates",
+        active: filterDateFrom || filterDateTo ? "1" : "",
+        test: (m: RentalMaterial) => materialMatchesDateRange(m, filterDateFrom, filterDateTo),
+      },
+    ],
+    [
+      filterProjectId,
+      filterCategory,
+      filterMode,
+      filterOwner,
+      filterDriver,
+      filterActive,
+      filterDateFrom,
+      filterDateTo,
+    ],
+  );
 
-  const driverOptions = useMemo(() => {
-    return [...new Set(materials.map((m) => m.driverName.trim()).filter(Boolean))].sort((a, b) =>
-      a.localeCompare(b, "fr"),
-    );
-  }, [materials]);
+  const scopeFor = useCallback(
+    (excludeKey: string) => applyFacetScope(materials, materialFacetChecks, excludeKey),
+    [materials, materialFacetChecks],
+  );
+
+  const filterProjects = useMemo(
+    () => projectsForFacetScope(projects, scopeFor("projectId")),
+    [projects, scopeFor],
+  );
+
+  const ownerOptions = useMemo(
+    () => uniqueSortedLabels(scopeFor("owner").map((m) => m.ownerName)),
+    [scopeFor],
+  );
+
+  const driverOptions = useMemo(
+    () => uniqueSortedLabels(scopeFor("driver").map((m) => m.driverName)),
+    [scopeFor],
+  );
+
+  const categoryOptions = useMemo(
+    () =>
+      facetEnumOptions(MATERIAL_CATEGORIES, scopeFor("category"), materials.length, (m) => m.materialCategory),
+    [scopeFor, materials.length],
+  );
+
+  const modeOptions = useMemo(
+    () => facetEnumOptions(RENTAL_MODES, scopeFor("mode"), materials.length, (m) => m.rentalMode),
+    [scopeFor, materials.length],
+  );
+
+  const categoryLabelOptions = useMemo(() => {
+    const labels: Partial<Record<MaterialCategory, string>> = {};
+    for (const category of categoryOptions) labels[category] = MATERIAL_CATEGORY_LABELS[category];
+    return labels as Record<MaterialCategory, string>;
+  }, [categoryOptions]);
+
+  const modeLabelOptions = useMemo(() => {
+    const labels: Partial<Record<RentalLocationMode, string>> = {};
+    for (const mode of modeOptions) labels[mode] = RENTAL_LOCATION_MODE_LABELS[mode];
+    return labels as Record<RentalLocationMode, string>;
+  }, [modeOptions]);
+
+  useEffect(() => {
+    setFilterProjectId((current) => pruneProjectId(current, filterProjects));
+    setFilterOwner((current) => pruneFilterValue(current, ownerOptions));
+    setFilterDriver((current) => pruneFilterValue(current, driverOptions));
+    setFilterCategory((current) => pruneFilterValue(current, categoryOptions));
+    setFilterMode((current) => pruneFilterValue(current, modeOptions));
+  }, [filterProjects, ownerOptions, driverOptions, categoryOptions, modeOptions]);
 
   const hasActiveFilters =
     filterProjectId !== "" ||
@@ -118,17 +209,7 @@ export function RentalMaterialPanel({
     filterDateTo !== "";
 
   const filtered = useMemo(() => {
-    let list = materials;
-    if (filterProjectId) list = list.filter((m) => m.projectId === filterProjectId);
-    if (filterCategory) list = list.filter((m) => m.materialCategory === filterCategory);
-    if (filterMode) list = list.filter((m) => m.rentalMode === filterMode);
-    if (filterOwner) list = list.filter((m) => m.ownerName.trim() === filterOwner);
-    if (filterDriver) list = list.filter((m) => m.driverName.trim() === filterDriver);
-    if (filterActive === "active") list = list.filter((m) => m.active);
-    if (filterActive === "inactive") list = list.filter((m) => !m.active);
-    if (filterDateFrom || filterDateTo) {
-      list = list.filter((m) => materialMatchesDateRange(m, filterDateFrom, filterDateTo));
-    }
+    let list = applyFacetScope(materials, materialFacetChecks);
 
     const q = search.trim().toLowerCase();
     if (!q) return list;
@@ -144,19 +225,7 @@ export function RentalMaterialPanel({
         MATERIAL_CATEGORY_LABELS[m.materialCategory].toLowerCase().includes(q) ||
         RENTAL_LOCATION_MODE_LABELS[m.rentalMode].toLowerCase().includes(q),
     );
-  }, [
-    materials,
-    search,
-    projects,
-    filterProjectId,
-    filterCategory,
-    filterMode,
-    filterOwner,
-    filterDriver,
-    filterActive,
-    filterDateFrom,
-    filterDateTo,
-  ]);
+  }, [materials, search, projects, materialFacetChecks]);
 
   function resetForm() {
     setEditId(null);
@@ -244,7 +313,7 @@ export function RentalMaterialPanel({
               <p className={labelClass}>Chantier</p>
               <div className="mt-1">
                 <ProjectSelect
-                  projects={projects}
+                  projects={filterProjects}
                   value={filterProjectId}
                   onChange={setFilterProjectId}
                   allowEmpty
@@ -256,7 +325,7 @@ export function RentalMaterialPanel({
             <div className={filterFieldWrap}>
               <p className={labelClass}>Catégorie</p>
               <SearchableEnumSelect
-                options={withEmptyOption(enumToOptions(MATERIAL_CATEGORY_LABELS), "Toutes catégories")}
+                options={withEmptyOption(enumToOptions(categoryLabelOptions), "Toutes catégories")}
                 value={filterCategory}
                 onChange={setFilterCategory}
                 placeholder="Toutes catégories"
@@ -266,7 +335,7 @@ export function RentalMaterialPanel({
             <div className={filterFieldWrap}>
               <p className={labelClass}>Mode</p>
               <SearchableEnumSelect
-                options={withEmptyOption(enumToOptions(RENTAL_LOCATION_MODE_LABELS), "Tous modes")}
+                options={withEmptyOption(enumToOptions(modeLabelOptions), "Tous modes")}
                 value={filterMode}
                 onChange={setFilterMode}
                 placeholder="Tous modes"

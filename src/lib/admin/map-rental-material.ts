@@ -157,6 +157,108 @@ export function formatBonLocationDates(r: {
   return `${fmt(dates[0]!)} → ${fmt(dates[dates.length - 1]!)}`;
 }
 
+export function bonLocationUsageDays(r: {
+  bonLines: RentalBonLine[];
+  daysCount: number;
+}): number {
+  if (r.bonLines.length > 0) {
+    return r.bonLines.reduce(
+      (s, l) => s + usageToDayFraction(l.usageQty || 0, l.usageUnit || "jour"),
+      0,
+    );
+  }
+  return r.daysCount;
+}
+
+export function bonLocationUsageHours(r: {
+  bonLines: RentalBonLine[];
+  daysCount: number;
+  hoursWorked: number;
+  estimatedHours: number;
+}): number {
+  if (r.bonLines.length > 0) return computeBonLinesUsageHours(r.bonLines);
+  if (r.hoursWorked > 0) return r.hoursWorked;
+  return r.estimatedHours || computeEstimatedHours(r.daysCount);
+}
+
+function formatUsageQty(value: number, suffix: string, maxFractionDigits: number): string {
+  if (value <= 0) return "—";
+  const rounded = Math.round(value * 10 ** maxFractionDigits) / 10 ** maxFractionDigits;
+  return `${rounded.toLocaleString("fr-MA", { maximumFractionDigits: maxFractionDigits })} ${suffix}`;
+}
+
+export function formatBonLocationUsageDays(r: {
+  bonLines: RentalBonLine[];
+  daysCount: number;
+}): string {
+  return formatUsageQty(bonLocationUsageDays(r), "j", 2);
+}
+
+export function formatBonLocationUsageHours(r: {
+  bonLines: RentalBonLine[];
+  daysCount: number;
+  hoursWorked: number;
+  estimatedHours: number;
+}): string {
+  return formatUsageQty(bonLocationUsageHours(r), "h", 1);
+}
+
+export function formatBonLocationUsageDetail(r: { bonLines: RentalBonLine[] }): string {
+  if (r.bonLines.length === 0) return "";
+  return r.bonLines
+    .map((line) => {
+      const qty = line.usageQty || 0;
+      const unit = line.usageUnit === "heure" ? "h" : "j";
+      const date = line.lineDate
+        ? new Date(`${line.lineDate}T12:00:00`).toLocaleDateString("fr-MA", {
+            day: "2-digit",
+            month: "2-digit",
+          })
+        : "";
+      return [date, `${qty} ${unit}`].filter(Boolean).join(" · ");
+    })
+    .join(" | ");
+}
+
+export function rentalContractMaterialLabels(
+  r: {
+    materialId: string | null;
+    bonLines: RentalBonLine[];
+    designation: string;
+    reference: string;
+    matricule: string;
+  },
+  catalog: RentalMaterial[],
+): string[] {
+  const labels = new Set<string>();
+  if (r.materialId) {
+    const material = catalog.find((item) => item.id === r.materialId);
+    if (material) labels.add(materialLabel(material));
+  }
+  for (const line of r.bonLines) {
+    const material = catalog.find((item) => item.id === line.materialId);
+    if (material) labels.add(materialLabel(material));
+    else {
+      const fallback = line.matricule || line.designation;
+      if (fallback) labels.add(fallback);
+    }
+  }
+  if (labels.size === 0) {
+    const fallback = r.designation || r.reference || r.matricule;
+    if (fallback) labels.add(fallback);
+  }
+  return [...labels];
+}
+
+export function rentalContractMatchesMaterialLabel(
+  r: Parameters<typeof rentalContractMaterialLabels>[0],
+  label: string,
+  catalog: RentalMaterial[],
+): boolean {
+  if (!label) return true;
+  return rentalContractMaterialLabels(r, catalog).includes(label);
+}
+
 export function mapRentalContractRow(r: Record<string, unknown>): RentalContract {
   const bonLines = parseBonLines(r.bon_lines);
   const dailyRate = Number(r.daily_rate ?? 0);

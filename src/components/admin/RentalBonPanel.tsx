@@ -35,8 +35,9 @@ import { RentalBonsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import type { AdminProject } from "@/components/admin/operations-types";
-import { contractToBonForm, bonMatchesDateRange, bonMatchesMaterial, formatBonLocationDates, formatBonLocationMaterials } from "@/lib/admin/map-rental-material";
+import { contractToBonForm, bonMatchesDateRange, bonMatchesMaterial, formatBonLocationDates, formatBonLocationMaterials, formatBonLocationUsageDays, formatBonLocationUsageDetail, formatBonLocationUsageHours } from "@/lib/admin/map-rental-material";
 import { materialLabel } from "@/lib/admin/map-rental-material-catalog";
+import { pruneFilterValue, applyFacetScope, projectsForFacetScope, pruneProjectId, uniqueSortedLabels } from "@/lib/admin/filter-scope";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
 import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
 import { SearchableSelect } from "@/components/admin/SearchableSelect";
@@ -100,21 +101,111 @@ export function RentalBonPanel({
     return projects.find((p) => p.id === id)?.name ?? "—";
   };
 
-  const ownerOptions = useMemo(() => {
-    return [...new Set(rows.map((r) => r.ownerName.trim()).filter(Boolean))].sort((a, b) =>
-      a.localeCompare(b, "fr"),
-    );
-  }, [rows]);
+  const bonFacetChecks = useMemo(
+    () => [
+      {
+        key: "projectId",
+        active: filterProjectId,
+        test: (r: RentalContract) => r.projectId === filterProjectId,
+      },
+      {
+        key: "materialId",
+        active: filterMaterialId,
+        test: (r: RentalContract) => bonMatchesMaterial(r, filterMaterialId),
+      },
+      {
+        key: "status",
+        active: filterStatus,
+        test: (r: RentalContract) => r.status === filterStatus,
+      },
+      {
+        key: "owner",
+        active: filterOwner,
+        test: (r: RentalContract) => r.ownerName.trim() === filterOwner,
+      },
+      {
+        key: "driver",
+        active: filterDriver,
+        test: (r: RentalContract) => r.driverName.trim() === filterDriver,
+      },
+      {
+        key: "dates",
+        active: filterDateFrom || filterDateTo ? "1" : "",
+        test: (r: RentalContract) => bonMatchesDateRange(r, filterDateFrom, filterDateTo),
+      },
+    ],
+    [
+      filterProjectId,
+      filterMaterialId,
+      filterStatus,
+      filterOwner,
+      filterDriver,
+      filterDateFrom,
+      filterDateTo,
+    ],
+  );
 
-  const driverOptions = useMemo(() => {
-    return [...new Set(rows.map((r) => r.driverName.trim()).filter(Boolean))].sort((a, b) =>
-      a.localeCompare(b, "fr"),
-    );
-  }, [rows]);
+  const scopeFor = useCallback(
+    (excludeKey: string) => applyFacetScope(rows, bonFacetChecks, excludeKey),
+    [rows, bonFacetChecks],
+  );
+
+  const filterProjects = useMemo(
+    () => projectsForFacetScope(projects, scopeFor("projectId")),
+    [projects, scopeFor],
+  );
+
+  const ownerOptions = useMemo(
+    () => uniqueSortedLabels(scopeFor("owner").map((r) => r.ownerName)),
+    [scopeFor],
+  );
+
+  const driverOptions = useMemo(
+    () => uniqueSortedLabels(scopeFor("driver").map((r) => r.driverName)),
+    [scopeFor],
+  );
 
   const materialOptions = useMemo(() => {
-    return [...materials].sort((a, b) => materialLabel(a).localeCompare(materialLabel(b), "fr"));
-  }, [materials]);
+    const scoped = scopeFor("materialId");
+    const materialIds = new Set<string>();
+    for (const row of scoped) {
+      if (row.materialId) materialIds.add(row.materialId);
+      for (const line of row.bonLines) {
+        if (line.materialId) materialIds.add(line.materialId);
+      }
+    }
+    const list =
+      materialIds.size > 0
+        ? materials.filter((m) => materialIds.has(m.id))
+        : scoped.length === 0 && rows.length === 0
+          ? materials
+          : [];
+    return [...list].sort((a, b) => materialLabel(a).localeCompare(materialLabel(b), "fr"));
+  }, [materials, scopeFor, rows.length]);
+
+  const statusOptions = useMemo(() => {
+    const present = new Set(scopeFor("status").map((r) => r.status));
+    return present.size > 0
+      ? RENTAL_STATUSES.filter((status) => present.has(status))
+      : RENTAL_STATUSES;
+  }, [scopeFor]);
+
+  const statusLabelOptions = useMemo(() => {
+    const labels: Partial<Record<RentalEquipmentStatus, string>> = {};
+    for (const status of statusOptions) labels[status] = RENTAL_STATUS_LABELS[status];
+    return labels as Record<RentalEquipmentStatus, string>;
+  }, [statusOptions]);
+
+  useEffect(() => {
+    setFilterProjectId((current) => pruneProjectId(current, filterProjects));
+    setFilterMaterialId((current) => {
+      if (!current) return current;
+      return materialOptions.some((m) => m.id === current) ? current : "";
+    });
+    setFilterOwner((current) => pruneFilterValue(current, ownerOptions));
+    setFilterDriver((current) => pruneFilterValue(current, driverOptions));
+    setFilterStatus((current) => pruneFilterValue(current, statusOptions));
+  }, [filterProjects, materialOptions, ownerOptions, driverOptions, statusOptions]);
 
   const hasActiveFilters =
     filterProjectId !== "" ||
@@ -126,16 +217,7 @@ export function RentalBonPanel({
     filterDateTo !== "";
 
   const filtered = useMemo(() => {
-    let list = rows;
-    if (filterProjectId) list = list.filter((r) => r.projectId === filterProjectId);
-    if (filterMaterialId) list = list.filter((r) => bonMatchesMaterial(r, filterMaterialId));
-    if (filterStatus) list = list.filter((r) => r.status === filterStatus);
-    if (filterOwner) list = list.filter((r) => r.ownerName.trim() === filterOwner);
-    if (filterDriver) list = list.filter((r) => r.driverName.trim() === filterDriver);
-    if (filterDateFrom || filterDateTo) {
-      list = list.filter((r) => bonMatchesDateRange(r, filterDateFrom, filterDateTo));
-    }
-
+    let list = applyFacetScope(rows, bonFacetChecks);
     const q = search.trim().toLowerCase();
     if (!q) return list;
     return list.filter(
@@ -155,13 +237,7 @@ export function RentalBonPanel({
     rows,
     search,
     projects,
-    filterProjectId,
-    filterMaterialId,
-    filterStatus,
-    filterOwner,
-    filterDriver,
-    filterDateFrom,
-    filterDateTo,
+    bonFacetChecks,
     materials,
   ]);
 
@@ -266,7 +342,7 @@ export function RentalBonPanel({
               <p className={labelClass}>Chantier</p>
               <div className="mt-1 w-full">
                 <ProjectSelect
-                  projects={projects}
+                  projects={filterProjects}
                   value={filterProjectId}
                   onChange={setFilterProjectId}
                   allowEmpty
@@ -295,7 +371,7 @@ export function RentalBonPanel({
             <div className={filterFieldWrap}>
               <p className={labelClass}>Statut</p>
               <SearchableEnumSelect
-                options={withEmptyOption(enumToOptions(RENTAL_STATUS_LABELS), "Tous statuts")}
+                options={withEmptyOption(enumToOptions(statusLabelOptions), "Tous statuts")}
                 value={filterStatus}
                 onChange={setFilterStatus}
                 placeholder="Tous statuts"
@@ -378,7 +454,8 @@ export function RentalBonPanel({
                   <th className={thClass}>Lieu travaux</th>
                   <th className={thClass}>Loueur</th>
                   <th className={thClass}>Conducteur</th>
-                  <th className={thClass}>Lignes</th>
+                  <th className={thClass}>Jours</th>
+                  <th className={thClass}>Heures</th>
                   <th className={thClass}>Total MAD</th>
                   <th className={thClass}>Statut</th>
                   <th className={thClass} />
@@ -403,7 +480,18 @@ export function RentalBonPanel({
                     <td className={tdClass}>
                       <AdminTruncatedText text={r.driverName} lines={1} />
                     </td>
-                    <td className={tdClass}>{r.bonLines.length || r.daysCount || "—"}</td>
+                    <td
+                      className={`${tdClass} tabular-nums whitespace-nowrap`}
+                      title={formatBonLocationUsageDetail(r) || undefined}
+                    >
+                      {formatBonLocationUsageDays(r)}
+                    </td>
+                    <td
+                      className={`${tdClass} tabular-nums whitespace-nowrap`}
+                      title={formatBonLocationUsageDetail(r) || undefined}
+                    >
+                      {formatBonLocationUsageHours(r)}
+                    </td>
                     <td className={tdClass}>{r.totalMad.toLocaleString("fr-MA")}</td>
                     <td className={tdClass}>
                       <RentalStatusBadge status={r.status} />

@@ -10,6 +10,14 @@ import { enumToOptions, stringOptions, withEmptyOption } from "@/components/admi
 import { useOpsReferential } from "@/components/admin/useOpsReferential";
 import type { FuelEntry } from "@/components/admin/operations-types";
 import { formatDateFr, formatTimeFr24 } from "@/lib/admin/date-time-fr";
+import {
+  applyFacetScope,
+  facetEnumOptions,
+  facetStringOptions,
+  projectsForFacetScope,
+  pruneFilterValue,
+  pruneProjectId,
+} from "@/lib/admin/filter-scope";
 import { GASOIL_VEHICLE_CATEGORIES, GASOIL_VEHICLE_CATEGORY_LABELS } from "@/lib/admin/gasoil-bon";
 import {
   btnPrimary,
@@ -60,17 +68,85 @@ export function FuelJournalPanel({ gasoilStockQty }: { gasoilStockQty: number | 
     return projects.find((p) => p.id === id)?.name ?? "—";
   };
 
-  const materialOptions = useMemo(() => {
-    return [...new Set(rows.map((r) => r.equipmentName.trim()).filter(Boolean))].sort((a, b) =>
-      a.localeCompare(b, "fr"),
-    );
-  }, [rows]);
+  const fuelFacetChecks = useMemo(
+    () => [
+      {
+        key: "projectId",
+        active: filterProjectId,
+        test: (r: FuelEntry) => r.projectId === filterProjectId,
+      },
+      {
+        key: "category",
+        active: filterCategory,
+        test: (r: FuelEntry) => r.vehicleCategory === filterCategory,
+      },
+      {
+        key: "material",
+        active: filterMaterial,
+        test: (r: FuelEntry) => r.equipmentName.trim() === filterMaterial,
+      },
+      {
+        key: "driver",
+        active: filterDriver,
+        test: (r: FuelEntry) => r.fueledBy.trim() === filterDriver,
+      },
+      {
+        key: "dates",
+        active: filterDateFrom || filterDateTo ? "1" : "",
+        test: (r: FuelEntry) => {
+          const d = r.entryDate.slice(0, 10);
+          if (filterDateFrom && d < filterDateFrom) return false;
+          if (filterDateTo && d > filterDateTo) return false;
+          return true;
+        },
+      },
+    ],
+    [filterProjectId, filterCategory, filterMaterial, filterDriver, filterDateFrom, filterDateTo],
+  );
 
-  const driverOptions = useMemo(() => {
-    return [...new Set(rows.map((r) => r.fueledBy.trim()).filter(Boolean))].sort((a, b) =>
-      a.localeCompare(b, "fr"),
-    );
-  }, [rows]);
+  const scopeFor = useCallback(
+    (excludeKey: string) => applyFacetScope(rows, fuelFacetChecks, excludeKey),
+    [rows, fuelFacetChecks],
+  );
+
+  const filterProjects = useMemo(
+    () => projectsForFacetScope(projects, scopeFor("projectId")),
+    [projects, scopeFor],
+  );
+
+  const materialOptions = useMemo(
+    () => facetStringOptions(scopeFor("material"), rows.length, (r) => r.equipmentName),
+    [scopeFor, rows.length],
+  );
+
+  const driverOptions = useMemo(
+    () => facetStringOptions(scopeFor("driver"), rows.length, (r) => r.fueledBy),
+    [scopeFor, rows.length],
+  );
+
+  const categoryOptions = useMemo(
+    () =>
+      facetEnumOptions(
+        GASOIL_VEHICLE_CATEGORIES,
+        scopeFor("category"),
+        rows.length,
+        (r) => r.vehicleCategory ?? null,
+      ),
+    [scopeFor, rows.length],
+  );
+
+  const categoryLabelOptions = useMemo(() => {
+    const labels: Partial<Record<(typeof GASOIL_VEHICLE_CATEGORIES)[number], string>> = {};
+    for (const category of categoryOptions) labels[category] = GASOIL_VEHICLE_CATEGORY_LABELS[category];
+    return labels as Record<(typeof GASOIL_VEHICLE_CATEGORIES)[number], string>;
+  }, [categoryOptions]);
+
+  useEffect(() => {
+    setFilterProjectId((current) => pruneProjectId(current, filterProjects));
+    setFilterMaterial((current) => pruneFilterValue(current, materialOptions));
+    setFilterDriver((current) => pruneFilterValue(current, driverOptions));
+    setFilterCategory((current) => pruneFilterValue(current, categoryOptions));
+  }, [filterProjects, materialOptions, driverOptions, categoryOptions]);
 
   const hasActiveFilters =
     filterProjectId !== "" ||
@@ -81,13 +157,7 @@ export function FuelJournalPanel({ gasoilStockQty }: { gasoilStockQty: number | 
     filterDateTo !== "";
 
   const filtered = useMemo(() => {
-    let list = rows;
-    if (filterProjectId) list = list.filter((r) => r.projectId === filterProjectId);
-    if (filterCategory) list = list.filter((r) => r.vehicleCategory === filterCategory);
-    if (filterMaterial) list = list.filter((r) => r.equipmentName.trim() === filterMaterial);
-    if (filterDriver) list = list.filter((r) => r.fueledBy.trim() === filterDriver);
-    if (filterDateFrom) list = list.filter((r) => r.entryDate.slice(0, 10) >= filterDateFrom);
-    if (filterDateTo) list = list.filter((r) => r.entryDate.slice(0, 10) <= filterDateTo);
+    let list = applyFacetScope(rows, fuelFacetChecks);
 
     const q = search.trim().toLowerCase();
     if (!q) return list;
@@ -104,17 +174,7 @@ export function FuelJournalPanel({ gasoilStockQty }: { gasoilStockQty: number | 
         category.toLowerCase().includes(q)
       );
     });
-  }, [
-    rows,
-    search,
-    projects,
-    filterProjectId,
-    filterCategory,
-    filterMaterial,
-    filterDriver,
-    filterDateFrom,
-    filterDateTo,
-  ]);
+  }, [rows, search, projects, fuelFacetChecks]);
 
   if (loading) return <FuelJournalPanelSkeleton />;
 
@@ -142,7 +202,7 @@ export function FuelJournalPanel({ gasoilStockQty }: { gasoilStockQty: number | 
             <p className={labelClass}>Chantier</p>
             <div className="mt-1">
               <ProjectSelect
-                projects={projects}
+                projects={filterProjects}
                 value={filterProjectId}
                 onChange={setFilterProjectId}
                 allowEmpty
@@ -154,7 +214,7 @@ export function FuelJournalPanel({ gasoilStockQty }: { gasoilStockQty: number | 
           <div className={filterFieldWrap}>
             <p className={labelClass}>Catégorie</p>
             <SearchableEnumSelect
-              options={withEmptyOption(enumToOptions(GASOIL_VEHICLE_CATEGORY_LABELS), "Toutes catégories")}
+              options={withEmptyOption(enumToOptions(categoryLabelOptions), "Toutes catégories")}
               value={filterCategory}
               onChange={setFilterCategory}
               placeholder="Toutes catégories"

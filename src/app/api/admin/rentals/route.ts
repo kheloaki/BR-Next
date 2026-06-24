@@ -4,6 +4,8 @@ import { MATERIAL_CATEGORY_LABELS } from "@/components/admin/operations-types";
 import { csvResponse } from "@/lib/admin/csv-response";
 import {
   computeEstimatedHours,
+  formatBonLocationUsageDays,
+  formatBonLocationUsageHours,
   mapRentalContractRow,
   RENTAL_LOCATAIRE_DEFAULT,
   resolveEquipmentName,
@@ -148,7 +150,8 @@ export async function GET(request: Request) {
         "Loueur",
         "Lieu travaux",
         "Conducteur",
-        "Lignes",
+        "Jours",
+        "Heures",
         "Total MAD",
       ],
       rows.map((r) => [
@@ -157,7 +160,8 @@ export async function GET(request: Request) {
         r.ownerName,
         r.projectId || "",
         r.driverName,
-        String(r.bonLines.length || r.daysCount),
+        formatBonLocationUsageDays(r),
+        formatBonLocationUsageHours(r),
         String(r.totalMad),
       ]),
     );
