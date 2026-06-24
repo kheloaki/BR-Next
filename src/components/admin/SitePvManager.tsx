@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
 import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
@@ -36,17 +37,24 @@ import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { useAdminListFormNav } from "@/components/admin/ux/useAdminListFormNav";
 
 export function SitePvManager({ defaultProjectId, embedded }: { defaultProjectId?: string; embedded?: boolean }) {
   const toast = useAdminToast();
+  const pathname = usePathname();
   const { projects } = useOpsReferential();
-  const [tab, setTab] = useState<"list" | "form">("list");
   const [rows, setRows] = useState<SitePv[]>([]);
   const [loading, setLoading] = useState(true);
+  const {
+    tab,
+    editingId: editId,
+    returnToList,
+    openFormNew,
+    openFormEdit,
+  } = useAdminListFormNav({ pathname, loading });
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [filterProjectId, setFilterProjectId] = useState(defaultProjectId ?? "");
-  const [editId, setEditId] = useState<string | null>(null);
 
   const [pvType, setPvType] = useState<SitePvType>("reunion_chantier");
   const [projectId, setProjectId] = useState(defaultProjectId ?? "");
@@ -108,7 +116,6 @@ export function SitePvManager({ defaultProjectId, embedded }: { defaultProjectId
   );
 
   function resetForm() {
-    setEditId(null);
     setPvType("reunion_chantier");
     setProjectId(defaultProjectId ?? filterProjectId ?? "");
     setPvDate(new Date().toISOString().slice(0, 10));
@@ -123,7 +130,6 @@ export function SitePvManager({ defaultProjectId, embedded }: { defaultProjectId
   }
 
   function openEdit(row: SitePv) {
-    setEditId(row.id);
     setPvType(row.pvType);
     setProjectId(row.projectId ?? "");
     setPvDate(row.pvDate);
@@ -137,7 +143,7 @@ export function SitePvManager({ defaultProjectId, embedded }: { defaultProjectId
     );
     setResponsiblePerson(row.responsiblePerson);
     setDeadline(row.deadline ?? "");
-    setTab("form");
+    openFormEdit(row.id);
   }
 
   function parseParticipants(text: string) {
@@ -193,7 +199,7 @@ export function SitePvManager({ defaultProjectId, embedded }: { defaultProjectId
     }
     toast.success(editId ? "PV mis à jour." : "PV créé.");
     resetForm();
-    setTab("list");
+    returnToList();
     await load();
   }
 
@@ -227,13 +233,13 @@ export function SitePvManager({ defaultProjectId, embedded }: { defaultProjectId
               className={btnPrimary}
               onClick={() => {
                 resetForm();
-                setTab("form");
+                openFormNew();
               }}
             >
               Nouveau PV
             </button>
           ) : (
-            <button type="button" className={btnSecondary} onClick={() => { resetForm(); setTab("list"); }}>
+            <button type="button" className={btnSecondary} onClick={() => { resetForm(); returnToList(); }}>
               Retour liste
             </button>
           )
@@ -241,7 +247,7 @@ export function SitePvManager({ defaultProjectId, embedded }: { defaultProjectId
       />
       ) : tab === "list" ? (
         <div className="flex justify-end">
-          <button type="button" className={btnPrimary} onClick={() => { resetForm(); setTab("form"); }}>
+          <button type="button" className={btnPrimary} onClick={() => { resetForm(); openFormNew(); }}>
             Nouveau PV
           </button>
         </div>
@@ -254,8 +260,15 @@ export function SitePvManager({ defaultProjectId, embedded }: { defaultProjectId
         ]}
         active={tab}
         onChange={(id) => {
-          if (id === "list") resetForm();
-          setTab(id as "list" | "form");
+          if (id === "list") {
+            resetForm();
+            returnToList();
+            return;
+          }
+          if (!editId) {
+            resetForm();
+            openFormNew();
+          }
         }}
       />
 
@@ -291,7 +304,7 @@ export function SitePvManager({ defaultProjectId, embedded }: { defaultProjectId
             {filtered.length === 0 ? (
               <div className="px-5 py-12 text-center text-sm text-[var(--graphite)]/70">
                 Aucun procès-verbal.
-                <button type="button" className={`mt-4 ${btnPrimary}`} onClick={() => { resetForm(); setTab("form"); }}>
+                <button type="button" className={`mt-4 ${btnPrimary}`} onClick={() => { resetForm(); openFormNew(); }}>
                   Nouveau PV
                 </button>
               </div>

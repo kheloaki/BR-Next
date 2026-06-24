@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FinanceDocumentOriginCell } from "@/components/admin/FinanceDocumentOriginCell";
 import { SearchableSelect } from "@/components/admin/SearchableSelect";
@@ -29,10 +29,13 @@ import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import { useTableSort } from "@/components/admin/ux/useTableSort";
+import { currentAdminPageUrl } from "@/lib/admin/admin-list-form-nav";
 import { financeFactureDetailHref } from "@/lib/admin/finance-nav";
 
 export function FinanceSuppliersPanel({ embedded = false }: { embedded?: boolean }) {
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const returnTo = currentAdminPageUrl(pathname, searchParams);
   const highlightId = searchParams.get("highlight");
   const projectFilter = searchParams.get("projectId");
   const toast = useAdminToast();
@@ -138,7 +141,7 @@ export function FinanceSuppliersPanel({ embedded = false }: { embedded?: boolean
               >
                 <td className={tdClass}>
                   <Link
-                    href={financeFactureDetailHref(d.id)}
+                    href={financeFactureDetailHref(d.id, { returnTo })}
                     className="font-medium text-[var(--navy)] hover:underline"
                   >
                     {d.documentNumber}
@@ -156,11 +159,11 @@ export function FinanceSuppliersPanel({ embedded = false }: { embedded?: boolean
                 <td className={tdClass}>
                   <div className="flex flex-wrap gap-1">
                     {d.remainingAmount > 0 ? (
-                      <Link href={financeFactureDetailHref(d.id, { payer: true })} className={btnPrimary}>
+                      <Link href={financeFactureDetailHref(d.id, { payer: true, returnTo })} className={btnPrimary}>
                         Payer
                       </Link>
                     ) : null}
-                    <Link href={financeFactureDetailHref(d.id)} className={btnSecondary}>
+                    <Link href={financeFactureDetailHref(d.id, { returnTo })} className={btnSecondary}>
                       Ouvrir
                     </Link>
                   </div>

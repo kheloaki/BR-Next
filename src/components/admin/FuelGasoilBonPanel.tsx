@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   EMPTY_GASOIL_BON_FORM,
@@ -57,6 +58,7 @@ import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { confirmDelete, readApiError, useAdminToast, alertDialog } from "@/components/admin/ux/useAdminToast";
+import { useAdminListFormNav } from "@/components/admin/ux/useAdminListFormNav";
 
 type PanelTab = "list" | "form";
 
@@ -78,12 +80,18 @@ export function FuelGasoilBonPanel({
   const newLabel = isCommande ? "Nouveau bon de commande" : "Nouveau bon de sortie";
   const saveLabel = isCommande ? "Enregistrer la commande" : "Enregistrer le bon";
   const toast = useAdminToast();
-  const [panelTab, setPanelTab] = useState<PanelTab>("list");
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const pathname = usePathname();
   const [rows, setRows] = useState<GasoilBon[]>([]);
   const [gasoilStock, setGasoilStock] = useState<StockItem | null>(null);
   const [avgUnitPriceInfo, setAvgUnitPriceInfo] = useState<GasoilUnitPriceInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const {
+    tab: panelTab,
+    editingId,
+    returnToList,
+    openFormNew,
+    openFormEdit,
+  } = useAdminListFormNav({ pathname, loading, formTabId: "form" });
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [filterProjectId, setFilterProjectId] = useState("");
@@ -134,6 +142,12 @@ export function FuelGasoilBonPanel({
   useEffect(() => {
     if (projectIdFromUrl) setForm((f) => ({ ...f, projectId: projectIdFromUrl }));
   }, [projectIdFromUrl]);
+
+  useEffect(() => {
+    if (!editingId || loading || panelTab !== "form") return;
+    const row = rows.find((r) => r.id === editingId);
+    if (row && !row.traitementId) setForm(gasoilBonRowToForm(row));
+  }, [editingId, rows, loading, panelTab]);
 
   const projectName = (id: string | null) => {
     if (!id) return "—";
@@ -309,7 +323,6 @@ export function FuelGasoilBonPanel({
     const avgPrice = avgUnitPriceInfo?.unitPricePerLitre ?? 0;
     const stockPrice = gasoilStock?.unitPrice ?? 0;
     const defaultPrice = isCommande ? stockPrice : avgPrice > 0 ? avgPrice : stockPrice;
-    setEditingId(null);
     setForm({
       ...EMPTY_GASOIL_BON_FORM,
       bonType: fixedBonType,
@@ -321,7 +334,7 @@ export function FuelGasoilBonPanel({
 
   async function openNew() {
     await resetForm();
-    setPanelTab("form");
+    openFormNew();
   }
 
   function openEdit(row: GasoilBon) {
@@ -329,9 +342,8 @@ export function FuelGasoilBonPanel({
       toast.error("Ce bon est lié à un traitement. Modifiez-le depuis Traitements.");
       return;
     }
-    setEditingId(row.id);
     setForm(gasoilBonRowToForm(row));
-    setPanelTab("form");
+    openFormEdit(row.id);
   }
 
   async function submitBon() {
@@ -407,7 +419,7 @@ export function FuelGasoilBonPanel({
     await resetForm();
     await load();
     onStockUpdated?.();
-    setPanelTab("list");
+    returnToList();
   }
 
   async function remove(row: GasoilBon) {
@@ -449,7 +461,10 @@ export function FuelGasoilBonPanel({
         <button
           type="button"
           className={panelTab === "list" ? btnPrimary : btnSecondary}
-          onClick={() => setPanelTab("list")}
+          onClick={() => {
+            resetForm();
+            returnToList();
+          }}
         >
           Liste des bons
         </button>
@@ -716,8 +731,8 @@ export function FuelGasoilBonPanel({
               type="button"
               className={btnSecondary}
               onClick={() => {
-                setEditingId(null);
-                setPanelTab("list");
+                resetForm();
+                returnToList();
               }}
             >
               Annuler

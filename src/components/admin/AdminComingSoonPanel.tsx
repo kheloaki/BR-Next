@@ -1,4 +1,6 @@
-import Link from "next/link";
+"use client";
+
+import { AdminBackLink } from "@/components/admin/ux/AdminBackLink";
 import { btnSecondary, moduleWrap } from "@/components/admin/admin-form-styles";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 
@@ -17,9 +19,12 @@ export function AdminComingSoonPanel({
           Bientôt disponible
         </p>
         <p className="mt-4 text-sm text-[var(--graphite)]/75 max-w-md mx-auto">{description}</p>
-        <Link href="/admin" className={`${btnSecondary} mt-6 inline-flex`}>
-          Retour au tableau de bord
-        </Link>
+        <AdminBackLink
+          fallback="/admin"
+          label="Retour au tableau de bord"
+          showIcon={false}
+          className={`${btnSecondary} mt-6 inline-flex`}
+        />
       </div>
     </div>
   );

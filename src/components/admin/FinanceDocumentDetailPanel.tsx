@@ -35,6 +35,7 @@ import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import { useTableSort } from "@/components/admin/ux/useTableSort";
+import { AdminBackLink } from "@/components/admin/ux/AdminBackLink";
 import { financeFacturesHref } from "@/lib/admin/finance-nav";
 import { formatMoney } from "@/lib/admin/price-ht-ttc";
 
@@ -132,9 +133,12 @@ export function FinanceDocumentDetailPanel({ documentId }: { documentId: string 
     return (
       <div className={moduleWrap}>
         <p className="text-sm text-[var(--graphite)]/70">Facture introuvable.</p>
-        <Link href={financeFacturesHref()} className={`${btnSecondary} mt-4 inline-block`}>
-          Retour aux factures
-        </Link>
+        <AdminBackLink
+          fallback={financeFacturesHref()}
+          label="Retour aux factures"
+          showIcon={false}
+          className={`${btnSecondary} mt-4 inline-block`}
+        />
       </div>
     );
   }
@@ -143,7 +147,7 @@ export function FinanceDocumentDetailPanel({ documentId }: { documentId: string 
   const isClient = doc.documentType === "client_invoice";
   const isVente = isClient;
   const partnerName = isClient ? doc.customerName : doc.supplierName;
-  const backHref = financeFacturesHref({ tab: isClient ? "clients" : "fournisseurs" });
+  const facturesFallback = financeFacturesHref({ tab: isClient ? "clients" : "fournisseurs" });
 
   return (
     <div className={moduleWrap}>
@@ -151,9 +155,12 @@ export function FinanceDocumentDetailPanel({ documentId }: { documentId: string 
         title={`Facture ${doc.documentNumber || doc.id}`}
         description={`${FINANCE_DOCUMENT_TYPE_LABELS[doc.documentType]}${partnerName ? ` · ${partnerName}` : ""}`}
         actions={
-          <Link href={backHref} className={btnSecondary}>
-            Retour aux factures
-          </Link>
+          <AdminBackLink
+            fallback={facturesFallback}
+            label="Retour aux factures"
+            showIcon={false}
+            className={btnSecondary}
+          />
         }
       />
 

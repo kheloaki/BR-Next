@@ -1,4 +1,5 @@
 import type { AdminSection } from "@/components/admin/AdminSidebar";
+import { withAdminReturnUrl } from "@/lib/admin/admin-return-url";
 
 export type FinanceFacturesTab = "clients" | "fournisseurs";
 
@@ -12,14 +13,16 @@ export const FINANCE_NAV_ITEMS: { href: string; label: string; section: AdminSec
 
 export function financeFactureDetailHref(
   documentId: string,
-  opts?: { encaisser?: boolean; payer?: boolean },
+  opts?: { encaisser?: boolean; payer?: boolean; returnTo?: string },
 ) {
   const base = `/admin/finance/factures/${encodeURIComponent(documentId)}`;
   const qs = new URLSearchParams();
   if (opts?.encaisser) qs.set("encaisser", "1");
   if (opts?.payer) qs.set("payer", "1");
   const q = qs.toString();
-  return q ? `${base}?${q}` : base;
+  let href = q ? `${base}?${q}` : base;
+  if (opts?.returnTo) href = withAdminReturnUrl(href, opts.returnTo);
+  return href;
 }
 
 export function financeFacturesHref(opts?: {

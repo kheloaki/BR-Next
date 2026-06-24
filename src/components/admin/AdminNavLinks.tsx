@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, Search, X } from "lucide-react";
@@ -12,6 +11,7 @@ import {
   isActiveNavPath,
 } from "@/lib/admin/admin-nav";
 import { ADMIN_SECTION_ICON } from "@/components/admin/admin-nav-icons";
+import { AdminLink } from "@/components/admin/ux/AdminLink";
 import type { AdminSection } from "@/components/admin/AdminSidebar";
 
 const OPEN_GROUPS_KEY = "admin-nav-open-groups-v2";
@@ -52,7 +52,7 @@ function NavLink({
 }) {
   const Icon = ADMIN_SECTION_ICON[section];
   return (
-    <Link
+    <AdminLink
       href={href}
       title={collapsed ? label : undefined}
       className={linkClass(active, collapsed)}
@@ -60,7 +60,7 @@ function NavLink({
     >
       <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} aria-hidden />
       {!collapsed ? <span className="truncate">{label}</span> : null}
-    </Link>
+    </AdminLink>
   );
 }
 
@@ -171,7 +171,7 @@ export function AdminNavLinks({
                 {ADMIN_NAV_SHORTCUTS.map((item) => {
                   const activeItem = isActiveNavPath(pathname, item.href);
                   return (
-                    <Link
+                    <AdminLink
                       key={item.href}
                       href={item.href}
                       onClick={onNavigate}
@@ -182,7 +182,7 @@ export function AdminNavLinks({
                       }
                     >
                       {item.label}
-                    </Link>
+                    </AdminLink>
                   );
                 })}
               </div>
@@ -193,7 +193,7 @@ export function AdminNavLinks({
                 const Icon = ADMIN_SECTION_ICON[item.section];
                 const activeItem = isActiveNavPath(pathname, item.href);
                 return (
-                  <Link
+                  <AdminLink
                     key={item.href}
                     href={item.href}
                     title={item.label}
@@ -201,7 +201,7 @@ export function AdminNavLinks({
                     className={linkClass(activeItem, true)}
                   >
                     <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
-                  </Link>
+                  </AdminLink>
                 );
               })}
             </div>

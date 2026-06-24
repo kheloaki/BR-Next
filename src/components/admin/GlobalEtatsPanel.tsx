@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AdminLink } from "@/components/admin/ux/AdminLink";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
 import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
 import type { AdminProject } from "@/components/admin/operations-types";
@@ -135,9 +135,9 @@ export function GlobalEtatsPanel() {
       {exportError ? <p className="text-sm text-red-700 mb-4">{exportError}</p> : null}
 
       {projectId ? (
-        <Link href={`/admin/projets/${projectId}`} className={`${btnSecondary} mb-4 inline-block`}>
+        <AdminLink href={`/admin/projets/${projectId}`} className={`${btnSecondary} mb-4 inline-block`}>
           Fiche projet →
-        </Link>
+        </AdminLink>
       ) : null}
 
       <p className="text-sm text-[var(--graphite)]/75">

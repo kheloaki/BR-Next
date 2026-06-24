@@ -1,8 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Settings } from "lucide-react";
+import { AdminBackLink } from "@/components/admin/ux/AdminBackLink";
+import { AdminLink } from "@/components/admin/ux/AdminLink";
 import {
   PROJECT_STATUS_LABELS,
   type ProjectSummary,
@@ -63,9 +64,12 @@ export function ProjectHub({ projectId }: { projectId: string }) {
     return (
       <div className={moduleWrap}>
         <p className="text-sm text-red-700">{error || "Erreur"}</p>
-        <Link href="/admin/projets" className="mt-3 inline-block text-sm underline text-[var(--navy)]">
-          ← Retour aux projets
-        </Link>
+        <AdminBackLink
+          fallback="/admin/projets"
+          label="← Retour aux projets"
+          showIcon={false}
+          className="mt-3 inline-block text-sm underline text-[var(--navy)]"
+        />
       </div>
     );
   }
@@ -75,9 +79,12 @@ export function ProjectHub({ projectId }: { projectId: string }) {
   return (
     <div className={moduleWrap}>
       <div className="mb-2">
-        <Link href="/admin/projets" className="text-xs text-[var(--graphite)]/70 hover:text-[var(--navy)]">
-          ← Projets
-        </Link>
+        <AdminBackLink
+          fallback="/admin/projets"
+          label="← Projets"
+          showIcon={false}
+          className="text-xs text-[var(--graphite)]/70 hover:text-[var(--navy)]"
+        />
       </div>
 
       <OpsModuleHeader
@@ -104,9 +111,9 @@ export function ProjectHub({ projectId }: { projectId: string }) {
               <Settings className="h-4 w-4" aria-hidden />
               Paramètres
             </button>
-            <Link href="/admin/projets" className={btnSecondary}>
+            <AdminLink href="/admin/projets" className={btnSecondary}>
               Liste projets
-            </Link>
+            </AdminLink>
           </>
         }
       />

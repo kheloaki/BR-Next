@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import {
@@ -47,6 +48,7 @@ import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
 import { SearchableSelect } from "@/components/admin/SearchableSelect";
 import { enumToOptions, stringOptions, withEmptyOption } from "@/components/admin/searchable-options";
 import { confirmDelete, readApiError, alertDialog } from "@/components/admin/ux/useAdminToast";
+import { useAdminListFormNav } from "@/components/admin/ux/useAdminListFormNav";
 
 const RENTAL_STATUSES: RentalEquipmentStatus[] = ["active", "maintenance", "down"];
 const RENTAL_STATUS_LABELS: Record<RentalEquipmentStatus, string> = {
@@ -74,9 +76,16 @@ export function RentalBonPanel({
   gasoilContacts,
   onGasoilContactsChange,
 }: Props) {
-  const [tab, setTab] = useState("list");
+  const pathname = usePathname();
   const [rows, setRows] = useState<RentalContract[]>([]);
   const [loading, setLoading] = useState(true);
+  const {
+    tab,
+    editingId: editId,
+    returnToList,
+    openFormNew,
+    openFormEdit,
+  } = useAdminListFormNav({ pathname, loading, formTabId: "new" });
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [filterProjectId, setFilterProjectId] = useState("");
@@ -86,7 +95,6 @@ export function RentalBonPanel({
   const [filterDriver, setFilterDriver] = useState("");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
-  const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<RentalBonFormState>(EMPTY_BON_FORM);
 
   const load = useCallback(async () => {
@@ -99,6 +107,12 @@ export function RentalBonPanel({
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!editId || loading || tab !== "new") return;
+    const row = rows.find((r) => r.id === editId);
+    if (row) setForm(contractToBonForm(row));
+  }, [editId, rows, loading, tab]);
 
   const projectName = (id: string | null) => {
     if (!id) return "—";
@@ -281,19 +295,17 @@ export function RentalBonPanel({
   );
 
   function resetForm() {
-    setEditId(null);
     setForm(EMPTY_BON_FORM);
   }
 
   function openCreate() {
     resetForm();
-    setTab("new");
+    openFormNew();
   }
 
   function openEdit(r: RentalContract) {
-    setEditId(r.id);
     setForm(contractToBonForm(r));
-    setTab("new");
+    openFormEdit(r.id);
   }
 
   async function submit() {
@@ -352,7 +364,7 @@ export function RentalBonPanel({
     );
     resetForm();
     await load();
-    setTab("list");
+    returnToList();
   }
 
   async function remove(r: RentalContract) {
@@ -365,7 +377,7 @@ export function RentalBonPanel({
       return;
     }
     toast.success("Bon location supprimé.");
-    if (editId === r.id) resetForm();
+    if (editId === r.id) returnToList();
     await load();
   }
 
@@ -377,7 +389,14 @@ export function RentalBonPanel({
           { id: "new", label: editId ? "Modifier bon" : "Nouveau bon location" },
         ]}
         active={tab}
-        onChange={setTab}
+        onChange={(id) => {
+          if (id === "list") {
+            resetForm();
+            returnToList();
+            return;
+          }
+          if (!editId) openCreate();
+        }}
       />
 
       {loading ? <RentalBonsPageSkeleton partial /> : null}
@@ -610,7 +629,7 @@ export function RentalBonPanel({
                   className={btnSecondary}
                   onClick={() => {
                     resetForm();
-                    setTab("list");
+                    returnToList();
                   }}
                 >
                   Annuler

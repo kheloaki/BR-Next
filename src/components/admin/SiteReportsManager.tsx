@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
 import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
@@ -36,6 +37,7 @@ import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { useAdminListFormNav } from "@/components/admin/ux/useAdminListFormNav";
 
 export function SiteReportsManager({
   defaultProjectId,
@@ -47,15 +49,20 @@ export function SiteReportsManager({
   defaultType?: SiteReportType;
 }) {
   const toast = useAdminToast();
+  const pathname = usePathname();
   const { projects } = useOpsReferential();
-  const [tab, setTab] = useState<"list" | "form">("list");
   const [rows, setRows] = useState<SiteReport[]>([]);
   const [loading, setLoading] = useState(true);
+  const {
+    tab,
+    editingId: editId,
+    returnToList,
+    openFormNew,
+    openFormEdit,
+  } = useAdminListFormNav({ pathname, loading });
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [filterProjectId, setFilterProjectId] = useState(defaultProjectId ?? "");
-  const [editId, setEditId] = useState<string | null>(null);
-
   const [reportType, setReportType] = useState<SiteReportType>(defaultType ?? "journalier");
   const [projectId, setProjectId] = useState(defaultProjectId ?? "");
   const [reportDate, setReportDate] = useState(new Date().toISOString().slice(0, 10));
@@ -114,7 +121,6 @@ export function SiteReportsManager({
   );
 
   function resetForm() {
-    setEditId(null);
     setReportType(defaultType ?? "journalier");
     setProjectId(defaultProjectId ?? filterProjectId ?? "");
     setReportDate(new Date().toISOString().slice(0, 10));
@@ -128,7 +134,6 @@ export function SiteReportsManager({
   }
 
   function openEdit(row: SiteReport) {
-    setEditId(row.id);
     setReportType(row.reportType);
     setProjectId(row.projectId ?? "");
     setReportDate(row.reportDate);
@@ -139,7 +144,7 @@ export function SiteReportsManager({
     setBlockers(row.blockers);
     setNextActions(row.nextActions);
     setNotes(row.notes);
-    setTab("form");
+    openFormEdit(row.id);
   }
 
   async function save() {
@@ -172,7 +177,7 @@ export function SiteReportsManager({
     }
     toast.success(editId ? "Rapport mis à jour." : "Rapport créé.");
     resetForm();
-    setTab("list");
+    returnToList();
     await load();
   }
 
@@ -201,11 +206,11 @@ export function SiteReportsManager({
           description="Journalier, hebdomadaire, avancement, production — export PDF."
           actions={
             tab === "list" ? (
-              <button type="button" className={btnPrimary} onClick={() => { resetForm(); setTab("form"); }}>
+              <button type="button" className={btnPrimary} onClick={() => { resetForm(); openFormNew(); }}>
                 Nouveau rapport
               </button>
             ) : (
-              <button type="button" className={btnSecondary} onClick={() => { resetForm(); setTab("list"); }}>
+              <button type="button" className={btnSecondary} onClick={() => { resetForm(); returnToList(); }}>
                 Retour liste
               </button>
             )
@@ -213,7 +218,7 @@ export function SiteReportsManager({
         />
       ) : tab === "list" ? (
         <div className="flex justify-end">
-          <button type="button" className={btnPrimary} onClick={() => { resetForm(); setTab("form"); }}>
+          <button type="button" className={btnPrimary} onClick={() => { resetForm(); openFormNew(); }}>
             Nouveau rapport
           </button>
         </div>
@@ -226,8 +231,15 @@ export function SiteReportsManager({
         ]}
         active={tab}
         onChange={(id) => {
-          if (id === "list") resetForm();
-          setTab(id as "list" | "form");
+          if (id === "list") {
+            resetForm();
+            returnToList();
+            return;
+          }
+          if (!editId) {
+            resetForm();
+            openFormNew();
+          }
         }}
       />
 
@@ -258,7 +270,7 @@ export function SiteReportsManager({
             {filtered.length === 0 ? (
               <div className="px-5 py-12 text-center text-sm text-[var(--graphite)]/70">
                 Aucun rapport.
-                <button type="button" className={`mt-4 ${btnPrimary}`} onClick={() => { resetForm(); setTab("form"); }}>
+                <button type="button" className={`mt-4 ${btnPrimary}`} onClick={() => { resetForm(); openFormNew(); }}>
                   Nouveau rapport
                 </button>
               </div>

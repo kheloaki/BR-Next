@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
+import { AdminLink } from "@/components/admin/ux/AdminLink";
 import type {
   AttendanceRecord,
   DrillingReport,
@@ -46,9 +47,9 @@ function fmtDate(d: string) {
 
 function ModuleLink({ href, label }: { href: string; label: string }) {
   return (
-    <Link href={href} className={btnSecondarySm}>
+    <AdminLink href={href} className={btnSecondarySm}>
       {label}
-    </Link>
+    </AdminLink>
   );
 }
 
