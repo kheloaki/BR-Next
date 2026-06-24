@@ -580,6 +580,7 @@ export function FuelGasoilBonPanel({
                     sort={sort}
                     onSort={onSort}
                   />
+                  <AdminSortableTh label="Date" sortKey="date" sort={sort} onSort={onSort} />
                   {!isCommande ? (
                     <AdminSortableTh label="Catégorie" sortKey="category" sort={sort} onSort={onSort} />
                   ) : null}
@@ -601,7 +602,6 @@ export function FuelGasoilBonPanel({
                     sort={sort}
                     onSort={onSort}
                   />
-                  <AdminSortableTh label="Date" sortKey="date" sort={sort} onSort={onSort} />
                   <th className={thClass} />
                 </tr>
               </thead>
@@ -609,6 +609,7 @@ export function FuelGasoilBonPanel({
                 {sortedRows.map((r) => (
                   <tr key={r.id} className={rowHover}>
                     <td className={`${tdClass} font-mono text-xs`}>{r.number}</td>
+                    <td className={tdClass}>{formatDateFr(r.bonDate)}</td>
                     {!isCommande ? (
                       <td className={tdClass}>{GASOIL_VEHICLE_CATEGORY_LABELS[r.vehicleCategory]}</td>
                     ) : null}
@@ -637,7 +638,6 @@ export function FuelGasoilBonPanel({
                     <td className={tdClass}>
                       <AdminTruncatedText text={isCommande ? r.supplier : r.beneficiary} lines={1} />
                     </td>
-                    <td className={tdClass}>{formatDateFr(r.bonDate)}</td>
                     <td className={tdClass}>
                       <div className="flex flex-wrap gap-1">
                         <button
@@ -669,7 +669,7 @@ export function FuelGasoilBonPanel({
                   </tr>
                 ))}
                 <tr className="border-t-2 border-[var(--navy)]/20 bg-[var(--background)]/60 font-medium">
-                  <td className={tdClass} colSpan={isCommande ? 2 : 4}>
+                  <td className={tdClass} colSpan={isCommande ? 3 : 5}>
                     Total ({filteredTotals.count} bon{filteredTotals.count > 1 ? "s" : ""})
                   </td>
                   <td className={`${tdClass} tabular-nums text-[var(--navy)]`}>
@@ -682,7 +682,7 @@ export function FuelGasoilBonPanel({
                       {filteredTotals.mad > 0 ? `${filteredTotals.mad.toLocaleString("fr-MA")} MAD` : "—"}
                     </td>
                   ) : null}
-                  <td className={tdClass} colSpan={isCommande ? 4 : 5} />
+                  <td className={tdClass} colSpan={isCommande ? 3 : 4} />
                 </tr>
               </tbody>
             </AdminTableWrap>

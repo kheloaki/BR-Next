@@ -320,8 +320,8 @@ export function FuelJournalPanel({ gasoilStockQty }: { gasoilStockQty: number | 
           <AdminTableWrap>
             <thead>
               <tr>
-                <AdminSortableTh label="Date" sortKey="date" sort={sort} onSort={onSort} />
                 <AdminSortableTh label="N° bon" sortKey="ticketNo" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Date" sortKey="date" sort={sort} onSort={onSort} />
                 <AdminSortableTh label="Catégorie" sortKey="category" sort={sort} onSort={onSort} />
                 <AdminSortableTh label="Matériel / Matricule" sortKey="equipment" sort={sort} onSort={onSort} />
                 <AdminSortableTh label="Litres" sortKey="litres" sort={sort} onSort={onSort} />
@@ -334,10 +334,10 @@ export function FuelJournalPanel({ gasoilStockQty }: { gasoilStockQty: number | 
             <tbody>
               {sortedRows.map((r) => (
                 <tr key={r.id} className={rowHover}>
-                  <td className={tdClass}>{formatDateFr(r.entryDate)}</td>
                   <td className={tdClass}>
                     <AdminTruncatedText text={r.ticketNo} lines={1} />
                   </td>
+                  <td className={tdClass}>{formatDateFr(r.entryDate)}</td>
                   <td className={tdClass}>
                     {r.vehicleCategory ? GASOIL_VEHICLE_CATEGORY_LABELS[r.vehicleCategory] : "—"}
                   </td>

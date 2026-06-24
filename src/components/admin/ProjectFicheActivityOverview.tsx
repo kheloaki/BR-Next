@@ -223,18 +223,21 @@ export function ProjectFicheActivityOverview({
             <AdminTableWrap>
               <thead>
                 <tr>
+                  <AdminSortableTh label="N° bon" sortKey="ticketNo" sort={fuelSort.sort} onSort={fuelSort.onSort} />
                   <AdminSortableTh label="Date" sortKey="date" sort={fuelSort.sort} onSort={fuelSort.onSort} />
                   <AdminSortableTh label="Engin" sortKey="equipment" sort={fuelSort.sort} onSort={fuelSort.onSort} />
                   <AdminSortableTh label="Litres" sortKey="litres" sort={fuelSort.sort} onSort={fuelSort.onSort} align="right" />
                   {canSeeFinancials ? (
                     <AdminSortableTh label="Montant" sortKey="amount" sort={fuelSort.sort} onSort={fuelSort.onSort} align="right" />
                   ) : null}
-                  <AdminSortableTh label="N° bon" sortKey="ticketNo" sort={fuelSort.sort} onSort={fuelSort.onSort} />
                 </tr>
               </thead>
               <tbody>
                 {sortedFuel.map((f) => (
                   <tr key={f.id} className={rowHover}>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={f.ticketNo} lines={1} />
+                    </td>
                     <td className={tdClass}>{fmtDate(f.entryDate)}</td>
                     <td className={tdClass}>
                       <AdminTruncatedText text={f.equipmentName || f.vehicleLabel} lines={1} />
@@ -245,9 +248,6 @@ export function ProjectFicheActivityOverview({
                         {f.totalAmount != null ? `${formatMoney(f.totalAmount)} MAD` : "—"}
                       </td>
                     ) : null}
-                    <td className={tdClass}>
-                      <AdminTruncatedText text={f.ticketNo} lines={1} />
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -268,18 +268,21 @@ export function ProjectFicheActivityOverview({
             <AdminTableWrap>
               <thead>
                 <tr>
+                  <AdminSortableTh label="N° bon" sortKey="bonNo" sort={rentalsSort.sort} onSort={rentalsSort.onSort} />
                   <AdminSortableTh label="Date" sortKey="date" sort={rentalsSort.sort} onSort={rentalsSort.onSort} />
                   <AdminSortableTh label="Matériel" sortKey="material" sort={rentalsSort.sort} onSort={rentalsSort.onSort} />
                   <AdminSortableTh label="Réf." sortKey="reference" sort={rentalsSort.sort} onSort={rentalsSort.onSort} />
                   {canSeeFinancials ? (
                     <AdminSortableTh label="Montant" sortKey="amount" sort={rentalsSort.sort} onSort={rentalsSort.onSort} align="right" />
                   ) : null}
-                  <AdminSortableTh label="N° bon" sortKey="bonNo" sort={rentalsSort.sort} onSort={rentalsSort.onSort} />
                 </tr>
               </thead>
               <tbody>
                 {sortedRentals.map((r) => (
                   <tr key={r.id} className={rowHover}>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={r.bonLocationNo || r.contractNo} lines={1} />
+                    </td>
                     <td className={tdClass}>{r.lineDate ? fmtDate(r.lineDate) : "—"}</td>
                     <td className={tdTextClass}>
                       <AdminTruncatedText text={r.designation || r.equipmentName} />
@@ -290,9 +293,6 @@ export function ProjectFicheActivityOverview({
                     {canSeeFinancials ? (
                       <td className={tdClass}>{formatMoney(r.totalMad)} MAD</td>
                     ) : null}
-                    <td className={tdClass}>
-                      <AdminTruncatedText text={r.bonLocationNo || r.contractNo} lines={1} />
-                    </td>
                   </tr>
                 ))}
               </tbody>
