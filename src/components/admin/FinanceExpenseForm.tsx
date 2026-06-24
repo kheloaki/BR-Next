@@ -13,6 +13,7 @@ import type { AdminProject } from "@/components/admin/operations-types";
 import type { FinanceAccount, FinanceCategory, FinancePaymentMethod } from "@/lib/admin/finance-types";
 import { FINANCE_PAYMENT_METHOD_LABELS } from "@/lib/admin/finance-types";
 import {
+  financeAccountsForPaymentMethod,
   pickDefaultFinanceAccountId,
   suggestFinanceMovementReference,
   validateMovementInput,
@@ -70,11 +71,17 @@ export function FinanceExpenseForm({
   const amountTtc = useMemo(() => htToTtc(amountHt, vatRate), [amountHt, vatRate]);
   const vatAmount = useMemo(() => roundMoney(Math.max(0, amountTtc - amountHt)), [amountTtc, amountHt]);
 
+  const accountsForPayment = useMemo(
+    () => financeAccountsForPaymentMethod(accounts, paymentMethod),
+    [accounts, paymentMethod],
+  );
+
   useEffect(() => {
-    if (accountId || accounts.length === 0) return;
-    const picked = pickDefaultFinanceAccountId(accounts);
+    if (accountsForPayment.length === 0) return;
+    if (accountId && accountsForPayment.some((a) => a.id === accountId)) return;
+    const picked = pickDefaultFinanceAccountId(accountsForPayment);
     if (picked) setAccountId(picked);
-  }, [accounts, accountId]);
+  }, [accountsForPayment, accountId, paymentMethod]);
 
   async function submit() {
     const resolvedReference = reference.trim() || suggestFinanceMovementReference("DEP");
@@ -158,7 +165,7 @@ export function FinanceExpenseForm({
               <p className={labelClass}>Compte</p>
               <div className="mt-1">
                 <FinanceAccountSelect
-                  accounts={accounts}
+                  accounts={accountsForPayment}
                   value={accountId}
                   onChange={setAccountId}
                   inputClassName={inputClass}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
@@ -190,6 +190,7 @@ export function TraitementManager() {
   const [gasoilBlModal, setGasoilBlModal] = useState<Traitement | null>(null);
   const [achatToVenteRow, setAchatToVenteRow] = useState<Traitement | null>(null);
   const [financePayRequest, setFinancePayRequest] = useState(false);
+  const suppressDeepLinkRef = useRef(false);
 
   const title = "Traitements";
   const stepKeys = TRAITEMENT_STEPS_BY_TYPE[kind];
@@ -282,12 +283,24 @@ export function TraitementManager() {
     setActiveStep(null);
   }
 
+  function returnToList() {
+    suppressDeepLinkRef.current = true;
+    resetForm();
+    setTab("list");
+    if (searchParams.get("id") || searchParams.get("new")) {
+      router.replace(traitementsHref({ type: kind }), { scroll: false });
+    }
+  }
+
   function openNew() {
+    suppressDeepLinkRef.current = false;
     resetForm();
     setTab("form");
+    router.replace(traitementsHref({ type: kind, new: true }), { scroll: false });
   }
 
   function openEdit(row: Traitement, stepKey?: TraitementStepKey) {
+    suppressDeepLinkRef.current = false;
     setEditingId(row.id);
     setLabel(row.label);
     setProjectId(row.projectId ?? "");
@@ -314,9 +327,14 @@ export function TraitementManager() {
         : [],
     );
     setTab("form");
+    router.replace(traitementsHref({ type: kind, id: row.id }), { scroll: false });
   }
 
   useEffect(() => {
+    if (suppressDeepLinkRef.current) {
+      suppressDeepLinkRef.current = false;
+      return;
+    }
     const id = searchParams.get("id");
     if (!id || loading) return;
     const row = rows.find((r) => r.id === id);
@@ -342,6 +360,7 @@ export function TraitementManager() {
   }, [searchParams, loading, rows, editingId, kind, router]);
 
   useEffect(() => {
+    if (suppressDeepLinkRef.current) return;
     if (loading || searchParams.get("new") !== "1") return;
     if (tab !== "list" || editingId) return;
     openNew();
@@ -522,8 +541,7 @@ export function TraitementManager() {
       return;
     }
 
-    resetForm();
-    setTab("list");
+    returnToList();
   }
 
   async function remove(id: string) {
@@ -577,10 +595,7 @@ export function TraitementManager() {
             <button
               type="button"
               className={btnSecondary}
-              onClick={() => {
-                resetForm();
-                setTab("list");
-              }}
+              onClick={returnToList}
             >
               Retour liste
             </button>
@@ -598,8 +613,7 @@ export function TraitementManager() {
           const next = id as TraitementType;
           if (next === kind) return;
           if (tab === "form") {
-            resetForm();
-            setTab("list");
+            returnToList();
           }
           router.replace(traitementsHref({ type: next }));
         }}
@@ -613,9 +627,14 @@ export function TraitementManager() {
         active={tab}
         onChange={(id) => {
           if (id === "list") {
-            resetForm();
+            returnToList();
+            return;
           }
-          setTab(id as "list" | "form");
+          if (!editingId) {
+            openNew();
+            return;
+          }
+          setTab("form");
         }}
       />
 
@@ -1103,14 +1122,7 @@ export function TraitementManager() {
                     : `Créer et ${firstDocLabel}`}
               </button>
             ) : null}
-            <button
-              type="button"
-              className={btnSecondary}
-              onClick={() => {
-                resetForm();
-                setTab("list");
-              }}
-            >
+            <button type="button" className={btnSecondary} onClick={returnToList}>
               Annuler
             </button>
           </div>

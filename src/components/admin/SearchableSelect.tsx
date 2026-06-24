@@ -51,15 +51,16 @@ export function SearchableSelect({
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const selected = useMemo(() => options.find((o) => o.value === value), [options, value]);
 
   const filtered = useMemo(() => {
-    const q = normalizeSearch(query.trim());
+    const q = normalizeSearch(isSearching ? query.trim() : "");
     return options.filter((o) => matchOption(o, q));
-  }, [options, query]);
+  }, [options, query, isSearching]);
 
   const updateCoords = useCallback(() => {
     const el = inputRef.current;
@@ -102,13 +103,15 @@ export function SearchableSelect({
     onChange(option.value);
     setOpen(false);
     setQuery("");
+    setIsSearching(false);
     inputRef.current?.blur();
   }
 
   function handleFocus() {
     if (disabled) return;
     setOpen(true);
-    setQuery(selected?.label ?? "");
+    setQuery("");
+    setIsSearching(false);
     setActiveIndex(0);
   }
 
@@ -143,16 +146,18 @@ export function SearchableSelect({
       event.preventDefault();
       setOpen(false);
       setQuery("");
+      setIsSearching(false);
       return;
     }
 
     if (event.key === "Tab") {
       setOpen(false);
       setQuery("");
+      setIsSearching(false);
     }
   }
 
-  const displayValue = open ? query : selected?.label ?? "";
+  const displayValue = open && isSearching ? query : (selected?.label ?? "");
   const inputCls = inputClassName ?? (compact ? `${inputClassDense} pr-8` : `${inputClass} pr-9`);
 
   const dropdown =
@@ -227,6 +232,7 @@ export function SearchableSelect({
         onChange={(e) => {
           const next = e.target.value;
           setQuery(next);
+          setIsSearching(true);
           setOpen(true);
           if (!next.trim() && allowEmpty && value) onChange("");
         }}

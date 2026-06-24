@@ -19,6 +19,7 @@ import type {
 } from "@/lib/admin/finance-types";
 import { FINANCE_MOVEMENT_TYPE_LABELS, FINANCE_PAYMENT_METHOD_LABELS } from "@/lib/admin/finance-types";
 import {
+  financeAccountsForPaymentMethod,
   pickDefaultFinanceAccountId,
   suggestFinanceMovementReference,
   validateMovementInput,
@@ -120,6 +121,11 @@ export function FinanceMovementForm({
   const amountTtc = useMemo(() => htToTtc(amountHt, vatRate), [amountHt, vatRate]);
   const vatAmount = useMemo(() => roundMoney(Math.max(0, amountTtc - amountHt)), [amountTtc, amountHt]);
 
+  const accountsForPayment = useMemo(
+    () => financeAccountsForPaymentMethod(accounts, paymentMethod),
+    [accounts, paymentMethod],
+  );
+
   useEffect(() => {
     if (defaultAccountId) setAccountId(defaultAccountId);
   }, [defaultAccountId]);
@@ -168,6 +174,12 @@ export function FinanceMovementForm({
   useEffect(() => {
     if (fixedSupplierId) setSupplierId(fixedSupplierId);
   }, [fixedSupplierId]);
+
+  useEffect(() => {
+    if (!accountId || accountsForPayment.some((a) => a.id === accountId)) return;
+    const picked = pickDefaultFinanceAccountId(accountsForPayment);
+    if (picked) setAccountId(picked);
+  }, [accountsForPayment, accountId]);
 
   const filteredCategories = categories.filter((c) => {
     if (c.direction === "both") return true;
@@ -267,7 +279,7 @@ export function FinanceMovementForm({
           <p className={labelClass}>Compte</p>
           <div className="mt-1">
             <FinanceAccountSelect
-              accounts={accounts}
+              accounts={accountsForPayment}
               value={accountId}
               onChange={setAccountId}
               inputClassName={inputClass}

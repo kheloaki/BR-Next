@@ -4,8 +4,6 @@ import type {
   FinancePaymentMethod,
 } from "@/lib/admin/finance-types";
 
-/** Gestion opérations ≠ gestion finance — invariants enforced at API layer. */
-
 export const FINANCE_MOVEMENT_TYPES: FinanceMovementType[] = [
   "income",
   "expense",
@@ -97,6 +95,18 @@ export function pickDefaultFinanceAccountId(
     active[0]?.id ??
     ""
   );
+}
+
+export function financeAccountsForPaymentMethod<
+  T extends { id: string; accountType?: string; isActive?: boolean },
+>(accounts: T[], paymentMethod: FinancePaymentMethod): T[] {
+  const active = accounts.filter((a) => a.isActive !== false);
+  if (paymentMethod === "cash") {
+    const cash = active.filter((a) => a.accountType === "cash");
+    return cash.length > 0 ? cash : active;
+  }
+  const bank = active.filter((a) => a.accountType === "bank");
+  return bank.length > 0 ? bank : active;
 }
 
 export const FINANCE_SYSTEM_CATEGORIES = [
