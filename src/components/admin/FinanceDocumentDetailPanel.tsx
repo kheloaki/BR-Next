@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FinanceDocumentOriginCell } from "@/components/admin/FinanceDocumentOriginCell";
 import { FinanceMovementForm } from "@/components/admin/FinanceMovementForm";
 import { useFinanceCore } from "@/components/admin/FinanceCaissePanel";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
-import type { FinanceDocumentDetail } from "@/lib/admin/finance-types";
+import type { FinanceDocumentDetail, FinanceDocumentPayment } from "@/lib/admin/finance-types";
 import {
   FINANCE_DOCUMENT_TYPE_LABELS,
   FINANCE_PAYMENT_METHOD_LABELS,
@@ -25,15 +25,16 @@ import {
   rowHover,
   tdClass,
   tdTextClass,
-  thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { FinanceDocumentDetailSkeleton } from "@/components/admin/skeletons/pages";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { financeFacturesHref } from "@/lib/admin/finance-nav";
 import { formatMoney } from "@/lib/admin/price-ht-ttc";
 
@@ -56,6 +57,27 @@ export function FinanceDocumentDetailPanel({ documentId }: { documentId: string 
   const [notes, setNotes] = useState("");
   const [showPaymentForm, setShowPaymentForm] = useState(
     () => searchParams.get("encaisser") === "1" || searchParams.get("payer") === "1",
+  );
+  const { sort, onSort, applySort } = useTableSort("movementDate");
+
+  const payments = detail?.payments ?? [];
+
+  const sortAccessors = useMemo(
+    () => ({
+      movementDate: (p: FinanceDocumentPayment) => p.movementDate,
+      paymentMethod: (p: FinanceDocumentPayment) =>
+        p.paymentMethod ? FINANCE_PAYMENT_METHOD_LABELS[p.paymentMethod] : "",
+      reference: (p: FinanceDocumentPayment) => formatFinancePaymentReference(p),
+      account: (p: FinanceDocumentPayment) => p.accountName ?? "",
+      allocatedAmount: (p: FinanceDocumentPayment) => p.allocatedAmount,
+      notes: (p: FinanceDocumentPayment) => p.notes || p.allocationNotes || "",
+    }),
+    [],
+  );
+
+  const sortedPayments = useMemo(
+    () => applySort(payments, sortAccessors),
+    [payments, sortAccessors, applySort],
   );
 
   const load = useCallback(async () => {
@@ -222,16 +244,16 @@ export function FinanceDocumentDetailPanel({ documentId }: { documentId: string 
           <AdminTableWrap>
             <thead>
               <tr>
-                <th className={thClass}>Date</th>
-                <th className={thClass}>Mode</th>
-                <th className={thClass}>Référence</th>
-                <th className={thClass}>Compte</th>
-                <th className={thClass}>Montant</th>
-                <th className={thClass}>Notes</th>
+                <AdminSortableTh label="Date" sortKey="movementDate" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Mode" sortKey="paymentMethod" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Référence" sortKey="reference" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Compte" sortKey="account" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Montant" sortKey="allocatedAmount" sort={sort} onSort={onSort} align="right" />
+                <AdminSortableTh label="Notes" sortKey="notes" sort={sort} onSort={onSort} />
               </tr>
             </thead>
             <tbody>
-              {detail.payments.map((p) => (
+              {sortedPayments.map((p) => (
                 <tr key={p.allocationId} className={rowHover}>
                   <td className={tdClass}>{fmtDate(p.movementDate)}</td>
                   <td className={tdClass}>

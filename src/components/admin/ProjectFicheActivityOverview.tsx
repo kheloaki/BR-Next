@@ -1,7 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import type { ProjectSummary } from "@/components/admin/operations-types";
+import { useMemo } from "react";
+import type {
+  AttendanceRecord,
+  DrillingReport,
+  FuelEntry,
+  ProductionEntry,
+  ProjectSummary,
+  PurchaseRequest,
+  RentalContract,
+  StockMovement,
+  Trip,
+} from "@/components/admin/operations-types";
 import {
   PURCHASE_CATEGORY_LABELS,
   PURCHASE_STATUS_LABELS,
@@ -12,12 +23,13 @@ import {
   rowHover,
   tdClass,
   tdTextClass,
-  thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import {
   isProjectFicheSectionVisible,
   type ProjectFicheSectionId,
@@ -44,6 +56,66 @@ function EmptyRow({ message }: { message: string }) {
   return <p className="px-5 py-6 text-center text-sm text-[var(--graphite)]/70">{message}</p>;
 }
 
+const fuelSortAccessors = {
+  date: (f: FuelEntry) => f.entryDate,
+  equipment: (f: FuelEntry) => f.equipmentName || f.vehicleLabel,
+  litres: (f: FuelEntry) => f.litres,
+  amount: (f: FuelEntry) => f.totalAmount ?? 0,
+  ticketNo: (f: FuelEntry) => f.ticketNo,
+};
+
+const rentalSortAccessors = {
+  date: (r: RentalContract) => r.lineDate ?? "",
+  material: (r: RentalContract) => r.designation || r.equipmentName,
+  reference: (r: RentalContract) => r.reference || r.matricule,
+  amount: (r: RentalContract) => r.totalMad,
+  bonNo: (r: RentalContract) => r.bonLocationNo || r.contractNo,
+};
+
+const productionSortAccessors = {
+  date: (p: ProductionEntry) => p.entryDate,
+  site: (p: ProductionEntry) => p.siteName,
+  tonnage: (p: ProductionEntry) => p.tonnage,
+  target: (p: ProductionEntry) => p.targetTonnage,
+};
+
+const drillingSortAccessors = {
+  date: (d: DrillingReport) => d.reportDate,
+  rig: (d: DrillingReport) => d.rigName,
+  meters: (d: DrillingReport) => d.metersDrilled,
+  operator: (d: DrillingReport) => d.operatorName,
+};
+
+const tripSortAccessors = {
+  date: (t: Trip) => t.tripDate,
+  vehicle: (t: Trip) => t.plate || t.vehicleCode,
+  route: (t: Trip) => `${t.departure} → ${t.destination}`,
+  km: (t: Trip) => t.distanceKm,
+};
+
+const attendanceSortAccessors = {
+  date: (a: AttendanceRecord) => a.recordDate,
+  employee: (a: AttendanceRecord) => a.employeeName,
+  status: (a: AttendanceRecord) => a.status,
+  overtime: (a: AttendanceRecord) => a.overtimeHours,
+};
+
+const purchaseSortAccessors = {
+  number: (da: PurchaseRequest) => da.number,
+  category: (da: PurchaseRequest) => PURCHASE_CATEGORY_LABELS[da.category],
+  subject: (da: PurchaseRequest) => da.subject || da.designation,
+  status: (da: PurchaseRequest) => PURCHASE_STATUS_LABELS[da.status],
+  amount: (da: PurchaseRequest) => da.totalAmount,
+};
+
+const stockSortAccessors = {
+  date: (m: StockMovement) => m.movementDate,
+  type: (m: StockMovement) => m.movementType,
+  article: (m: StockMovement) => m.designation || m.reference,
+  qty: (m: StockMovement) => m.qty,
+  totalHt: (m: StockMovement) => m.totalPriceHt,
+};
+
 export function ProjectFicheActivityOverview({
   summary,
   project,
@@ -54,6 +126,48 @@ export function ProjectFicheActivityOverview({
   canSeeFinancials: boolean;
 }) {
   const vis = (id: ProjectFicheSectionId) => isProjectFicheSectionVisible(project, id);
+
+  const fuelSort = useTableSort("date", "desc");
+  const rentalsSort = useTableSort("date", "desc");
+  const productionSort = useTableSort("date", "desc");
+  const drillingSort = useTableSort("date", "desc");
+  const tripsSort = useTableSort("date", "desc");
+  const attendanceSort = useTableSort("date", "desc");
+  const purchasesSort = useTableSort("number", "desc");
+  const stockSort = useTableSort("date", "desc");
+
+  const sortedFuel = useMemo(
+    () => fuelSort.applySort(summary.fuel.recent, fuelSortAccessors),
+    [fuelSort.applySort, summary.fuel.recent],
+  );
+  const sortedRentals = useMemo(
+    () => rentalsSort.applySort(summary.rentals.recent, rentalSortAccessors),
+    [rentalsSort.applySort, summary.rentals.recent],
+  );
+  const sortedProduction = useMemo(
+    () => productionSort.applySort(summary.production.recent, productionSortAccessors),
+    [productionSort.applySort, summary.production.recent],
+  );
+  const sortedDrilling = useMemo(
+    () => drillingSort.applySort(summary.drilling.recent, drillingSortAccessors),
+    [drillingSort.applySort, summary.drilling.recent],
+  );
+  const sortedTrips = useMemo(
+    () => tripsSort.applySort(summary.trips.recent, tripSortAccessors),
+    [tripsSort.applySort, summary.trips.recent],
+  );
+  const sortedAttendance = useMemo(
+    () => attendanceSort.applySort(summary.attendance.recent, attendanceSortAccessors),
+    [attendanceSort.applySort, summary.attendance.recent],
+  );
+  const sortedPurchases = useMemo(
+    () => purchasesSort.applySort(summary.purchaseRequests.recent, purchaseSortAccessors),
+    [purchasesSort.applySort, summary.purchaseRequests.recent],
+  );
+  const sortedStock = useMemo(
+    () => stockSort.applySort(summary.stock.recent, stockSortAccessors),
+    [stockSort.applySort, summary.stock.recent],
+  );
 
   const kpiItems = [
     vis("gasoil")
@@ -109,15 +223,17 @@ export function ProjectFicheActivityOverview({
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>Engin</th>
-                  <th className={thClass}>Litres</th>
-                  {canSeeFinancials ? <th className={thClass}>Montant</th> : null}
-                  <th className={thClass}>N° bon</th>
+                  <AdminSortableTh label="Date" sortKey="date" sort={fuelSort.sort} onSort={fuelSort.onSort} />
+                  <AdminSortableTh label="Engin" sortKey="equipment" sort={fuelSort.sort} onSort={fuelSort.onSort} />
+                  <AdminSortableTh label="Litres" sortKey="litres" sort={fuelSort.sort} onSort={fuelSort.onSort} align="right" />
+                  {canSeeFinancials ? (
+                    <AdminSortableTh label="Montant" sortKey="amount" sort={fuelSort.sort} onSort={fuelSort.onSort} align="right" />
+                  ) : null}
+                  <AdminSortableTh label="N° bon" sortKey="ticketNo" sort={fuelSort.sort} onSort={fuelSort.onSort} />
                 </tr>
               </thead>
               <tbody>
-                {summary.fuel.recent.map((f) => (
+                {sortedFuel.map((f) => (
                   <tr key={f.id} className={rowHover}>
                     <td className={tdClass}>{fmtDate(f.entryDate)}</td>
                     <td className={tdClass}>
@@ -152,15 +268,17 @@ export function ProjectFicheActivityOverview({
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>Matériel</th>
-                  <th className={thClass}>Réf.</th>
-                  {canSeeFinancials ? <th className={thClass}>Montant</th> : null}
-                  <th className={thClass}>N° bon</th>
+                  <AdminSortableTh label="Date" sortKey="date" sort={rentalsSort.sort} onSort={rentalsSort.onSort} />
+                  <AdminSortableTh label="Matériel" sortKey="material" sort={rentalsSort.sort} onSort={rentalsSort.onSort} />
+                  <AdminSortableTh label="Réf." sortKey="reference" sort={rentalsSort.sort} onSort={rentalsSort.onSort} />
+                  {canSeeFinancials ? (
+                    <AdminSortableTh label="Montant" sortKey="amount" sort={rentalsSort.sort} onSort={rentalsSort.onSort} align="right" />
+                  ) : null}
+                  <AdminSortableTh label="N° bon" sortKey="bonNo" sort={rentalsSort.sort} onSort={rentalsSort.onSort} />
                 </tr>
               </thead>
               <tbody>
-                {summary.rentals.recent.map((r) => (
+                {sortedRentals.map((r) => (
                   <tr key={r.id} className={rowHover}>
                     <td className={tdClass}>{r.lineDate ? fmtDate(r.lineDate) : "—"}</td>
                     <td className={tdTextClass}>
@@ -195,14 +313,14 @@ export function ProjectFicheActivityOverview({
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>Site</th>
-                  <th className={thClass}>Tonnage</th>
-                  <th className={thClass}>Objectif</th>
+                  <AdminSortableTh label="Date" sortKey="date" sort={productionSort.sort} onSort={productionSort.onSort} />
+                  <AdminSortableTh label="Site" sortKey="site" sort={productionSort.sort} onSort={productionSort.onSort} />
+                  <AdminSortableTh label="Tonnage" sortKey="tonnage" sort={productionSort.sort} onSort={productionSort.onSort} align="right" />
+                  <AdminSortableTh label="Objectif" sortKey="target" sort={productionSort.sort} onSort={productionSort.onSort} align="right" />
                 </tr>
               </thead>
               <tbody>
-                {summary.production.recent.map((p) => (
+                {sortedProduction.map((p) => (
                   <tr key={p.id} className={rowHover}>
                     <td className={tdClass}>{fmtDate(p.entryDate)}</td>
                     <td className={tdClass}>
@@ -230,14 +348,14 @@ export function ProjectFicheActivityOverview({
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>Foreuse</th>
-                  <th className={thClass}>Mètres</th>
-                  <th className={thClass}>Opérateur</th>
+                  <AdminSortableTh label="Date" sortKey="date" sort={drillingSort.sort} onSort={drillingSort.onSort} />
+                  <AdminSortableTh label="Foreuse" sortKey="rig" sort={drillingSort.sort} onSort={drillingSort.onSort} />
+                  <AdminSortableTh label="Mètres" sortKey="meters" sort={drillingSort.sort} onSort={drillingSort.onSort} align="right" />
+                  <AdminSortableTh label="Opérateur" sortKey="operator" sort={drillingSort.sort} onSort={drillingSort.onSort} />
                 </tr>
               </thead>
               <tbody>
-                {summary.drilling.recent.map((d) => (
+                {sortedDrilling.map((d) => (
                   <tr key={d.id} className={rowHover}>
                     <td className={tdClass}>{fmtDate(d.reportDate)}</td>
                     <td className={tdClass}>
@@ -267,14 +385,14 @@ export function ProjectFicheActivityOverview({
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>Véhicule</th>
-                  <th className={thClass}>Trajet</th>
-                  <th className={thClass}>Km</th>
+                  <AdminSortableTh label="Date" sortKey="date" sort={tripsSort.sort} onSort={tripsSort.onSort} />
+                  <AdminSortableTh label="Véhicule" sortKey="vehicle" sort={tripsSort.sort} onSort={tripsSort.onSort} />
+                  <AdminSortableTh label="Trajet" sortKey="route" sort={tripsSort.sort} onSort={tripsSort.onSort} />
+                  <AdminSortableTh label="Km" sortKey="km" sort={tripsSort.sort} onSort={tripsSort.onSort} align="right" />
                 </tr>
               </thead>
               <tbody>
-                {summary.trips.recent.map((t) => (
+                {sortedTrips.map((t) => (
                   <tr key={t.id} className={rowHover}>
                     <td className={tdClass}>{fmtDate(t.tripDate)}</td>
                     <td className={tdClass}>
@@ -304,14 +422,14 @@ export function ProjectFicheActivityOverview({
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>Employé</th>
-                  <th className={thClass}>Statut</th>
-                  <th className={thClass}>Heures sup.</th>
+                  <AdminSortableTh label="Date" sortKey="date" sort={attendanceSort.sort} onSort={attendanceSort.onSort} />
+                  <AdminSortableTh label="Employé" sortKey="employee" sort={attendanceSort.sort} onSort={attendanceSort.onSort} />
+                  <AdminSortableTh label="Statut" sortKey="status" sort={attendanceSort.sort} onSort={attendanceSort.onSort} />
+                  <AdminSortableTh label="Heures sup." sortKey="overtime" sort={attendanceSort.sort} onSort={attendanceSort.onSort} align="right" />
                 </tr>
               </thead>
               <tbody>
-                {summary.attendance.recent.map((a) => (
+                {sortedAttendance.map((a) => (
                   <tr key={a.id} className={rowHover}>
                     <td className={tdClass}>{fmtDate(a.recordDate)}</td>
                     <td className={tdClass}>
@@ -339,15 +457,17 @@ export function ProjectFicheActivityOverview({
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>N°</th>
-                  <th className={thClass}>Catégorie</th>
-                  <th className={thClass}>Objet</th>
-                  <th className={thClass}>Statut</th>
-                  {canSeeFinancials ? <th className={thClass}>Montant</th> : null}
+                  <AdminSortableTh label="N°" sortKey="number" sort={purchasesSort.sort} onSort={purchasesSort.onSort} />
+                  <AdminSortableTh label="Catégorie" sortKey="category" sort={purchasesSort.sort} onSort={purchasesSort.onSort} />
+                  <AdminSortableTh label="Objet" sortKey="subject" sort={purchasesSort.sort} onSort={purchasesSort.onSort} />
+                  <AdminSortableTh label="Statut" sortKey="status" sort={purchasesSort.sort} onSort={purchasesSort.onSort} />
+                  {canSeeFinancials ? (
+                    <AdminSortableTh label="Montant" sortKey="amount" sort={purchasesSort.sort} onSort={purchasesSort.onSort} align="right" />
+                  ) : null}
                 </tr>
               </thead>
               <tbody>
-                {summary.purchaseRequests.recent.map((da) => (
+                {sortedPurchases.map((da) => (
                   <tr key={da.id} className={rowHover}>
                     <td className={tdClass}>{da.number || "—"}</td>
                     <td className={tdClass}>{PURCHASE_CATEGORY_LABELS[da.category]}</td>
@@ -378,15 +498,17 @@ export function ProjectFicheActivityOverview({
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>Type</th>
-                  <th className={thClass}>Article</th>
-                  <th className={thClass}>Qté</th>
-                  {canSeeFinancials ? <th className={thClass}>Total HT</th> : null}
+                  <AdminSortableTh label="Date" sortKey="date" sort={stockSort.sort} onSort={stockSort.onSort} />
+                  <AdminSortableTh label="Type" sortKey="type" sort={stockSort.sort} onSort={stockSort.onSort} />
+                  <AdminSortableTh label="Article" sortKey="article" sort={stockSort.sort} onSort={stockSort.onSort} />
+                  <AdminSortableTh label="Qté" sortKey="qty" sort={stockSort.sort} onSort={stockSort.onSort} align="right" />
+                  {canSeeFinancials ? (
+                    <AdminSortableTh label="Total HT" sortKey="totalHt" sort={stockSort.sort} onSort={stockSort.onSort} align="right" />
+                  ) : null}
                 </tr>
               </thead>
               <tbody>
-                {summary.stock.recent.map((m) => (
+                {sortedStock.map((m) => (
                   <tr key={m.id} className={rowHover}>
                     <td className={tdClass}>{fmtDate(m.movementDate)}</td>
                     <td className={tdClass}>{m.movementType}</td>

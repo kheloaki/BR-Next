@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { GasoilBonType, GasoilVehicleCategory } from "@/components/admin/operations-types";
-import { nextBonCommandeDocumentNo, nextBonGasoilNumber, resolveBonGasoilNo } from "@/lib/admin/bon-gasoil-number";
+import { nextBonCommandeDocumentNo, nextBonGasoilNumber, resolveBonGasoilNo, bonGasoilNoIsTaken } from "@/lib/admin/bon-gasoil-number";
+import { bonNumberAlreadyUsedMessage } from "@/lib/admin/bon-number-duplicate";
 import { yearFromDate } from "@/lib/admin/document-number";
 import {
   deleteFuelEntryForBon,
@@ -180,12 +181,20 @@ export async function POST(request: Request) {
   }
 
   const bonDate = body.bonDate || new Date().toISOString().slice(0, 10);
+  const userProvidedNo = body.number?.trim() ?? "";
   const number = await resolveBonGasoilNo(
     organizationId,
     body.number,
     body.bonType,
     yearFromDate(bonDate),
   );
+
+  if (!isAchat && userProvidedNo) {
+    const taken = await bonGasoilNoIsTaken(organizationId, number, "sortie");
+    if (taken) {
+      return NextResponse.json({ error: bonNumberAlreadyUsedMessage(number) }, { status: 409 });
+    }
+  }
   const pumpMeter =
     body.pumpMeter != null && !Number.isNaN(Number(body.pumpMeter)) ? Number(body.pumpMeter) : null;
   const syncStock = body.syncStock !== false;

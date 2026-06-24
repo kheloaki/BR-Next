@@ -35,8 +35,10 @@ import {
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import {
   DEFAULT_VAT_RATE,
   formatMoney,
@@ -441,21 +443,40 @@ export function FinanceJournalTable({
   movements: FinanceMovement[];
   onVoid?: (id: string) => void;
 }) {
+  const { sort, onSort, applySort } = useTableSort("movementDate");
+
+  const sortAccessors = useMemo(
+    () => ({
+      movementDate: (m: FinanceMovement) => m.movementDate,
+      reference: (m: FinanceMovement) => m.reference,
+      movementType: (m: FinanceMovement) => FINANCE_MOVEMENT_TYPE_LABELS[m.movementType],
+      category: (m: FinanceMovement) => m.categoryName ?? "",
+      amount: (m: FinanceMovement) => m.amount,
+      project: (m: FinanceMovement) => m.projectName ?? "",
+    }),
+    [],
+  );
+
+  const sortedMovements = useMemo(
+    () => applySort(movements, sortAccessors),
+    [movements, sortAccessors, applySort],
+  );
+
   return (
     <AdminTableWrap>
       <thead>
         <tr>
-          <th className={thClass}>Date</th>
-          <th className={thClass}>Réf.</th>
-          <th className={thClass}>Type</th>
-          <th className={thClass}>Catégorie</th>
-          <th className={thClass}>Montant</th>
-          <th className={thClass}>Chantier</th>
+          <AdminSortableTh label="Date" sortKey="movementDate" sort={sort} onSort={onSort} />
+          <AdminSortableTh label="Réf." sortKey="reference" sort={sort} onSort={onSort} />
+          <AdminSortableTh label="Type" sortKey="movementType" sort={sort} onSort={onSort} />
+          <AdminSortableTh label="Catégorie" sortKey="category" sort={sort} onSort={onSort} />
+          <AdminSortableTh label="Montant" sortKey="amount" sort={sort} onSort={onSort} align="right" />
+          <AdminSortableTh label="Chantier" sortKey="project" sort={sort} onSort={onSort} />
           <th className={thClass} />
         </tr>
       </thead>
       <tbody>
-        {movements.map((m) => (
+        {sortedMovements.map((m) => (
           <tr key={m.id} className={rowHover}>
             <td className={tdClass}>{m.movementDate}</td>
             <td className={tdClass}>{m.reference}</td>

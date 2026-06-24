@@ -17,10 +17,12 @@ import {
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { OrganizationMembersSkeleton } from "@/components/admin/skeletons/pages";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import type { AssignableMemberRole } from "@/lib/admin/organization";
 
 type OrgMember = {
@@ -100,6 +102,23 @@ export function OrganizationMembersManager() {
 
   const canManage = ctx?.canManageMembers ?? false;
   const isOwner = ctx?.role === "owner";
+
+  const { sort, onSort, applySort } = useTableSort("email", "asc");
+
+  const sortAccessors = useMemo(
+    () => ({
+      email: (m: OrgMember) => m.email,
+      name: (m: OrgMember) => m.displayName,
+      role: (m: OrgMember) => ROLE_LABELS[m.role] ?? m.role,
+      status: (m: OrgMember) => (m.status === "active" ? "Actif" : "Invité"),
+    }),
+    [],
+  );
+
+  const sortedRows = useMemo(
+    () => applySort(rows, sortAccessors),
+    [applySort, rows, sortAccessors],
+  );
 
   const roleOptions = useMemo(
     () => Object.fromEntries(ASSIGNABLE_ROLES.map((r) => [r, ROLE_LABELS[r] ?? r])),
@@ -339,15 +358,15 @@ export function OrganizationMembersManager() {
           <AdminTableWrap>
             <thead>
               <tr className="border-b border-border text-left">
-                <th className={thClass}>E-mail</th>
-                <th className={thClass}>Nom</th>
-                <th className={thClass}>Rôle</th>
-                <th className={thClass}>Statut</th>
+                <AdminSortableTh label="E-mail" sortKey="email" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Nom" sortKey="name" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Rôle" sortKey="role" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Statut" sortKey="status" sort={sort} onSort={onSort} />
                 {canManage ? <th className={thClass}>Actions</th> : null}
               </tr>
             </thead>
             <tbody>
-                {rows.map((m) => {
+                {sortedRows.map((m) => {
                   const isSelf = m.userId !== null && m.userId === ctx?.userId;
                   const isUpdating = updatingId === m.id;
                   const canEditRole = canManage && m.role !== "owner" && !isSelf;

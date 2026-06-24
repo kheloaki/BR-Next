@@ -37,6 +37,8 @@ import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { useOpsReferential } from "@/components/admin/useOpsReferential";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import { isGasoilPurchaseRequest } from "@/lib/admin/map-purchase-request";
@@ -132,6 +134,26 @@ export function PurchaseRequestsManager() {
         (r.supplier || "").toLowerCase().includes(q),
     );
   }, [rows, search]);
+
+  const { sort, onSort, applySort } = useTableSort("number", "desc");
+
+  const purchaseSortAccessors = useMemo(
+    () => ({
+      number: (r: PurchaseRequest) => r.number,
+      type: (r: PurchaseRequest) => (isGasoilPurchaseRequest(r) ? "gasoil" : "articles"),
+      subject: (r: PurchaseRequest) => r.subject,
+      category: (r: PurchaseRequest) => PURCHASE_CATEGORY_LABELS[r.category],
+      amount: (r: PurchaseRequest) => r.totalAmount,
+      status: (r: PurchaseRequest) => r.status,
+      traitement: (r: PurchaseRequest) => r.traitementId ?? "",
+    }),
+    [],
+  );
+
+  const sortedFiltered = useMemo(
+    () => applySort(filtered, purchaseSortAccessors),
+    [filtered, applySort, purchaseSortAccessors],
+  );
 
   const statusFilterOptions = useMemo(
     () =>
@@ -269,18 +291,18 @@ export function PurchaseRequestsManager() {
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>N°</th>
-                  <th className={thClass}>Type</th>
-                  <th className={thClass}>Objet</th>
-                  <th className={thClass}>Catégorie</th>
-                  <th className={thClass}>Montant</th>
-                  <th className={thClass}>Statut</th>
-                  <th className={thClass}>Traitement</th>
+                  <AdminSortableTh label="N°" sortKey="number" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Type" sortKey="type" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Objet" sortKey="subject" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Catégorie" sortKey="category" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Montant" sortKey="amount" sort={sort} onSort={onSort} align="right" />
+                  <AdminSortableTh label="Statut" sortKey="status" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Traitement" sortKey="traitement" sort={sort} onSort={onSort} />
                   <th className={thClass}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => {
+                {sortedFiltered.map((r) => {
                   const gasoil = isGasoilPurchaseRequest(r);
                   return (
                   <tr key={r.id} className={rowHover}>

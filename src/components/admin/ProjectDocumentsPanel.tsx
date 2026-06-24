@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReportExportRow } from "@/lib/admin/report-export-log";
 import { REPORT_MODULE_LABELS } from "@/lib/admin/reports/report-labels";
 import { SITE_PV_TYPE_LABELS } from "@/lib/admin/site-pv-types";
@@ -10,8 +10,10 @@ import type { SiteReportType } from "@/lib/admin/site-report-types";
 import { btnSecondary, rowHover, tdClass, tdTextClass, thClass } from "@/components/admin/admin-form-styles";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { ProjectDocumentsPanelSkeleton } from "@/components/admin/skeletons/pages";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 
 function labelForExport(row: ReportExportRow) {
   if (row.reportKind === "etat" && row.reportModule) {
@@ -36,9 +38,23 @@ function regenerateHref(row: ReportExportRow, projectId: string) {
   return `/api/admin/projects/${projectId}/reports/${row.reportModule}?${p.toString()}`;
 }
 
+const exportSortAccessors = {
+  date: (row: ReportExportRow) => row.createdAt,
+  type: (row: ReportExportRow) => labelForExport(row),
+  format: (row: ReportExportRow) => row.reportFormat,
+  period: (row: ReportExportRow) => row.periodFrom ?? row.periodTo ?? "",
+  filename: (row: ReportExportRow) => row.filename,
+};
+
 export function ProjectDocumentsPanel({ projectId }: { projectId: string }) {
   const [rows, setRows] = useState<ReportExportRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const { sort, onSort, applySort } = useTableSort("date", "desc");
+
+  const sortedRows = useMemo(
+    () => applySort(rows, exportSortAccessors),
+    [rows, applySort],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,16 +85,16 @@ export function ProjectDocumentsPanel({ projectId }: { projectId: string }) {
           <AdminTableWrap>
             <thead>
               <tr>
-                <th className={thClass}>Date</th>
-                <th className={thClass}>Type</th>
-                <th className={thClass}>Format</th>
-                <th className={thClass}>Période</th>
-                <th className={thClass}>Fichier</th>
+                <AdminSortableTh label="Date" sortKey="date" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Type" sortKey="type" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Format" sortKey="format" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Période" sortKey="period" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Fichier" sortKey="filename" sort={sort} onSort={onSort} />
                 <th className={thClass} />
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => {
+              {sortedRows.map((row) => {
                 const regen = regenerateHref(row, projectId);
                 return (
                   <tr key={row.id} className={rowHover}>

@@ -29,9 +29,11 @@ import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { SiteReportsPanelSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 
@@ -87,6 +89,24 @@ export function SiteReportsManager({
         SITE_REPORT_TYPE_LABELS[r.reportType].toLowerCase().includes(q),
     );
   }, [rows, search]);
+
+  const { sort, onSort, applySort } = useTableSort("date", "desc");
+
+  const reportSortAccessors = useMemo(
+    () => ({
+      number: (r: SiteReport) => r.number,
+      type: (r: SiteReport) => SITE_REPORT_TYPE_LABELS[r.reportType],
+      date: (r: SiteReport) => r.reportDate,
+      project: (r: SiteReport) => projects.find((p) => p.id === r.projectId)?.name ?? "",
+      status: (r: SiteReport) => SITE_REPORT_STATUS_LABELS[r.status],
+    }),
+    [projects],
+  );
+
+  const sortedFiltered = useMemo(
+    () => applySort(filtered, reportSortAccessors),
+    [filtered, applySort, reportSortAccessors],
+  );
 
   const reportTypeOptions = useMemo(
     () => Object.fromEntries(SITE_REPORT_TYPES.map((t) => [t, SITE_REPORT_TYPE_LABELS[t]])),
@@ -246,16 +266,16 @@ export function SiteReportsManager({
               <AdminTableWrap>
                 <thead>
                   <tr>
-                    <th className={thClass}>N°</th>
-                    <th className={thClass}>Type</th>
-                    <th className={thClass}>Date</th>
-                    <th className={thClass}>Chantier</th>
-                    <th className={thClass}>Statut</th>
+                    <AdminSortableTh label="N°" sortKey="number" sort={sort} onSort={onSort} />
+                    <AdminSortableTh label="Type" sortKey="type" sort={sort} onSort={onSort} />
+                    <AdminSortableTh label="Date" sortKey="date" sort={sort} onSort={onSort} />
+                    <AdminSortableTh label="Chantier" sortKey="project" sort={sort} onSort={onSort} />
+                    <AdminSortableTh label="Statut" sortKey="status" sort={sort} onSort={onSort} />
                     <th className={thClass} />
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((row) => (
+                  {sortedFiltered.map((row) => (
                     <tr key={row.id} className={rowHover}>
                       <td className={`${tdClass} font-mono text-xs`}>{row.number}</td>
                       <td className={tdClass}>{SITE_REPORT_TYPE_LABELS[row.reportType]}</td>

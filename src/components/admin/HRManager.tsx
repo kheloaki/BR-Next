@@ -13,14 +13,15 @@ import {
   moduleWrap,
   rowHover,
   tdClass,
-  thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { HrPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { ReferentialBanner } from "@/components/admin/ux/ReferentialBanner";
 import { useAdminToast } from "@/components/admin/ux/useAdminToast";
@@ -62,6 +63,8 @@ export function HRManager() {
 
   const presentCount = rows.filter((r) => r.status === "present").length;
 
+  const { sort, onSort, applySort } = useTableSort("recordDate", "desc");
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return rows;
@@ -72,6 +75,24 @@ export function HRManager() {
         (r.role || "").toLowerCase().includes(q),
     );
   }, [rows, search]);
+
+  const sortAccessors = useMemo(
+    () => ({
+      recordDate: (r: AttendanceRecord) => r.recordDate,
+      matricule: (r: AttendanceRecord) => r.matricule,
+      name: (r: AttendanceRecord) => r.employeeName,
+      timeIn: (r: AttendanceRecord) => r.timeIn,
+      timeOut: (r: AttendanceRecord) => r.timeOut,
+      status: (r: AttendanceRecord) => ATTENDANCE_STATUS_LABELS[r.status],
+      site: (r: AttendanceRecord) => r.siteName,
+    }),
+    [],
+  );
+
+  const sortedRows = useMemo(
+    () => applySort(filtered, sortAccessors),
+    [applySort, filtered, sortAccessors],
+  );
 
   return (
     <div className={moduleWrap}>
@@ -158,17 +179,17 @@ export function HRManager() {
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>Matricule</th>
-                  <th className={thClass}>Nom</th>
-                  <th className={thClass}>Entrée</th>
-                  <th className={thClass}>Sortie</th>
-                  <th className={thClass}>Statut</th>
-                  <th className={thClass}>Chantier</th>
+                  <AdminSortableTh label="Date" sortKey="recordDate" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Matricule" sortKey="matricule" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Nom" sortKey="name" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Entrée" sortKey="timeIn" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Sortie" sortKey="timeOut" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Statut" sortKey="status" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Chantier" sortKey="site" sort={sort} onSort={onSort} />
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => (
+                {sortedRows.map((r) => (
                   <tr key={r.id} className={rowHover}>
                     <td className={tdClass}>{r.recordDate}</td>
                     <td className={tdClass}>{r.matricule}</td>

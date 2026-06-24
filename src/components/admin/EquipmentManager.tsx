@@ -17,9 +17,11 @@ import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { EquipmentPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 
 export function EquipmentManager() {
   const toast = useAdminToast();
@@ -30,6 +32,8 @@ export function EquipmentManager() {
   const [newEqName, setNewEqName] = useState("");
   const [newEqType, setNewEqType] = useState("");
 
+  const { sort, onSort, applySort } = useTableSort("name");
+
   const filteredEquipment = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return equipment;
@@ -37,6 +41,20 @@ export function EquipmentManager() {
       (e) => e.name.toLowerCase().includes(q) || e.type.toLowerCase().includes(q),
     );
   }, [equipment, search]);
+
+  const sortAccessors = useMemo(
+    () => ({
+      name: (e: AdminEquipment) => e.name,
+      type: (e: AdminEquipment) => e.type,
+      active: (e: AdminEquipment) => (e.active ? 1 : 0),
+    }),
+    [],
+  );
+
+  const sortedEquipment = useMemo(
+    () => applySort(filteredEquipment, sortAccessors),
+    [filteredEquipment, sortAccessors, applySort],
+  );
 
   async function addEquipment() {
     if (!newEqName.trim()) {
@@ -168,14 +186,14 @@ export function EquipmentManager() {
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Nom</th>
-                  <th className={thClass}>Type</th>
-                  <th className={thClass}>Actif</th>
+                  <AdminSortableTh label="Nom" sortKey="name" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Type" sortKey="type" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Actif" sortKey="active" sort={sort} onSort={onSort} />
                   <th className={thClass} />
                 </tr>
               </thead>
               <tbody>
-                {filteredEquipment.map((eq) => (
+                {sortedEquipment.map((eq) => (
                   <tr key={eq.id}>
                     <td className={tdClass}>
                       <input

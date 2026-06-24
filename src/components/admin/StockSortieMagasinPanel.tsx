@@ -24,8 +24,10 @@ import {
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { DEFAULT_VAT_RATE, formatMoney } from "@/lib/admin/price-ht-ttc";
 import { confirmDelete, readApiError } from "@/components/admin/ux/useAdminToast";
 
@@ -88,6 +90,33 @@ export function StockSortieMagasinPanel({
         m.exitVoucherNo.toLowerCase().includes(q),
     );
   }, [exits, search]);
+
+  const { sort, onSort, applySort } = useTableSort("date", "desc");
+
+  const exitSortAccessors = useMemo(
+    () => ({
+      date: (m: StockMovement) => m.movementDate,
+      reference: (m: StockMovement) => m.reference,
+      designation: (m: StockMovement) => m.designation,
+      articleCode: (m: StockMovement) => m.articleCode,
+      qty: (m: StockMovement) => m.qty,
+      unit: (m: StockMovement) => m.unit,
+      unitPrice: (m: StockMovement) => m.unitPrice,
+      totalPriceHt: (m: StockMovement) => m.totalPriceHt,
+      stockAfter: (m: StockMovement) => m.stockAfter,
+      assignment: (m: StockMovement) => m.assignment,
+      exitVoucherNo: (m: StockMovement) => m.exitVoucherNo,
+      requester: (m: StockMovement) => m.requester,
+      storekeeper: (m: StockMovement) => m.storekeeper,
+      notes: (m: StockMovement) => m.notes,
+    }),
+    [],
+  );
+
+  const sortedFiltered = useMemo(
+    () => applySort(filtered, exitSortAccessors),
+    [filtered, applySort, exitSortAccessors],
+  );
 
   function resetForm() {
     setEditId(null);
@@ -262,25 +291,53 @@ export function StockSortieMagasinPanel({
           <AdminTableWrap>
             <thead>
               <tr className="bg-[#fff9c4]/40">
-                <th className={thClass}>Date</th>
-                <th className={thClass}>Référence</th>
-                <th className={thClass}>Désignation</th>
-                <th className={thClass}>Code art.</th>
-                <th className={`${thClass} text-right`}>Quantité</th>
-                <th className={thClass}>Unité</th>
-                <th className={`${thClass} text-right`}>Prix unit. HT</th>
-                <th className={`${thClass} text-right`}>Prix total HT</th>
-                <th className={`${thClass} text-right`}>Stock final</th>
-                <th className={thClass}>Affectation</th>
-                <th className={thClass}>N° bon sortie</th>
-                <th className={thClass}>Demandeur</th>
-                <th className={thClass}>Magasinier</th>
-                <th className={thClass}>Observation</th>
+                <AdminSortableTh label="Date" sortKey="date" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Référence" sortKey="reference" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Désignation" sortKey="designation" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Code art." sortKey="articleCode" sort={sort} onSort={onSort} />
+                <AdminSortableTh
+                  label="Quantité"
+                  sortKey="qty"
+                  sort={sort}
+                  onSort={onSort}
+                  className={`${thClass} text-right`}
+                  align="right"
+                />
+                <AdminSortableTh label="Unité" sortKey="unit" sort={sort} onSort={onSort} />
+                <AdminSortableTh
+                  label="Prix unit. HT"
+                  sortKey="unitPrice"
+                  sort={sort}
+                  onSort={onSort}
+                  className={`${thClass} text-right`}
+                  align="right"
+                />
+                <AdminSortableTh
+                  label="Prix total HT"
+                  sortKey="totalPriceHt"
+                  sort={sort}
+                  onSort={onSort}
+                  className={`${thClass} text-right`}
+                  align="right"
+                />
+                <AdminSortableTh
+                  label="Stock final"
+                  sortKey="stockAfter"
+                  sort={sort}
+                  onSort={onSort}
+                  className={`${thClass} text-right`}
+                  align="right"
+                />
+                <AdminSortableTh label="Affectation" sortKey="assignment" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="N° bon sortie" sortKey="exitVoucherNo" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Demandeur" sortKey="requester" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Magasinier" sortKey="storekeeper" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Observation" sortKey="notes" sort={sort} onSort={onSort} />
                 <th className={thClass} />
               </tr>
             </thead>
             <tbody>
-              {filtered.map((m) => (
+              {sortedFiltered.map((m) => (
                 <tr key={m.id} className={rowHover}>
                   <td className={tdClass}>{m.movementDate}</td>
                   <td className={tdClass}>

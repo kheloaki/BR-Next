@@ -24,12 +24,14 @@ import {
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { DepotsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 
 const TYPES: DepotType[] = ["central", "site", "other"];
 
@@ -68,6 +70,22 @@ export function DepotsManager() {
         (d.projectName || "").toLowerCase().includes(q),
     );
   }, [rows, search]);
+
+  const { sort, onSort, applySort } = useTableSort("name", "asc");
+
+  const sortAccessors = useMemo(
+    () => ({
+      name: (d: AdminDepot) => d.name,
+      depotType: (d: AdminDepot) => DEPOT_TYPE_LABELS[d.depotType],
+      projectName: (d: AdminDepot) => d.projectName || "",
+    }),
+    [],
+  );
+
+  const sortedRows = useMemo(
+    () => applySort(filtered, sortAccessors),
+    [filtered, applySort, sortAccessors],
+  );
 
   const depotTypeOptions = useMemo(
     () => Object.fromEntries(TYPES.map((t) => [t, DEPOT_TYPE_LABELS[t]])),
@@ -171,14 +189,14 @@ export function DepotsManager() {
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Nom</th>
-                  <th className={thClass}>Type</th>
-                  <th className={thClass}>Projet</th>
+                  <AdminSortableTh label="Nom" sortKey="name" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Type" sortKey="depotType" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Projet" sortKey="projectName" sort={sort} onSort={onSort} />
                   <th className={thClass} />
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((d) => (
+                {sortedRows.map((d) => (
                   <tr key={d.id} className={rowHover}>
                     <td className={tdClass}>
                       <AdminTruncatedText text={d.name} lines={1} />

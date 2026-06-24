@@ -17,11 +17,13 @@ import {
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { CustomersPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 
 type CustomerFormState = {
   name: string;
@@ -78,6 +80,23 @@ export function CustomersManager() {
         (c.address || "").toLowerCase().includes(q),
     );
   }, [customers, search]);
+
+  const { sort, onSort, applySort } = useTableSort("name", "asc");
+
+  const sortAccessors = useMemo(
+    () => ({
+      name: (c: Customer) => c.name,
+      ice: (c: Customer) => c.ice,
+      city: (c: Customer) => c.city || "",
+      address: (c: Customer) => c.address || "",
+    }),
+    [],
+  );
+
+  const sortedRows = useMemo(
+    () => applySort(filtered, sortAccessors),
+    [filtered, applySort, sortAccessors],
+  );
 
   function resetForm() {
     setEditId(null);
@@ -233,15 +252,15 @@ export function CustomersManager() {
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Nom</th>
-                  <th className={thClass}>ICE</th>
-                  <th className={thClass}>Ville</th>
-                  <th className={thClass}>Adresse</th>
+                  <AdminSortableTh label="Nom" sortKey="name" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="ICE" sortKey="ice" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Ville" sortKey="city" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Adresse" sortKey="address" sort={sort} onSort={onSort} />
                   <th className={thClass} />
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((customer) => (
+                {sortedRows.map((customer) => (
                   <tr key={customer.id} className={rowHover}>
                     <td className={tdClass}>
                       <AdminTruncatedText text={customer.name} lines={1} />

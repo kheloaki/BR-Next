@@ -46,12 +46,23 @@ export type ConfirmDeleteOptions = {
   cancelLabel?: string;
 };
 
+export type AlertDialogOptions = {
+  title?: string;
+  okLabel?: string;
+};
+
 type ConfirmDeleteFn = (label: string, options?: ConfirmDeleteOptions) => Promise<boolean>;
+type AlertDialogFn = (message: string, options?: AlertDialogOptions) => Promise<void>;
 
 let confirmDeleteImpl: ConfirmDeleteFn | null = null;
+let alertDialogImpl: AlertDialogFn | null = null;
 
 export function registerConfirmDelete(fn: ConfirmDeleteFn | null) {
   confirmDeleteImpl = fn;
+}
+
+export function registerAlertDialog(fn: AlertDialogFn | null) {
+  alertDialogImpl = fn;
 }
 
 export async function confirmDelete(label: string, options?: ConfirmDeleteOptions) {
@@ -62,4 +73,12 @@ export async function confirmDelete(label: string, options?: ConfirmDeleteOption
     options?.description ??
       `Voulez-vous vraiment supprimer « ${label} » ?\n\nCette action est irréversible.`,
   );
+}
+
+export async function alertDialog(message: string, options?: AlertDialogOptions) {
+  if (alertDialogImpl) {
+    await alertDialogImpl(message, options);
+    return;
+  }
+  window.alert(options?.title ? `${options.title}\n\n${message}` : message);
 }

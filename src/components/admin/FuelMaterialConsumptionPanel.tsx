@@ -38,14 +38,16 @@ import {
   rowHover,
   tdClass,
   tdTextClass,
-  thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { FuelConsumptionPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { ReferentialBanner } from "@/components/admin/ux/ReferentialBanner";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
+import type { MaterialUsageCostRow } from "@/lib/admin/material-fuel-usage";
 
 function fmtHours(n: number) {
   return `${n.toLocaleString("fr-MA", { maximumFractionDigits: 1 })} h`;
@@ -240,6 +242,28 @@ export function FuelMaterialConsumptionPanel() {
     if (!q) return materialUsage;
     return materialUsage.filter((row) => row.label.toLowerCase().includes(q));
   }, [materialUsage, search]);
+
+  const { sort, onSort, applySort } = useTableSort("label", "asc");
+
+  const sortAccessors = useMemo(
+    () => ({
+      label: (row: MaterialUsageCostRow) => row.label,
+      totalHours: (row: MaterialUsageCostRow) => row.totalHours,
+      totalRentalMad: (row: MaterialUsageCostRow) => row.totalRentalMad,
+      rentalMadPerHour: (row: MaterialUsageCostRow) => row.rentalMadPerHour ?? 0,
+      totalLitres: (row: MaterialUsageCostRow) => row.totalLitres,
+      litresPerHour: (row: MaterialUsageCostRow) => row.litresPerHour ?? 0,
+      totalCostMad: (row: MaterialUsageCostRow) => row.totalCostMad,
+      costPerHourMad: (row: MaterialUsageCostRow) => row.costPerHourMad ?? 0,
+      operatingMadPerHour: (row: MaterialUsageCostRow) => row.operatingMadPerHour ?? 0,
+    }),
+    [],
+  );
+
+  const sortedUsage = useMemo(
+    () => applySort(filteredUsage, sortAccessors),
+    [filteredUsage, applySort, sortAccessors],
+  );
 
   const hasActiveFilters =
     filterProjectId !== "" ||
@@ -443,19 +467,19 @@ export function FuelMaterialConsumptionPanel() {
           <AdminTableWrap>
             <thead>
               <tr>
-                <th className={thClass}>Matériel</th>
-                <th className={thClass}>Heures</th>
-                <th className={thClass}>Location HT</th>
-                <th className={thClass}>MAD/h loc.</th>
-                <th className={thClass}>Gasoil (L)</th>
-                <th className={thClass}>L / h</th>
-                <th className={thClass}>Coût gasoil</th>
-                <th className={thClass}>MAD/h gasoil</th>
-                <th className={thClass}>Total MAD/h</th>
+                <AdminSortableTh label="Matériel" sortKey="label" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Heures" sortKey="totalHours" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Location HT" sortKey="totalRentalMad" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="MAD/h loc." sortKey="rentalMadPerHour" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Gasoil (L)" sortKey="totalLitres" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="L / h" sortKey="litresPerHour" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Coût gasoil" sortKey="totalCostMad" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="MAD/h gasoil" sortKey="costPerHourMad" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Total MAD/h" sortKey="operatingMadPerHour" sort={sort} onSort={onSort} />
               </tr>
             </thead>
             <tbody>
-              {filteredUsage.map((row) => (
+              {sortedUsage.map((row) => (
                 <tr key={row.key} className={rowHover}>
                   <td className={tdTextClass}>
                     <AdminTruncatedText text={row.label} />

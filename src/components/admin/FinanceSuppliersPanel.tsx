@@ -23,10 +23,12 @@ import {
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { FinanceSuppliersPanelSkeleton } from "@/components/admin/skeletons/pages";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { financeFactureDetailHref } from "@/lib/admin/finance-nav";
 
 export function FinanceSuppliersPanel({ embedded = false }: { embedded?: boolean }) {
@@ -43,6 +45,25 @@ export function FinanceSuppliersPanel({ embedded = false }: { embedded?: boolean
   const [docNumber, setDocNumber] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
+  const { sort, onSort, applySort } = useTableSort("issueDate");
+
+  const sortAccessors = useMemo(
+    () => ({
+      documentNumber: (d: FinanceDocument) => d.documentNumber,
+      supplier: (d: FinanceDocument) => d.supplierName ?? "",
+      origin: (d: FinanceDocument) => d.sourceLabel ?? d.sourceTraitementType ?? d.sourceType ?? "",
+      amountTtc: (d: FinanceDocument) => d.amountTtc,
+      remainingAmount: (d: FinanceDocument) => d.remainingAmount,
+      paymentStatus: (d: FinanceDocument) => FINANCE_PAYMENT_STATUS_LABELS[d.paymentStatus],
+      issueDate: (d: FinanceDocument) => d.issueDate,
+    }),
+    [],
+  );
+
+  const sortedDocuments = useMemo(
+    () => applySort(documents, sortAccessors),
+    [documents, sortAccessors, applySort],
+  );
 
   const loadDocs = useCallback(async () => {
     setLoading(true);
@@ -100,17 +121,17 @@ export function FinanceSuppliersPanel({ embedded = false }: { embedded?: boolean
         <AdminTableWrap>
           <thead>
             <tr>
-              <th className={thClass}>N°</th>
-              <th className={thClass}>Fournisseur</th>
-              <th className={thClass}>Origine</th>
-              <th className={thClass}>TTC</th>
-              <th className={thClass}>Reste</th>
-              <th className={thClass}>Statut</th>
+              <AdminSortableTh label="N°" sortKey="documentNumber" sort={sort} onSort={onSort} />
+              <AdminSortableTh label="Fournisseur" sortKey="supplier" sort={sort} onSort={onSort} />
+              <AdminSortableTh label="Origine" sortKey="origin" sort={sort} onSort={onSort} />
+              <AdminSortableTh label="TTC" sortKey="amountTtc" sort={sort} onSort={onSort} align="right" />
+              <AdminSortableTh label="Reste" sortKey="remainingAmount" sort={sort} onSort={onSort} align="right" />
+              <AdminSortableTh label="Statut" sortKey="paymentStatus" sort={sort} onSort={onSort} />
               <th className={thClass} />
             </tr>
           </thead>
           <tbody>
-            {documents.map((d) => (
+            {sortedDocuments.map((d) => (
               <tr
                 key={d.id}
                 className={`${rowHover}${highlightId === d.id ? " bg-amber-50 ring-1 ring-inset ring-amber-200" : ""}`}

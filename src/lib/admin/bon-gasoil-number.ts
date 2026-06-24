@@ -1,5 +1,6 @@
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { GasoilBonType } from "@/components/admin/operations-types";
+import { bonSerieNumbersMatch } from "@/lib/admin/bon-number-duplicate";
 import {
   formatBonCommandeDocumentNo,
   parseCommandeDocumentSeq,
@@ -69,4 +70,26 @@ export async function resolveBonGasoilNo(
   const formatted = formatBonLocationNo(trimmed);
   if (formatted) return formatted;
   return nextBonGasoilNumber(organizationId);
+}
+
+export async function bonGasoilNoIsTaken(
+  organizationId: string,
+  bonNo: string,
+  bonType: GasoilBonType = "sortie",
+  excludeBonId?: string,
+): Promise<boolean> {
+  const formatted = formatBonLocationNo(bonNo);
+  if (!formatted) return false;
+
+  const { data } = await getSupabaseAdminClient()
+    .from("admin_gasoil_bons")
+    .select("id, number")
+    .eq("organization_id", organizationId)
+    .eq("bon_type", bonType);
+
+  for (const row of data ?? []) {
+    if (excludeBonId && row.id === excludeBonId) continue;
+    if (bonSerieNumbersMatch(String(row.number ?? ""), formatted)) return true;
+  }
+  return false;
 }

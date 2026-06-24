@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FinanceDocumentOriginCell } from "@/components/admin/FinanceDocumentOriginCell";
 import { useFinanceCore } from "@/components/admin/FinanceCaissePanel";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
@@ -19,8 +19,10 @@ import {
 } from "@/components/admin/admin-form-styles";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { FinanceClientsPanelSkeleton } from "@/components/admin/skeletons/pages";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { financeFactureDetailHref } from "@/lib/admin/finance-nav";
 
 export function FinanceClientsPanel({ embedded = false }: { embedded?: boolean }) {
@@ -30,6 +32,26 @@ export function FinanceClientsPanel({ embedded = false }: { embedded?: boolean }
   const { loading: coreLoading } = useFinanceCore();
   const [documents, setDocuments] = useState<FinanceDocument[]>([]);
   const [loading, setLoading] = useState(true);
+  const { sort, onSort, applySort } = useTableSort("issueDate");
+
+  const sortAccessors = useMemo(
+    () => ({
+      documentNumber: (d: FinanceDocument) => d.documentNumber,
+      customer: (d: FinanceDocument) => d.customerName ?? "",
+      origin: (d: FinanceDocument) => d.sourceLabel ?? d.sourceTraitementType ?? d.sourceType ?? "",
+      amountTtc: (d: FinanceDocument) => d.amountTtc,
+      paidAmount: (d: FinanceDocument) => d.paidAmount,
+      remainingAmount: (d: FinanceDocument) => d.remainingAmount,
+      paymentStatus: (d: FinanceDocument) => FINANCE_PAYMENT_STATUS_LABELS[d.paymentStatus],
+      issueDate: (d: FinanceDocument) => d.issueDate,
+    }),
+    [],
+  );
+
+  const sortedDocuments = useMemo(
+    () => applySort(documents, sortAccessors),
+    [documents, sortAccessors, applySort],
+  );
 
   const loadDocs = useCallback(async () => {
     setLoading(true);
@@ -57,18 +79,18 @@ export function FinanceClientsPanel({ embedded = false }: { embedded?: boolean }
           <AdminTableWrap>
             <thead>
               <tr>
-                <th className={thClass}>N°</th>
-                <th className={thClass}>Client</th>
-                <th className={thClass}>Origine</th>
-                <th className={thClass}>TTC</th>
-                <th className={thClass}>Payé</th>
-                <th className={thClass}>Reste</th>
-                <th className={thClass}>Statut</th>
+                <AdminSortableTh label="N°" sortKey="documentNumber" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Client" sortKey="customer" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Origine" sortKey="origin" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="TTC" sortKey="amountTtc" sort={sort} onSort={onSort} align="right" />
+                <AdminSortableTh label="Payé" sortKey="paidAmount" sort={sort} onSort={onSort} align="right" />
+                <AdminSortableTh label="Reste" sortKey="remainingAmount" sort={sort} onSort={onSort} align="right" />
+                <AdminSortableTh label="Statut" sortKey="paymentStatus" sort={sort} onSort={onSort} />
                 <th className={thClass} />
               </tr>
             </thead>
             <tbody>
-              {documents.map((d) => (
+              {sortedDocuments.map((d) => (
                 <tr
                   key={d.id}
                   className={`${rowHover}${highlightId === d.id ? " bg-amber-50 ring-1 ring-inset ring-amber-200" : ""}`}
@@ -134,6 +156,24 @@ export function FinanceClientsPanel({ embedded = false }: { embedded?: boolean }
 export function FinanceClientDetailPanel({ customerId }: { customerId: string }) {
   const [documents, setDocuments] = useState<FinanceDocument[]>([]);
   const [customerName, setCustomerName] = useState("");
+  const { sort, onSort, applySort } = useTableSort("issueDate");
+
+  const sortAccessors = useMemo(
+    () => ({
+      documentNumber: (d: FinanceDocument) => d.documentNumber,
+      documentType: (d: FinanceDocument) => FINANCE_DOCUMENT_TYPE_LABELS[d.documentType],
+      amountTtc: (d: FinanceDocument) => d.amountTtc,
+      remainingAmount: (d: FinanceDocument) => d.remainingAmount,
+      paymentStatus: (d: FinanceDocument) => FINANCE_PAYMENT_STATUS_LABELS[d.paymentStatus],
+      issueDate: (d: FinanceDocument) => d.issueDate,
+    }),
+    [],
+  );
+
+  const sortedDocuments = useMemo(
+    () => applySort(documents, sortAccessors),
+    [documents, sortAccessors, applySort],
+  );
 
   useEffect(() => {
     void (async () => {
@@ -158,16 +198,16 @@ export function FinanceClientDetailPanel({ customerId }: { customerId: string })
       <AdminTableWrap>
         <thead>
           <tr>
-            <th className={thClass}>N°</th>
-            <th className={thClass}>Type</th>
-            <th className={thClass}>TTC</th>
-            <th className={thClass}>Reste</th>
-            <th className={thClass}>Statut</th>
+            <AdminSortableTh label="N°" sortKey="documentNumber" sort={sort} onSort={onSort} />
+            <AdminSortableTh label="Type" sortKey="documentType" sort={sort} onSort={onSort} />
+            <AdminSortableTh label="TTC" sortKey="amountTtc" sort={sort} onSort={onSort} align="right" />
+            <AdminSortableTh label="Reste" sortKey="remainingAmount" sort={sort} onSort={onSort} align="right" />
+            <AdminSortableTh label="Statut" sortKey="paymentStatus" sort={sort} onSort={onSort} />
             <th className={thClass} />
           </tr>
         </thead>
         <tbody>
-          {documents.map((d) => (
+          {sortedDocuments.map((d) => (
             <tr key={d.id} className={rowHover}>
               <td className={tdClass}>
                 <Link

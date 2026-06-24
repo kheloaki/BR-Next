@@ -15,10 +15,10 @@ import {
   rowHover,
   tdClass,
   tdTextClass,
-  thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { DrillingPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
@@ -27,6 +27,7 @@ import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { OpsPerfBars } from "@/components/admin/ux/OpsPerfBars";
 import { ReferentialBanner } from "@/components/admin/ux/ReferentialBanner";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 
 export function DrillingManager() {
   const toast = useAdminToast();
@@ -80,6 +81,24 @@ export function DrillingManager() {
         r.operatorName.toLowerCase().includes(q),
     );
   }, [rows, search]);
+
+  const { sort, onSort, applySort } = useTableSort("reportDate", "desc");
+
+  const sortAccessors = useMemo(
+    () => ({
+      reportDate: (r: DrillingReport) => r.reportDate,
+      siteName: (r: DrillingReport) => r.siteName,
+      rigName: (r: DrillingReport) => r.rigName,
+      metersDrilled: (r: DrillingReport) => r.metersDrilled,
+      targetMeters: (r: DrillingReport) => r.targetMeters,
+    }),
+    [],
+  );
+
+  const sortedRows = useMemo(
+    () => applySort(filtered, sortAccessors),
+    [filtered, applySort, sortAccessors],
+  );
 
   async function submit() {
     if (!rigName.trim()) {
@@ -176,15 +195,15 @@ export function DrillingManager() {
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>Chantier</th>
-                  <th className={thClass}>Foreuse</th>
-                  <th className={thClass}>Mètres</th>
-                  <th className={thClass}>Cible</th>
+                  <AdminSortableTh label="Date" sortKey="reportDate" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Chantier" sortKey="siteName" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Foreuse" sortKey="rigName" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Mètres" sortKey="metersDrilled" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Cible" sortKey="targetMeters" sort={sort} onSort={onSort} />
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => (
+                {sortedRows.map((r) => (
                   <tr key={r.id} className={rowHover}>
                     <td className={tdClass}>{r.reportDate}</td>
                     <td className={tdClass}>

@@ -26,8 +26,10 @@ import {
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { confirmDelete, readApiError } from "@/components/admin/ux/useAdminToast";
 
 type StockMovementHistoryPanelProps = {
@@ -99,6 +101,35 @@ export function StockMovementHistoryPanel({
         (m.siteName || "").toLowerCase().includes(q),
     );
   }, [movements, filterItemId, search]);
+
+  const { sort, onSort, applySort } = useTableSort("date", "desc");
+
+  const movementSortAccessors = useMemo(
+    () => ({
+      date: (m: StockMovement) => m.movementDate,
+      reference: (m: StockMovement) => m.reference,
+      article: (m: StockMovement) => m.designation,
+      type: (m: StockMovement) => STOCK_MOVEMENT_LABELS[m.movementType],
+      origin: (m: StockMovement) => m.traitementLink?.docNumber ?? "",
+      qty: (m: StockMovement) => m.qty,
+      unit: (m: StockMovement) => m.unit,
+      stockAfter: (m: StockMovement) => m.stockAfter,
+      assignment: (m: StockMovement) => m.assignment,
+      exitVoucherNo: (m: StockMovement) => m.exitVoucherNo,
+      requester: (m: StockMovement) => m.requester,
+      site: (m: StockMovement) => m.siteName,
+      depot: (m: StockMovement) => depotName(m.depotId),
+      supplier: (m: StockMovement) => m.supplier,
+      deliveryNote: (m: StockMovement) => m.deliveryNote,
+      notes: (m: StockMovement) => m.notes,
+    }),
+    [depots],
+  );
+
+  const sortedFiltered = useMemo(
+    () => applySort(filtered, movementSortAccessors),
+    [filtered, applySort, movementSortAccessors],
+  );
 
   function openEdit(m: StockMovement) {
     setEditing(m);
@@ -218,27 +249,34 @@ export function StockMovementHistoryPanel({
           <AdminTableWrap>
             <thead>
               <tr>
-                <th className={thClass}>Date</th>
-                <th className={thClass}>Réf.</th>
-                <th className={thClass}>Article</th>
-                <th className={thClass}>Type</th>
-                <th className={thClass}>Origine</th>
-                <th className={thClass}>Qté</th>
-                <th className={thClass}>Unité</th>
-                <th className={`${thClass} text-right`}>Stock final</th>
-                <th className={thClass}>Affectation</th>
-                <th className={thClass}>N° bon sortie</th>
-                <th className={thClass}>Demandeur</th>
-                <th className={thClass}>Chantier</th>
-                <th className={thClass}>Dépôt</th>
-                <th className={thClass}>Fournisseur</th>
-                <th className={thClass}>N° BL</th>
-                <th className={thClass}>Notes</th>
+                <AdminSortableTh label="Date" sortKey="date" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Réf." sortKey="reference" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Article" sortKey="article" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Type" sortKey="type" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Origine" sortKey="origin" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Qté" sortKey="qty" sort={sort} onSort={onSort} align="right" />
+                <AdminSortableTh label="Unité" sortKey="unit" sort={sort} onSort={onSort} />
+                <AdminSortableTh
+                  label="Stock final"
+                  sortKey="stockAfter"
+                  sort={sort}
+                  onSort={onSort}
+                  className={`${thClass} text-right`}
+                  align="right"
+                />
+                <AdminSortableTh label="Affectation" sortKey="assignment" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="N° bon sortie" sortKey="exitVoucherNo" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Demandeur" sortKey="requester" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Chantier" sortKey="site" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Dépôt" sortKey="depot" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Fournisseur" sortKey="supplier" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="N° BL" sortKey="deliveryNote" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Notes" sortKey="notes" sort={sort} onSort={onSort} />
                 <th className={thClass} />
               </tr>
             </thead>
             <tbody>
-              {filtered.map((m) => (
+              {sortedFiltered.map((m) => (
                 <tr key={m.id} className={rowHover}>
                   <td className={tdClass}>{m.movementDate}</td>
                   <td className={tdClass}>

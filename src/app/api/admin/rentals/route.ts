@@ -17,7 +17,8 @@ import { RENTAL_HOURS_PER_DAY } from "@/components/admin/operations-types";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
 import { opsId } from "@/lib/admin/ops-id";
 import { formatBonLocationNo } from "@/lib/admin/rental-bon-number-format";
-import { resolveBonLocationNo } from "@/lib/admin/rental-bon-number";
+import { resolveBonLocationNo, bonLocationNoIsTaken } from "@/lib/admin/rental-bon-number";
+import { bonNumberAlreadyUsedMessage } from "@/lib/admin/bon-number-duplicate";
 import { resolveProjectFields } from "@/lib/admin/project-resolve";
 import {
   resolveBonTransportFromMaterials,
@@ -224,6 +225,13 @@ export async function POST(request: Request) {
       bonLocationNo = (existing?.contract_no as string) || "";
     } else {
       bonLocationNo = await resolveBonLocationNo(organizationId);
+    }
+  }
+
+  if (bonLocationNo) {
+    const taken = await bonLocationNoIsTaken(organizationId, bonLocationNo, body.id);
+    if (taken) {
+      return NextResponse.json({ error: bonNumberAlreadyUsedMessage(bonLocationNo) }, { status: 409 });
     }
   }
 

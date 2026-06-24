@@ -18,17 +18,18 @@ import {
   rowHover,
   tdClass,
   tdTextClass,
-  thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { PartsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { ReferentialBanner } from "@/components/admin/ux/ReferentialBanner";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 
 const USAGE_TYPE_LABELS: Record<PartsUsage["usageType"], string> = {
   part: "Pièce",
@@ -78,6 +79,8 @@ export function PartsManager() {
 
   const totalMad = rows.reduce((a, r) => a + r.qty * r.unitPrice, 0);
 
+  const { sort, onSort, applySort } = useTableSort("usageDate", "desc");
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return rows;
@@ -88,6 +91,24 @@ export function PartsManager() {
         r.designation.toLowerCase().includes(q),
     );
   }, [rows, search]);
+
+  const sortAccessors = useMemo(
+    () => ({
+      usageDate: (r: PartsUsage) => r.usageDate,
+      equipment: (r: PartsUsage) => r.equipmentName,
+      reference: (r: PartsUsage) => r.reference,
+      designation: (r: PartsUsage) => r.designation,
+      usageType: (r: PartsUsage) => USAGE_TYPE_LABELS[r.usageType] ?? r.usageType,
+      qty: (r: PartsUsage) => r.qty,
+      amount: (r: PartsUsage) => r.qty * r.unitPrice,
+    }),
+    [],
+  );
+
+  const sortedRows = useMemo(
+    () => applySort(filtered, sortAccessors),
+    [applySort, filtered, sortAccessors],
+  );
 
   async function submit() {
     if (!equipmentId) {
@@ -202,17 +223,17 @@ export function PartsManager() {
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>Engin</th>
-                  <th className={thClass}>Réf.</th>
-                  <th className={thClass}>Désignation</th>
-                  <th className={thClass}>Type</th>
-                  <th className={thClass}>Qté</th>
-                  <th className={thClass}>Montant</th>
+                  <AdminSortableTh label="Date" sortKey="usageDate" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Engin" sortKey="equipment" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Réf." sortKey="reference" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Désignation" sortKey="designation" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Type" sortKey="usageType" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Qté" sortKey="qty" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Montant" sortKey="amount" sort={sort} onSort={onSort} align="right" />
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => (
+                {sortedRows.map((r) => (
                   <tr key={r.id} className={rowHover}>
                     <td className={tdClass}>{r.usageDate}</td>
                     <td className={tdClass}>

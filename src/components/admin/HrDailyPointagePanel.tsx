@@ -27,9 +27,11 @@ import {
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { readApiError } from "@/components/admin/ux/useAdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 
 type PointageDraft = {
   id?: string;
@@ -141,6 +143,26 @@ export function HrDailyPointagePanel({
       );
     });
   }, [employees, projectId, roleFilter, search]);
+
+  const { sort, onSort, applySort } = useTableSort("matricule", "asc");
+
+  const sortAccessors = useMemo(
+    () => ({
+      matricule: (emp: AdminEmployee) => emp.matricule,
+      name: (emp: AdminEmployee) => emp.name,
+      role: (emp: AdminEmployee) => emp.role,
+      status: (emp: AdminEmployee) =>
+        ATTENDANCE_STATUS_LABELS[draftByEmployee.get(emp.id)?.status ?? "present"],
+      timeIn: (emp: AdminEmployee) => draftByEmployee.get(emp.id)?.timeIn ?? "",
+      timeOut: (emp: AdminEmployee) => draftByEmployee.get(emp.id)?.timeOut ?? "",
+    }),
+    [draftByEmployee],
+  );
+
+  const sortedVisibleEmployees = useMemo(
+    () => applySort(visibleEmployees, sortAccessors),
+    [applySort, visibleEmployees, sortAccessors],
+  );
 
   const visibleIdList = useMemo(
     () => visibleEmployees.map((e) => e.id),
@@ -476,16 +498,34 @@ export function HrDailyPointagePanel({
                       aria-label="Tout sélectionner"
                     />
                   </th>
-                  <th className={thClass}>Matricule</th>
-                  <th className={thClass}>Nom</th>
-                  <th className={thClass}>Poste</th>
-                  <th className={`${thClass} min-w-[10rem]`}>Statut</th>
-                  <th className={`${thClass} w-[7rem]`}>Entrée</th>
-                  <th className={`${thClass} w-[7rem]`}>Sortie</th>
+                  <AdminSortableTh label="Matricule" sortKey="matricule" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Nom" sortKey="name" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Poste" sortKey="role" sort={sort} onSort={onSort} />
+                  <AdminSortableTh
+                    label="Statut"
+                    sortKey="status"
+                    sort={sort}
+                    onSort={onSort}
+                    className={`${thClass} min-w-[10rem]`}
+                  />
+                  <AdminSortableTh
+                    label="Entrée"
+                    sortKey="timeIn"
+                    sort={sort}
+                    onSort={onSort}
+                    className={`${thClass} w-[7rem]`}
+                  />
+                  <AdminSortableTh
+                    label="Sortie"
+                    sortKey="timeOut"
+                    sort={sort}
+                    onSort={onSort}
+                    className={`${thClass} w-[7rem]`}
+                  />
                 </tr>
               </thead>
               <tbody>
-                {visibleEmployees.map((emp) => {
+                {sortedVisibleEmployees.map((emp) => {
                   const draft = draftByEmployee.get(emp.id);
                   if (!draft) return null;
                   const selected = selectedVisibleIds.has(emp.id);

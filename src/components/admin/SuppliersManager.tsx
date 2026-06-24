@@ -18,9 +18,11 @@ import {
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { SuppliersPageSkeleton } from "@/components/admin/skeletons/pages";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import {
   formatSupplyTypesLabelsFromCatalog,
   type SupplierSupplyTypeOption,
@@ -123,6 +125,28 @@ export function SuppliersManager() {
   function formatTypes(types: SupplierSupplyType[]) {
     return formatSupplyTypesLabelsFromCatalog(types, supplyTypeOptions);
   }
+
+  const { sort, onSort, applySort } = useTableSort("supplierName", "asc");
+
+  const supplierSortAccessors = useMemo(
+    () => ({
+      supplierName: (s: Supplier) => s.supplierName,
+      companyName: (s: Supplier) => s.companyName,
+      ice: (s: Supplier) => s.ice,
+      city: (s: Supplier) => s.city,
+      types: (s: Supplier) => formatTypes(s.supplyTypes ?? []),
+      contact: (s: Supplier) => s.contact,
+      bankName: (s: Supplier) => s.bankName,
+      rib: (s: Supplier) => s.rib,
+      address: (s: Supplier) => s.address,
+    }),
+    [supplyTypeOptions],
+  );
+
+  const sortedFiltered = useMemo(
+    () => applySort(filtered, supplierSortAccessors),
+    [filtered, applySort, supplierSortAccessors],
+  );
 
   function resetForm() {
     setEditId(null);
@@ -323,20 +347,20 @@ export function SuppliersManager() {
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Nom fournisseur</th>
-                  <th className={thClass}>Société</th>
-                  <th className={thClass}>ICE</th>
-                  <th className={thClass}>Ville</th>
-                  <th className={thClass}>Types</th>
-                  <th className={thClass}>Contact</th>
-                  <th className={thClass}>Banque</th>
-                  <th className={thClass}>RIB</th>
-                  <th className={thClass}>Adresse</th>
+                  <AdminSortableTh label="Nom fournisseur" sortKey="supplierName" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Société" sortKey="companyName" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="ICE" sortKey="ice" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Ville" sortKey="city" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Types" sortKey="types" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Contact" sortKey="contact" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Banque" sortKey="bankName" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="RIB" sortKey="rib" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Adresse" sortKey="address" sort={sort} onSort={onSort} />
                   <th className={thClass} />
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((supplier) => (
+                {sortedFiltered.map((supplier) => (
                   <tr key={supplier.id} className={rowHover}>
                     <td className={tdClass}>
                       <AdminTruncatedText text={supplier.supplierName} lines={1} />

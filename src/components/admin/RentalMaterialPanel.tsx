@@ -36,9 +36,11 @@ import {
 } from "@/components/admin/RentalMaterialFormFields";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { RentalMaterialsPanelSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { materialLabel, materialMatchesDateRange, rentalMaterialPriceSummary } from "@/lib/admin/map-rental-material-catalog";
 import { pruneFilterValue, applyFacetScope, facetEnumOptions, projectsForFacetScope, pruneProjectId, uniqueSortedLabels } from "@/lib/admin/filter-scope";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
@@ -226,6 +228,29 @@ export function RentalMaterialPanel({
         RENTAL_LOCATION_MODE_LABELS[m.rentalMode].toLowerCase().includes(q),
     );
   }, [materials, search, projects, materialFacetChecks]);
+
+  const { sort, onSort, applySort } = useTableSort("designation", "asc");
+
+  const sortAccessors = useMemo(
+    () => ({
+      category: (m: RentalMaterial) => MATERIAL_CATEGORY_LABELS[m.materialCategory],
+      reference: (m: RentalMaterial) => m.reference || m.matricule,
+      designation: (m: RentalMaterial) => m.designation,
+      project: (m: RentalMaterial) => projectName(m.projectId),
+      mode: (m: RentalMaterial) => RENTAL_LOCATION_MODE_LABELS[m.rentalMode],
+      tarif: (m: RentalMaterial) => {
+        if (m.rentalMode === "mois") return m.monthlyPriceHt;
+        if (m.rentalMode === "forfait") return m.forfaitPriceHt;
+        return m.dailyRate;
+      },
+    }),
+    [projects],
+  );
+
+  const sortedRows = useMemo(
+    () => applySort(filtered, sortAccessors),
+    [filtered, applySort, sortAccessors],
+  );
 
   function resetForm() {
     setEditId(null);
@@ -423,17 +448,17 @@ export function RentalMaterialPanel({
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Catégorie</th>
-                  <th className={thClass}>Réf. / Matricule</th>
-                  <th className={thClass}>Désignation</th>
-                  <th className={thClass}>Chantier</th>
-                  <th className={thClass}>Mode</th>
-                  <th className={thClass}>Tarif</th>
+                  <AdminSortableTh label="Catégorie" sortKey="category" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Réf. / Matricule" sortKey="reference" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Désignation" sortKey="designation" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Chantier" sortKey="project" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Mode" sortKey="mode" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Tarif" sortKey="tarif" sort={sort} onSort={onSort} />
                   <th className={thClass} />
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((m) => (
+                {sortedRows.map((m) => (
                   <tr key={m.id}>
                     <td className={tdClass}>{MATERIAL_CATEGORY_LABELS[m.materialCategory]}</td>
                     <td className={tdClass}>

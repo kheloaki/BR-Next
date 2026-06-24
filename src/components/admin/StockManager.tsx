@@ -38,9 +38,11 @@ import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { StockPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { ReferentialBanner } from "@/components/admin/ux/ReferentialBanner";
 import { ProductSelectWithAdd } from "@/components/admin/ProductSelectWithAdd";
 import type { Product } from "@/components/admin/devis-types";
@@ -124,6 +126,47 @@ export function StockManager() {
       );
     });
   }, [items, search, statusFilter]);
+
+  const { sort: inventorySort, onSort: onInventorySort, applySort: applyInventorySort } = useTableSort(
+    "reference",
+    "asc",
+  );
+  const { sort: movementSort, onSort: onMovementSort, applySort: applyMovementSort } = useTableSort("date", "desc");
+
+  const inventorySortAccessors = useMemo(
+    () => ({
+      reference: (i: StockItem) => i.reference,
+      designation: (i: StockItem) => i.designation,
+      category: (i: StockItem) => i.category,
+      qty: (i: StockItem) => i.qty,
+      minQty: (i: StockItem) => i.minQty,
+      unitPrice: (i: StockItem) => i.unitPrice,
+      value: (i: StockItem) => i.qty * i.unitPrice,
+      status: (i: StockItem) => i.status,
+    }),
+    [],
+  );
+
+  const movementSortAccessors = useMemo(
+    () => ({
+      date: (m: StockMovement) => m.movementDate,
+      article: (m: StockMovement) => m.designation,
+      type: (m: StockMovement) => STOCK_MOVEMENT_LABELS[m.movementType],
+      origin: (m: StockMovement) => m.traitementLink?.docNumber ?? "",
+      qty: (m: StockMovement) => m.qty,
+    }),
+    [],
+  );
+
+  const sortedFiltered = useMemo(
+    () => applyInventorySort(filtered, inventorySortAccessors),
+    [filtered, applyInventorySort, inventorySortAccessors],
+  );
+
+  const sortedRecentMovements = useMemo(
+    () => applyMovementSort(movements, movementSortAccessors).slice(0, 8),
+    [movements, applyMovementSort, movementSortAccessors],
+  );
 
   const movementCountByItem = useMemo(() => {
     const map = new Map<string, number>();
@@ -312,19 +355,71 @@ export function StockManager() {
               <AdminTableWrap>
                 <thead>
                   <tr>
-                    <th className={inventoryThClass}>Référence</th>
-                    <th className={inventoryThClass}>Désignation</th>
-                    <th className={inventoryThClass}>Catégorie</th>
-                    <th className={inventoryThNumClass}>Qté dispo</th>
-                    <th className={inventoryThNumClass}>Stock min</th>
-                    <th className={inventoryThNumClass}>Prix unit. MAD</th>
-                    <th className={inventoryThNumClass}>Valeur MAD</th>
-                    <th className={inventoryThClass}>Statut</th>
+                    <AdminSortableTh
+                      label="Référence"
+                      sortKey="reference"
+                      sort={inventorySort}
+                      onSort={onInventorySort}
+                      className={inventoryThClass}
+                    />
+                    <AdminSortableTh
+                      label="Désignation"
+                      sortKey="designation"
+                      sort={inventorySort}
+                      onSort={onInventorySort}
+                      className={inventoryThClass}
+                    />
+                    <AdminSortableTh
+                      label="Catégorie"
+                      sortKey="category"
+                      sort={inventorySort}
+                      onSort={onInventorySort}
+                      className={inventoryThClass}
+                    />
+                    <AdminSortableTh
+                      label="Qté dispo"
+                      sortKey="qty"
+                      sort={inventorySort}
+                      onSort={onInventorySort}
+                      className={inventoryThNumClass}
+                      align="right"
+                    />
+                    <AdminSortableTh
+                      label="Stock min"
+                      sortKey="minQty"
+                      sort={inventorySort}
+                      onSort={onInventorySort}
+                      className={inventoryThNumClass}
+                      align="right"
+                    />
+                    <AdminSortableTh
+                      label="Prix unit. MAD"
+                      sortKey="unitPrice"
+                      sort={inventorySort}
+                      onSort={onInventorySort}
+                      className={inventoryThNumClass}
+                      align="right"
+                    />
+                    <AdminSortableTh
+                      label="Valeur MAD"
+                      sortKey="value"
+                      sort={inventorySort}
+                      onSort={onInventorySort}
+                      className={inventoryThNumClass}
+                      align="right"
+                    />
+                    <AdminSortableTh
+                      label="Statut"
+                      sortKey="status"
+                      sort={inventorySort}
+                      onSort={onInventorySort}
+                      className={inventoryThClass}
+                    />
                     <th className={inventoryThClass} />
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((item) => (
+                  {sortedFiltered.map((item) => (
                     <tr key={item.id} className="hover:bg-[var(--background)]/80 transition-colors">
                       <td className={tdTextClass}>
                         <AdminTruncatedText text={item.reference} lines={1} />
@@ -396,15 +491,15 @@ export function StockManager() {
               <AdminTableWrap>
                 <thead>
                   <tr>
-                    <th className={thClass}>Date</th>
-                    <th className={thClass}>Article</th>
-                    <th className={thClass}>Type</th>
-                    <th className={thClass}>Origine</th>
-                    <th className={thClass}>Qté</th>
+                    <AdminSortableTh label="Date" sortKey="date" sort={movementSort} onSort={onMovementSort} />
+                    <AdminSortableTh label="Article" sortKey="article" sort={movementSort} onSort={onMovementSort} />
+                    <AdminSortableTh label="Type" sortKey="type" sort={movementSort} onSort={onMovementSort} />
+                    <AdminSortableTh label="Origine" sortKey="origin" sort={movementSort} onSort={onMovementSort} />
+                    <AdminSortableTh label="Qté" sortKey="qty" sort={movementSort} onSort={onMovementSort} align="right" />
                   </tr>
                 </thead>
                 <tbody>
-                  {movements.slice(0, 8).map((m) => (
+                  {sortedRecentMovements.map((m) => (
                     <tr key={m.id} className={rowHover}>
                       <td className={tdClass}>{m.movementDate}</td>
                       <td className={tdTextClass}>

@@ -17,16 +17,17 @@ import {
   rowHover,
   tdClass,
   tdTextClass,
-  thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { LogisticsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 
 export function LogisticsManager() {
   const toast = useAdminToast();
@@ -65,6 +66,18 @@ export function LogisticsManager() {
   const totalKm = rows.reduce((a, r) => a + r.distanceKm, 0);
   const inTransit = rows.filter((r) => r.status === "in_transit").length;
 
+  const tripStatusOptions = useMemo(
+    () =>
+      ({
+        in_transit: "En route",
+        arrived: "Arrivé",
+        delivered: "Livré",
+      }) as Record<TripStatus, string>,
+    [],
+  );
+
+  const { sort, onSort, applySort } = useTableSort("tripDate", "desc");
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return rows;
@@ -77,14 +90,21 @@ export function LogisticsManager() {
     );
   }, [rows, search]);
 
-  const tripStatusOptions = useMemo(
-    () =>
-      ({
-        in_transit: "En route",
-        arrived: "Arrivé",
-        delivered: "Livré",
-      }) as Record<TripStatus, string>,
-    [],
+  const sortAccessors = useMemo(
+    () => ({
+      tripDate: (r: Trip) => r.tripDate,
+      vehicle: (r: Trip) => r.vehicleCode,
+      driver: (r: Trip) => r.driverName,
+      route: (r: Trip) => `${r.departure} → ${r.destination}`,
+      distance: (r: Trip) => r.distanceKm,
+      status: (r: Trip) => tripStatusOptions[r.status],
+    }),
+    [tripStatusOptions],
+  );
+
+  const sortedRows = useMemo(
+    () => applySort(filtered, sortAccessors),
+    [applySort, filtered, sortAccessors],
   );
 
   async function submit() {
@@ -174,16 +194,16 @@ export function LogisticsManager() {
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>Véhicule</th>
-                  <th className={thClass}>Chauffeur</th>
-                  <th className={thClass}>Trajet</th>
-                  <th className={thClass}>Km</th>
-                  <th className={thClass}>Statut</th>
+                  <AdminSortableTh label="Date" sortKey="tripDate" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Véhicule" sortKey="vehicle" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Chauffeur" sortKey="driver" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Trajet" sortKey="route" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Km" sortKey="distance" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Statut" sortKey="status" sort={sort} onSort={onSort} />
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => (
+                {sortedRows.map((r) => (
                   <tr key={r.id} className={rowHover}>
                     <td className={tdClass}>{r.tripDate}</td>
                     <td className={tdClass}>{r.vehicleCode}</td>

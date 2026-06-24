@@ -15,17 +15,18 @@ import {
   rowHover,
   tdClass,
   tdTextClass,
-  thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { ProductionPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { ReferentialBanner } from "@/components/admin/ux/ReferentialBanner";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 
 export function ProductionManager() {
   const toast = useAdminToast();
@@ -67,6 +68,8 @@ export function ProductionManager() {
 
   const totalTonnage = rows.reduce((a, r) => a + r.tonnage, 0);
 
+  const { sort, onSort, applySort } = useTableSort("entryDate", "desc");
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return rows;
@@ -74,6 +77,22 @@ export function ProductionManager() {
       (r) => r.siteName.toLowerCase().includes(q) || (r.material || "").toLowerCase().includes(q),
     );
   }, [rows, search]);
+
+  const sortAccessors = useMemo(
+    () => ({
+      entryDate: (r: ProductionEntry) => r.entryDate,
+      site: (r: ProductionEntry) => r.siteName,
+      tonnage: (r: ProductionEntry) => r.tonnage,
+      target: (r: ProductionEntry) => r.targetTonnage,
+      material: (r: ProductionEntry) => r.material,
+    }),
+    [],
+  );
+
+  const sortedRows = useMemo(
+    () => applySort(filtered, sortAccessors),
+    [applySort, filtered, sortAccessors],
+  );
 
   async function submit() {
     if (tonnage <= 0) {
@@ -176,15 +195,15 @@ export function ProductionManager() {
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>Chantier</th>
-                  <th className={thClass}>Tonnage</th>
-                  <th className={thClass}>Cible</th>
-                  <th className={thClass}>Matériau</th>
+                  <AdminSortableTh label="Date" sortKey="entryDate" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Chantier" sortKey="site" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Tonnage" sortKey="tonnage" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Cible" sortKey="target" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Matériau" sortKey="material" sort={sort} onSort={onSort} />
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => (
+                {sortedRows.map((r) => (
                   <tr key={r.id} className={rowHover}>
                     <td className={tdClass}>{r.entryDate}</td>
                     <td className={tdClass}>

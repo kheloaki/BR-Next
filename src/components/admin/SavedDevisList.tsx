@@ -21,6 +21,8 @@ import { AdminFilterBar } from "@/components/admin/ux/AdminFilterBar";
 import { SavedDevisListSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import {
   DOCUMENT_BADGE_CLASS,
   DOCUMENT_LABELS,
@@ -185,6 +187,25 @@ export function SavedDevisList() {
     });
   }, [byType, search]);
 
+  const { sort, onSort, applySort } = useTableSort("date", "desc");
+
+  const devisSortAccessors = useMemo(
+    () => ({
+      type: (q: QuoteDraft) => DOCUMENT_LABELS[q.documentType ?? "devis"],
+      number: (q: QuoteDraft) => q.quoteNumber,
+      client: (q: QuoteDraft) => q.clientName,
+      reference: (q: QuoteDraft) => q.reference,
+      date: (q: QuoteDraft) => q.createdAt,
+      lines: (q: QuoteDraft) => q.items.length,
+    }),
+    [],
+  );
+
+  const sortedQuotes = useMemo(
+    () => applySort(filteredQuotes, devisSortAccessors),
+    [filteredQuotes, applySort, devisSortAccessors],
+  );
+
   const copy = FILTER_COPY[filter];
 
   return (
@@ -248,17 +269,30 @@ export function SavedDevisList() {
           <AdminTableWrap>
             <thead>
               <tr>
-                <th className={thClass}>Type</th>
-                <th className={thClass}>N° document</th>
-                <th className={thClass}>Client / fournisseur</th>
-                <th className={`${thClass} max-w-[min(20rem,48vw)]`}>Référence</th>
-                <th className={thClass}>Date</th>
-                <th className={`${thClass} text-right w-16`}>Lignes</th>
+                <AdminSortableTh label="Type" sortKey="type" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="N° document" sortKey="number" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Client / fournisseur" sortKey="client" sort={sort} onSort={onSort} />
+                <AdminSortableTh
+                  label="Référence"
+                  sortKey="reference"
+                  sort={sort}
+                  onSort={onSort}
+                  className={`${thClass} max-w-[min(20rem,48vw)]`}
+                />
+                <AdminSortableTh label="Date" sortKey="date" sort={sort} onSort={onSort} />
+                <AdminSortableTh
+                  label="Lignes"
+                  sortKey="lines"
+                  sort={sort}
+                  onSort={onSort}
+                  className={`${thClass} text-right w-16`}
+                  align="right"
+                />
                 <th className={`${thClass} text-right min-w-[12rem] sm:min-w-[17rem]`}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredQuotes.map((quote) => {
+              {sortedQuotes.map((quote) => {
                 const docType: DocumentType = quote.documentType ?? "devis";
                 const docLabel = DOCUMENT_LABELS[docType];
                 return (

@@ -36,9 +36,11 @@ import { AdminDataSheet, AdminSheetField } from "@/components/admin/ux/AdminData
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { ProjectFicheDashboardSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import { formatMoney } from "@/lib/admin/price-ht-ttc";
 import { FINANCE_PAYMENT_STATUS_LABELS } from "@/lib/admin/finance-types";
@@ -261,6 +263,51 @@ export function ProjectFicheDashboard({
     await loadDashboard();
   }
 
+  const { sort: materialsSort, onSort: onMaterialsSort, applySort: applyMaterialsSort } = useTableSort("date", "desc");
+  const { sort: laborSort, onSort: onLaborSort, applySort: applyLaborSort } = useTableSort("date", "desc");
+  const { sort: paymentsSort, onSort: onPaymentsSort, applySort: applyPaymentsSort } = useTableSort("date", "desc");
+  const { sort: expensesSort, onSort: onExpensesSort, applySort: applyExpensesSort } = useTableSort("date", "desc");
+
+  const sortedMaterials = useMemo(() => {
+    if (!dashboard) return [];
+    return applyMaterialsSort(dashboard.materials, {
+      date: (m) => m.date,
+      material: (m) => m.designation,
+      location: (m) => m.location || projectName,
+      qty: (m) => m.qty,
+      total: (m) => m.totalMad,
+    });
+  }, [dashboard, applyMaterialsSort, projectName]);
+
+  const sortedLabor = useMemo(() => {
+    if (!dashboard) return [];
+    return applyLaborSort(dashboard.labor, {
+      date: (l) => l.workDate,
+      employee: (l) => l.employeeName,
+      days: (l) => l.daysWorked,
+      rate: (l) => l.dailyRate,
+      amount: (l) => l.amount,
+    });
+  }, [dashboard, applyLaborSort]);
+
+  const sortedPayments = useMemo(() => {
+    if (!dashboard) return [];
+    return applyPaymentsSort(dashboard.payments, {
+      date: (p) => p.date,
+      method: (p) => p.paymentMethod,
+      amount: (p) => p.amount,
+    });
+  }, [dashboard, applyPaymentsSort]);
+
+  const sortedExpenses = useMemo(() => {
+    if (!dashboard) return [];
+    return applyExpensesSort(dashboard.expenses, {
+      date: (e) => e.date,
+      category: (e) => e.category,
+      amount: (e) => e.amount,
+    });
+  }, [dashboard, applyExpensesSort]);
+
   if (loading) return <ProjectFicheDashboardSkeleton />;
 
   if (!dashboard) {
@@ -310,15 +357,15 @@ export function ProjectFicheDashboard({
               <AdminTableWrap>
                 <thead>
                   <tr>
-                    <th className={thClass}>Date</th>
-                    <th className={thClass}>Matériau</th>
-                    <th className={thClass}>Emplacement</th>
-                    <th className={thClass}>Quantité</th>
-                    <th className={thClass}>Total</th>
+                    <AdminSortableTh label="Date" sortKey="date" sort={materialsSort} onSort={onMaterialsSort} />
+                    <AdminSortableTh label="Matériau" sortKey="material" sort={materialsSort} onSort={onMaterialsSort} />
+                    <AdminSortableTh label="Emplacement" sortKey="location" sort={materialsSort} onSort={onMaterialsSort} />
+                    <AdminSortableTh label="Quantité" sortKey="qty" sort={materialsSort} onSort={onMaterialsSort} align="right" />
+                    <AdminSortableTh label="Total" sortKey="total" sort={materialsSort} onSort={onMaterialsSort} align="right" />
                   </tr>
                 </thead>
                 <tbody>
-                  {dashboard.materials.map((m) => (
+                  {sortedMaterials.map((m) => (
                     <tr key={`${m.source}-${m.id}`} className={rowHover}>
                       <td className={tdClass}>{fmtDate(m.date)}</td>
                       <td className={tdTextClass}>
@@ -371,15 +418,15 @@ export function ProjectFicheDashboard({
               <AdminTableWrap>
                 <thead>
                   <tr>
-                    <th className={thClass}>Date</th>
-                    <th className={thClass}>Ouvriers</th>
-                    <th className={thClass}>Jours</th>
-                    <th className={thClass}>Tarif/j</th>
-                    <th className={thClass}>Montant</th>
+                    <AdminSortableTh label="Date" sortKey="date" sort={laborSort} onSort={onLaborSort} />
+                    <AdminSortableTh label="Ouvriers" sortKey="employee" sort={laborSort} onSort={onLaborSort} />
+                    <AdminSortableTh label="Jours" sortKey="days" sort={laborSort} onSort={onLaborSort} align="right" />
+                    <AdminSortableTh label="Tarif/j" sortKey="rate" sort={laborSort} onSort={onLaborSort} align="right" />
+                    <AdminSortableTh label="Montant" sortKey="amount" sort={laborSort} onSort={onLaborSort} align="right" />
                   </tr>
                 </thead>
                 <tbody>
-                  {dashboard.labor.map((l) => (
+                  {sortedLabor.map((l) => (
                     <tr key={l.id} className={rowHover}>
                       <td className={tdClass}>{fmtDate(l.workDate)}</td>
                       <td className={tdClass}>
@@ -438,13 +485,13 @@ export function ProjectFicheDashboard({
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>Mode de paiement</th>
-                  <th className={thClass}>Montant</th>
+                  <AdminSortableTh label="Date" sortKey="date" sort={paymentsSort} onSort={onPaymentsSort} />
+                  <AdminSortableTh label="Mode de paiement" sortKey="method" sort={paymentsSort} onSort={onPaymentsSort} />
+                  <AdminSortableTh label="Montant" sortKey="amount" sort={paymentsSort} onSort={onPaymentsSort} align="right" />
                 </tr>
               </thead>
               <tbody>
-                {dashboard.payments.map((p) => (
+                {sortedPayments.map((p) => (
                   <tr key={p.id} className={rowHover}>
                     <td className={tdClass}>{fmtDate(p.date)}</td>
                     <td className={tdClass}>
@@ -485,13 +532,13 @@ export function ProjectFicheDashboard({
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>Catégorie</th>
-                  <th className={thClass}>Montant</th>
+                  <AdminSortableTh label="Date" sortKey="date" sort={expensesSort} onSort={onExpensesSort} />
+                  <AdminSortableTh label="Catégorie" sortKey="category" sort={expensesSort} onSort={onExpensesSort} />
+                  <AdminSortableTh label="Montant" sortKey="amount" sort={expensesSort} onSort={onExpensesSort} align="right" />
                 </tr>
               </thead>
               <tbody>
-                {dashboard.expenses.map((e) => (
+                {sortedExpenses.map((e) => (
                   <tr key={e.id} className={rowHover}>
                     <td className={tdClass}>{fmtDate(e.date)}</td>
                     <td className={tdClass}>

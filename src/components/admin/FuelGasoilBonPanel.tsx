@@ -35,6 +35,8 @@ import {
   pruneProjectId,
 } from "@/lib/admin/filter-scope";
 import { GASOIL_VEHICLE_CATEGORIES, GASOIL_VEHICLE_CATEGORY_LABELS } from "@/lib/admin/gasoil-bon";
+import { assertBonSerieNoAvailable } from "@/lib/admin/bon-number-duplicate";
+import { formatBonLocationNo } from "@/lib/admin/rental-bon-number-format";
 import {
   btnDanger,
   btnPrimary,
@@ -47,12 +49,14 @@ import {
   thClass,
   labelClass,
 } from "@/components/admin/admin-form-styles";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { FuelBonsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
-import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { confirmDelete, readApiError, useAdminToast, alertDialog } from "@/components/admin/ux/useAdminToast";
 
 type PanelTab = "list" | "form";
 
@@ -269,6 +273,29 @@ export function FuelGasoilBonPanel({
     return { litres, mad, count: filtered.length };
   }, [filtered]);
 
+  const { sort, onSort, applySort } = useTableSort("date", "desc");
+
+  const sortAccessors = useMemo(
+    () => ({
+      number: (r: GasoilBon) => r.number,
+      category: (r: GasoilBon) => GASOIL_VEHICLE_CATEGORY_LABELS[r.vehicleCategory],
+      project: (r: GasoilBon) => projectName(r.projectId),
+      vehicle: (r: GasoilBon) => r.equipmentName || r.vehicleLabel,
+      litres: (r: GasoilBon) => r.litres,
+      unitPrice: (r: GasoilBon) => r.unitPrice ?? 0,
+      pumpMeter: (r: GasoilBon) => r.pumpMeter ?? 0,
+      fuelTime: (r: GasoilBon) => r.fuelTime,
+      person: (r: GasoilBon) => (isCommande ? r.supplier : r.beneficiary),
+      date: (r: GasoilBon) => r.bonDate.slice(0, 10),
+    }),
+    [projects, isCommande],
+  );
+
+  const sortedRows = useMemo(
+    () => applySort(filtered, sortAccessors),
+    [filtered, applySort, sortAccessors],
+  );
+
   const fetchNextBonNumber = useCallback(async () => {
     const params = new URLSearchParams({ next: "1", bonType: fixedBonType });
     const res = await fetch(`/api/admin/fuel/bons?${params.toString()}`, { cache: "no-store" });
@@ -314,6 +341,21 @@ export function FuelGasoilBonPanel({
       return;
     }
 
+    if (!isCommande) {
+      const providedNo = formatBonLocationNo(form.bonNumber);
+      if (providedNo) {
+        const duplicateMsg = assertBonSerieNoAvailable(
+          rows.map((r) => ({ id: r.id, number: r.number })),
+          providedNo,
+          editingId ?? undefined,
+        );
+        if (duplicateMsg) {
+          await alertDialog(duplicateMsg, { title: "N° bon déjà utilisé" });
+          return;
+        }
+      }
+    }
+
     const L = typeof form.litres === "number" ? form.litres : Number(form.litres);
 
     setSaving(true);
@@ -348,7 +390,12 @@ export function FuelGasoilBonPanel({
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error(await readApiError(res));
+      const apiErr = await readApiError(res);
+      if (res.status === 409) {
+        await alertDialog(apiErr, { title: "N° bon déjà utilisé" });
+        return;
+      }
+      toast.error(apiErr);
       return;
     }
     const saved = (await res.json()) as GasoilBon;
@@ -527,21 +574,39 @@ export function FuelGasoilBonPanel({
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>{isCommande ? "N° document" : "N° bon"}</th>
-                  {!isCommande ? <th className={thClass}>Catégorie</th> : null}
-                  <th className={thClass}>Chantier</th>
-                  {!isCommande ? <th className={thClass}>Véhicule</th> : null}
-                  <th className={thClass}>Litres</th>
-                  {!isCommande ? <th className={thClass}>Prix/L</th> : null}
-                  <th className={thClass}>Compteur</th>
-                  {!isCommande ? <th className={thClass}>Heure</th> : null}
-                  <th className={thClass}>{isCommande ? "Fournisseur" : "Conducteur"}</th>
-                  <th className={thClass}>Date</th>
+                  <AdminSortableTh
+                    label={isCommande ? "N° document" : "N° bon"}
+                    sortKey="number"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                  {!isCommande ? (
+                    <AdminSortableTh label="Catégorie" sortKey="category" sort={sort} onSort={onSort} />
+                  ) : null}
+                  <AdminSortableTh label="Chantier" sortKey="project" sort={sort} onSort={onSort} />
+                  {!isCommande ? (
+                    <AdminSortableTh label="Véhicule" sortKey="vehicle" sort={sort} onSort={onSort} />
+                  ) : null}
+                  <AdminSortableTh label="Litres" sortKey="litres" sort={sort} onSort={onSort} />
+                  {!isCommande ? (
+                    <AdminSortableTh label="Prix/L" sortKey="unitPrice" sort={sort} onSort={onSort} />
+                  ) : null}
+                  <AdminSortableTh label="Compteur" sortKey="pumpMeter" sort={sort} onSort={onSort} />
+                  {!isCommande ? (
+                    <AdminSortableTh label="Heure" sortKey="fuelTime" sort={sort} onSort={onSort} />
+                  ) : null}
+                  <AdminSortableTh
+                    label={isCommande ? "Fournisseur" : "Conducteur"}
+                    sortKey="person"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                  <AdminSortableTh label="Date" sortKey="date" sort={sort} onSort={onSort} />
                   <th className={thClass} />
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => (
+                {sortedRows.map((r) => (
                   <tr key={r.id} className={rowHover}>
                     <td className={`${tdClass} font-mono text-xs`}>{r.number}</td>
                     {!isCommande ? (

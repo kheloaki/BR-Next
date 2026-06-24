@@ -29,6 +29,7 @@ import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { ProductsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
@@ -37,6 +38,7 @@ import { ProductUnitField } from "@/components/admin/ProductUnitField";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import { DEFAULT_VAT_RATE, formatMoney, htToTtc } from "@/lib/admin/price-ht-ttc";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 
 const PRODUCT_TABS = new Set(["products", "categories"]);
 
@@ -64,6 +66,15 @@ export function ProductsManager() {
   const [productSheetOpen, setProductSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const { sort: productSort, onSort: onProductSort, applySort: applyProductSort } = useTableSort(
+    "reference",
+    "asc",
+  );
+  const { sort: categorySort, onSort: onCategorySort, applySort: applyCategorySort } = useTableSort(
+    "name",
+    "asc",
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -105,15 +116,6 @@ export function ProductsManager() {
     return categories.filter((c) => c.name.toLowerCase().includes(q));
   }, [categories, categorySearch]);
 
-  const categoryFilterOptions = useMemo(
-    () =>
-      withEmptyOption(
-        categories.map((c) => ({ value: c.name, label: c.name, keywords: c.name })),
-        "Toutes catégories",
-      ),
-    [categories],
-  );
-
   const countByCategory = useMemo(() => {
     const map = new Map<string, number>();
     for (const p of products) {
@@ -122,6 +124,45 @@ export function ProductsManager() {
     }
     return map;
   }, [products]);
+
+  const productSortAccessors = useMemo(
+    () => ({
+      reference: (p: Product) => p.reference,
+      designation: (p: Product) => p.designation,
+      category: (p: Product) => p.category,
+      unit: (p: Product) => p.unit || "u",
+      unitPrice: (p: Product) => p.unitPrice,
+      unitPriceTtc: (p: Product) => htToTtc(p.unitPrice, DEFAULT_VAT_RATE),
+    }),
+    [],
+  );
+
+  const sortedProducts = useMemo(
+    () => applyProductSort(filtered, productSortAccessors),
+    [applyProductSort, filtered, productSortAccessors],
+  );
+
+  const categorySortAccessors = useMemo(
+    () => ({
+      name: (c: ProductCategory) => c.name,
+      count: (c: ProductCategory) => countByCategory.get(c.name) ?? 0,
+    }),
+    [countByCategory],
+  );
+
+  const sortedCategories = useMemo(
+    () => applyCategorySort(filteredCategories, categorySortAccessors),
+    [applyCategorySort, filteredCategories, categorySortAccessors],
+  );
+
+  const categoryFilterOptions = useMemo(
+    () =>
+      withEmptyOption(
+        categories.map((c) => ({ value: c.name, label: c.name, keywords: c.name })),
+        "Toutes catégories",
+      ),
+    [categories],
+  );
 
   function clearEditParam() {
     if (!searchParams.get("edit")) return;
@@ -327,13 +368,23 @@ export function ProductsManager() {
               <AdminTableWrap>
                 <thead>
                   <tr>
-                    <th className={thClass}>Catégorie</th>
-                    <th className={thClass}>Produits</th>
+                    <AdminSortableTh
+                      label="Catégorie"
+                      sortKey="name"
+                      sort={categorySort}
+                      onSort={onCategorySort}
+                    />
+                    <AdminSortableTh
+                      label="Produits"
+                      sortKey="count"
+                      sort={categorySort}
+                      onSort={onCategorySort}
+                    />
                     <th className={thClass} />
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredCategories.map((cat) => (
+                  {sortedCategories.map((cat) => (
                     <tr key={cat.id} className={rowHover}>
                       <td className={tdClass}>
                         <input
@@ -391,17 +442,55 @@ export function ProductsManager() {
               <AdminTableWrap>
                 <thead>
                   <tr>
-                    <th className={inventoryThClass}>Référence</th>
-                    <th className={inventoryThClass}>Désignation</th>
-                    <th className={inventoryThClass}>Catégorie</th>
-                    <th className={inventoryThClass}>Unité</th>
-                    <th className={inventoryThNumClass}>Prix unit. HT</th>
-                    <th className={inventoryThNumClass}>Prix unit. TTC</th>
+                    <AdminSortableTh
+                      label="Référence"
+                      sortKey="reference"
+                      sort={productSort}
+                      onSort={onProductSort}
+                      className={inventoryThClass}
+                    />
+                    <AdminSortableTh
+                      label="Désignation"
+                      sortKey="designation"
+                      sort={productSort}
+                      onSort={onProductSort}
+                      className={inventoryThClass}
+                    />
+                    <AdminSortableTh
+                      label="Catégorie"
+                      sortKey="category"
+                      sort={productSort}
+                      onSort={onProductSort}
+                      className={inventoryThClass}
+                    />
+                    <AdminSortableTh
+                      label="Unité"
+                      sortKey="unit"
+                      sort={productSort}
+                      onSort={onProductSort}
+                      className={inventoryThClass}
+                    />
+                    <AdminSortableTh
+                      label="Prix unit. HT"
+                      sortKey="unitPrice"
+                      sort={productSort}
+                      onSort={onProductSort}
+                      className={inventoryThNumClass}
+                      align="right"
+                    />
+                    <AdminSortableTh
+                      label="Prix unit. TTC"
+                      sortKey="unitPriceTtc"
+                      sort={productSort}
+                      onSort={onProductSort}
+                      className={inventoryThNumClass}
+                      align="right"
+                    />
                     <th className={inventoryThClass} />
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((product) => (
+                  {sortedProducts.map((product) => (
                     <tr key={product.id} className="hover:bg-[var(--background)]/80 transition-colors">
                       <td className={tdTextClass}>
                         <AdminTruncatedText text={product.reference} lines={1} />

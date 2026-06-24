@@ -29,13 +29,14 @@ import {
   rowHover,
   tdClass,
   tdTextClass,
-  thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { FuelJournalPanelSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 
 export function FuelJournalPanel({ gasoilStockQty }: { gasoilStockQty: number | null }) {
   const [rows, setRows] = useState<FuelEntry[]>([]);
@@ -182,6 +183,29 @@ export function FuelJournalPanel({ gasoilStockQty }: { gasoilStockQty: number | 
     return { litres, count: filtered.length };
   }, [filtered]);
 
+  const { sort, onSort, applySort } = useTableSort("date", "desc");
+
+  const sortAccessors = useMemo(
+    () => ({
+      date: (r: FuelEntry) => r.entryDate.slice(0, 10),
+      ticketNo: (r: FuelEntry) => r.ticketNo,
+      category: (r: FuelEntry) =>
+        r.vehicleCategory ? GASOIL_VEHICLE_CATEGORY_LABELS[r.vehicleCategory] : "",
+      equipment: (r: FuelEntry) => r.equipmentName,
+      litres: (r: FuelEntry) => r.litres,
+      project: (r: FuelEntry) => r.siteName || projectName(r.projectId),
+      meter: (r: FuelEntry) => r.meterStart ?? 0,
+      fuelTime: (r: FuelEntry) => r.fuelTime,
+      driver: (r: FuelEntry) => r.fueledBy,
+    }),
+    [projects],
+  );
+
+  const sortedRows = useMemo(
+    () => applySort(filtered, sortAccessors),
+    [filtered, applySort, sortAccessors],
+  );
+
   if (loading) return <FuelJournalPanelSkeleton />;
 
   return (
@@ -296,19 +320,19 @@ export function FuelJournalPanel({ gasoilStockQty }: { gasoilStockQty: number | 
           <AdminTableWrap>
             <thead>
               <tr>
-                <th className={thClass}>Date</th>
-                <th className={thClass}>N° bon</th>
-                <th className={thClass}>Catégorie</th>
-                <th className={thClass}>Matériel / Matricule</th>
-                <th className={thClass}>Litres</th>
-                <th className={thClass}>Chantier</th>
-                <th className={thClass}>Compteur</th>
-                <th className={thClass}>Heure</th>
-                <th className={thClass}>Conducteur</th>
+                <AdminSortableTh label="Date" sortKey="date" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="N° bon" sortKey="ticketNo" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Catégorie" sortKey="category" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Matériel / Matricule" sortKey="equipment" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Litres" sortKey="litres" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Chantier" sortKey="project" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Compteur" sortKey="meter" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Heure" sortKey="fuelTime" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Conducteur" sortKey="driver" sort={sort} onSort={onSort} />
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => (
+              {sortedRows.map((r) => (
                 <tr key={r.id} className={rowHover}>
                   <td className={tdClass}>{formatDateFr(r.entryDate)}</td>
                   <td className={tdClass}>

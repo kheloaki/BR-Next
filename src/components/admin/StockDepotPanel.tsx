@@ -17,14 +17,15 @@ import {
   rowHover,
   tdClass,
   tdTextClass,
-  thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { StockDepotPanelSkeleton } from "@/components/admin/skeletons/pages";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 
 type DepotBalanceRow = {
@@ -75,6 +76,23 @@ export function StockDepotPanel({
   const itemOptions = useMemo(
     () => items.filter((i) => i.productId).sort((a, b) => a.designation.localeCompare(b.designation)),
     [items],
+  );
+
+  const { sort, onSort, applySort } = useTableSort("depot", "asc");
+
+  const balanceSortAccessors = useMemo(
+    () => ({
+      depot: (b: DepotBalanceRow) => b.depotName,
+      reference: (b: DepotBalanceRow) => b.reference,
+      article: (b: DepotBalanceRow) => b.designation,
+      qty: (b: DepotBalanceRow) => b.qty,
+    }),
+    [],
+  );
+
+  const sortedBalances = useMemo(
+    () => applySort(balances, balanceSortAccessors),
+    [balances, applySort, balanceSortAccessors],
   );
 
   async function submitMovement() {
@@ -227,14 +245,14 @@ export function StockDepotPanel({
           <AdminTableWrap>
             <thead>
               <tr>
-                <th className={thClass}>Dépôt</th>
-                <th className={thClass}>Réf.</th>
-                <th className={thClass}>Article</th>
-                <th className={thClass}>Qté</th>
+                <AdminSortableTh label="Dépôt" sortKey="depot" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Réf." sortKey="reference" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Article" sortKey="article" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Qté" sortKey="qty" sort={sort} onSort={onSort} align="right" />
               </tr>
             </thead>
             <tbody>
-              {balances.map((b) => (
+              {sortedBalances.map((b) => (
                 <tr key={b.id} className={rowHover}>
                   <td className={tdClass}>
                     <AdminTruncatedText text={b.depotName} lines={1} />

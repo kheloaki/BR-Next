@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FinanceAccountSelect } from "@/components/admin/FinanceAccountSelect";
 import { useFinanceCore } from "@/components/admin/FinanceCaissePanel";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
@@ -13,14 +13,15 @@ import {
   moduleWrap,
   rowHover,
   tdClass,
-  thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { FinanceClosingsPanelSkeleton } from "@/components/admin/skeletons/pages";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 
 export function FinanceClosingsPanel() {
   const toast = useAdminToast();
@@ -31,6 +32,23 @@ export function FinanceClosingsPanel() {
   const [countedBalance, setCountedBalance] = useState(0);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const { sort, onSort, applySort } = useTableSort("closingDate");
+
+  const sortAccessors = useMemo(
+    () => ({
+      closingDate: (c: FinanceCaisseClosing) => c.closingDate,
+      account: (c: FinanceCaisseClosing) => c.accountName ?? c.accountId,
+      theoreticalBalance: (c: FinanceCaisseClosing) => c.theoreticalBalance,
+      countedBalance: (c: FinanceCaisseClosing) => c.countedBalance,
+      difference: (c: FinanceCaisseClosing) => c.difference,
+    }),
+    [],
+  );
+
+  const sortedClosings = useMemo(
+    () => applySort(closings, sortAccessors),
+    [closings, sortAccessors, applySort],
+  );
 
   const loadClosings = useCallback(async () => {
     const qs = accountId ? `?accountId=${encodeURIComponent(accountId)}` : "";
@@ -108,15 +126,15 @@ export function FinanceClosingsPanel() {
         <AdminTableWrap>
           <thead>
             <tr>
-              <th className={thClass}>Date</th>
-              <th className={thClass}>Caisse</th>
-              <th className={thClass}>Théorique</th>
-              <th className={thClass}>Compté</th>
-              <th className={thClass}>Écart</th>
+              <AdminSortableTh label="Date" sortKey="closingDate" sort={sort} onSort={onSort} />
+              <AdminSortableTh label="Caisse" sortKey="account" sort={sort} onSort={onSort} />
+              <AdminSortableTh label="Théorique" sortKey="theoreticalBalance" sort={sort} onSort={onSort} align="right" />
+              <AdminSortableTh label="Compté" sortKey="countedBalance" sort={sort} onSort={onSort} align="right" />
+              <AdminSortableTh label="Écart" sortKey="difference" sort={sort} onSort={onSort} align="right" />
             </tr>
           </thead>
           <tbody>
-            {closings.map((c) => (
+            {sortedClosings.map((c) => (
               <tr key={c.id} className={rowHover}>
                 <td className={tdClass}>{c.closingDate}</td>
                 <td className={tdClass}>

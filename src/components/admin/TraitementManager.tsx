@@ -34,9 +34,11 @@ import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { TraitementsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import { useOpsReferential } from "@/components/admin/useOpsReferential";
 import { HtTtcPriceFields } from "@/components/admin/HtTtcPriceFields";
@@ -235,6 +237,52 @@ export function TraitementManager() {
         r.partnerName.toLowerCase().includes(q),
     );
   }, [rows, search, statusFilter]);
+
+  const { sort: listSort, onSort: onListSort, applySort: applyListSort } = useTableSort("number", "desc");
+  const { sort: lineSort, onSort: onLineSort, applySort: applyLineSort } = useTableSort("reference", "asc");
+
+  const traitementListSortAccessors = useMemo(
+    () => ({
+      number: (r: Traitement) => r.number,
+      label: (r: Traitement) => r.label,
+      project: (r: Traitement) => projects.find((p) => p.id === r.projectId)?.name ?? "",
+      partner: (r: Traitement) => r.partnerName,
+      articles: (r: Traitement) => r.lines.length,
+      documents: (r: Traitement) => Object.values(r.steps).filter((s) => s?.status === "done").length,
+      finance: (r: Traitement) => {
+        const fin = r.financeSummary;
+        if (!fin || "pendingSync" in fin) return "";
+        return fin.paymentStatus;
+      },
+      vente: (r: Traitement) => r.venteTraitementId ?? "",
+      achatOrig: (r: Traitement) => r.sourceTraitementId ?? "",
+      status: (r: Traitement) => TRAITEMENT_STATUS_LABELS[r.status],
+    }),
+    [projects],
+  );
+
+  const lineSortAccessors = useMemo(
+    () => ({
+      reference: (l: DraftLine) => l.reference ?? "",
+      designation: (l: DraftLine) => l.designation,
+      unit: (l: DraftLine) => l.unit ?? "",
+      qty: (l: DraftLine) => l.qty,
+      unitPrice: (l: DraftLine) => l.unitPrice ?? 0,
+      totalHt: (l: DraftLine) => (l.qty || 0) * (l.unitPrice || 0),
+      totalTtc: (l: DraftLine) => lineTotalTtc(l.qty || 0, l.unitPrice || 0, vatRate),
+    }),
+    [vatRate],
+  );
+
+  const sortedFiltered = useMemo(
+    () => applyListSort(filtered, traitementListSortAccessors),
+    [filtered, applyListSort, traitementListSortAccessors],
+  );
+
+  const sortedLines = useMemo(
+    () => applyLineSort(lines, lineSortAccessors),
+    [lines, applyLineSort, lineSortAccessors],
+  );
 
   const statusFilterOptions = useMemo(
     () => withEmptyOption(Object.entries(TRAITEMENT_STATUS_LABELS).map(([value, label]) => ({ value, label })), "Tous"),
@@ -680,21 +728,25 @@ export function TraitementManager() {
               <AdminTableWrap>
                 <thead>
                   <tr>
-                    <th className={thClass}>N°</th>
-                    <th className={thClass}>Objet</th>
-                    <th className={thClass}>Chantier</th>
-                    <th className={thClass}>{partnerLabel}</th>
-                    <th className={thClass}>Articles</th>
-                    <th className={thClass}>Documents</th>
-                    <th className={thClass}>Finance</th>
-                    {isAchat ? <th className={thClass}>Vente</th> : null}
-                    {!isAchat ? <th className={thClass}>Achat orig.</th> : null}
-                    <th className={thClass}>Statut</th>
+                    <AdminSortableTh label="N°" sortKey="number" sort={listSort} onSort={onListSort} />
+                    <AdminSortableTh label="Objet" sortKey="label" sort={listSort} onSort={onListSort} />
+                    <AdminSortableTh label="Chantier" sortKey="project" sort={listSort} onSort={onListSort} />
+                    <AdminSortableTh label={partnerLabel} sortKey="partner" sort={listSort} onSort={onListSort} />
+                    <AdminSortableTh label="Articles" sortKey="articles" sort={listSort} onSort={onListSort} align="right" />
+                    <AdminSortableTh label="Documents" sortKey="documents" sort={listSort} onSort={onListSort} align="right" />
+                    <AdminSortableTh label="Finance" sortKey="finance" sort={listSort} onSort={onListSort} />
+                    {isAchat ? (
+                      <AdminSortableTh label="Vente" sortKey="vente" sort={listSort} onSort={onListSort} />
+                    ) : null}
+                    {!isAchat ? (
+                      <AdminSortableTh label="Achat orig." sortKey="achatOrig" sort={listSort} onSort={onListSort} />
+                    ) : null}
+                    <AdminSortableTh label="Statut" sortKey="status" sort={listSort} onSort={onListSort} />
                     <th className={thClass} />
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((row) => {
+                  {sortedFiltered.map((row) => {
                     const projectName =
                       projects.find((p) => p.id === row.projectId)?.name ?? "—";
                     return (
@@ -893,17 +945,17 @@ export function TraitementManager() {
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Réf.</th>
-                  <th className={thClass}>Désignation</th>
-                  <th className={thClass}>Unité</th>
-                  <th className={thClass}>Qté</th>
-                  <th className={thClass}>P.U. HT / TTC</th>
-                  <th className={thClass}>Total HT / TTC</th>
+                  <AdminSortableTh label="Réf." sortKey="reference" sort={lineSort} onSort={onLineSort} />
+                  <AdminSortableTh label="Désignation" sortKey="designation" sort={lineSort} onSort={onLineSort} />
+                  <AdminSortableTh label="Unité" sortKey="unit" sort={lineSort} onSort={onLineSort} />
+                  <AdminSortableTh label="Qté" sortKey="qty" sort={lineSort} onSort={onLineSort} align="right" />
+                  <AdminSortableTh label="P.U. HT / TTC" sortKey="unitPrice" sort={lineSort} onSort={onLineSort} align="right" />
+                  <AdminSortableTh label="Total HT / TTC" sortKey="totalHt" sort={lineSort} onSort={onLineSort} align="right" />
                   <th className={thClass} />
                 </tr>
               </thead>
               <tbody>
-                {lines.map((line) => (
+                {sortedLines.map((line) => (
                   <tr key={line.key}>
                     <td className={tdClass}>
                       <input

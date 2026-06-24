@@ -24,9 +24,11 @@ import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { PersonnelPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminDataSheet } from "@/components/admin/ux/AdminDataSheet";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 
 export function PersonnelManager() {
   const toast = useAdminToast();
@@ -56,6 +58,9 @@ export function PersonnelManager() {
 
   const loading = refLoading || catLoading;
 
+  const { sort: empSort, onSort: onEmpSort, applySort: applyEmpSort } = useTableSort("matricule", "asc");
+  const { sort: catSort, onSort: onCatSort, applySort: applyCatSort } = useTableSort("name", "asc");
+
   const filteredEmployees = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return employees;
@@ -67,6 +72,33 @@ export function PersonnelManager() {
         (e.defaultProjectName || "").toLowerCase().includes(q),
     );
   }, [employees, search]);
+
+  const empSortAccessors = useMemo(
+    () => ({
+      matricule: (e: AdminEmployee) => e.matricule,
+      name: (e: AdminEmployee) => e.name,
+      role: (e: AdminEmployee) => e.role,
+      project: (e: AdminEmployee) => e.defaultProjectName ?? "",
+    }),
+    [],
+  );
+
+  const sortedEmployees = useMemo(
+    () => applyEmpSort(filteredEmployees, empSortAccessors),
+    [applyEmpSort, filteredEmployees, empSortAccessors],
+  );
+
+  const catSortAccessors = useMemo(
+    () => ({
+      name: (c: PersonnelCategory) => c.name,
+    }),
+    [],
+  );
+
+  const sortedCategories = useMemo(
+    () => applyCatSort(categories, catSortAccessors),
+    [applyCatSort, categories, catSortAccessors],
+  );
 
   async function addEmployee() {
     if (!newEmpName.trim()) {
@@ -223,15 +255,15 @@ export function PersonnelManager() {
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>Matricule</th>
-                  <th className={thClass}>Nom</th>
-                  <th className={thClass}>Poste</th>
-                  <th className={thClass}>Chantier défaut</th>
+                  <AdminSortableTh label="Matricule" sortKey="matricule" sort={empSort} onSort={onEmpSort} />
+                  <AdminSortableTh label="Nom" sortKey="name" sort={empSort} onSort={onEmpSort} />
+                  <AdminSortableTh label="Poste" sortKey="role" sort={empSort} onSort={onEmpSort} />
+                  <AdminSortableTh label="Chantier défaut" sortKey="project" sort={empSort} onSort={onEmpSort} />
                   <th className={thClass} />
                 </tr>
               </thead>
               <tbody>
-                {filteredEmployees.map((emp) => (
+                {sortedEmployees.map((emp) => (
                   <tr key={emp.id}>
                     <td className={tdClass}>
                       <MatriculeInput
@@ -314,12 +346,12 @@ export function PersonnelManager() {
               <AdminTableWrap>
                 <thead>
                   <tr>
-                    <th className={thClass}>Poste</th>
+                    <AdminSortableTh label="Poste" sortKey="name" sort={catSort} onSort={onCatSort} />
                     <th className={thClass} />
                   </tr>
                 </thead>
                 <tbody>
-                  {categories.map((cat) => (
+                  {sortedCategories.map((cat) => (
                     <tr key={cat.id}>
                       <td className={tdClass}>
                         <input

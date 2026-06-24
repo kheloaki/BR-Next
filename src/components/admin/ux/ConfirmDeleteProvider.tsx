@@ -9,45 +9,80 @@ import {
   type ReactNode,
 } from "react";
 import { btnDanger, btnSecondary } from "@/components/admin/admin-form-styles";
-import { registerConfirmDelete, type ConfirmDeleteOptions } from "@/components/admin/ux/useAdminToast";
+import { registerConfirmDelete, registerAlertDialog, type AlertDialogOptions, type ConfirmDeleteOptions } from "@/components/admin/ux/useAdminToast";
 
 type PendingConfirm = {
+  kind: "confirm";
   label: string;
   options?: ConfirmDeleteOptions;
   resolve: (confirmed: boolean) => void;
 };
+
+type PendingAlert = {
+  kind: "alert";
+  message: string;
+  options?: AlertDialogOptions;
+  resolve: () => void;
+};
+
+type PendingDialog = PendingConfirm | PendingAlert;
 
 const ConfirmDeleteContext = createContext<{
   confirmDelete: (label: string, options?: ConfirmDeleteOptions) => Promise<boolean>;
 } | null>(null);
 
 export function ConfirmDeleteProvider({ children }: { children: ReactNode }) {
-  const [pending, setPending] = useState<PendingConfirm | null>(null);
+  const [pending, setPending] = useState<PendingDialog | null>(null);
 
   const confirmDelete = useCallback((label: string, options?: ConfirmDeleteOptions) => {
     return new Promise<boolean>((resolve) => {
-      setPending({ label, options, resolve });
+      setPending({ kind: "confirm", label, options, resolve });
+    });
+  }, []);
+
+  const alertDialog = useCallback((message: string, options?: AlertDialogOptions) => {
+    return new Promise<void>((resolve) => {
+      setPending({ kind: "alert", message, options, resolve });
     });
   }, []);
 
   useEffect(() => {
     registerConfirmDelete(confirmDelete);
-    return () => registerConfirmDelete(null);
-  }, [confirmDelete]);
+    registerAlertDialog(alertDialog);
+    return () => {
+      registerConfirmDelete(null);
+      registerAlertDialog(null);
+    };
+  }, [confirmDelete, alertDialog]);
 
-  const close = (confirmed: boolean) => {
-    pending?.resolve(confirmed);
+  const closeConfirm = (confirmed: boolean) => {
+    if (pending?.kind !== "confirm") return;
+    pending.resolve(confirmed);
     setPending(null);
   };
 
-  const title = pending?.options?.title ?? "Confirmer la suppression";
+  const closeAlert = () => {
+    if (pending?.kind !== "alert") return;
+    pending.resolve();
+    setPending(null);
+  };
+
+  const title =
+    pending?.kind === "alert"
+      ? (pending.options?.title ?? "Information")
+      : (pending?.options?.title ?? "Confirmer la suppression");
   const description =
-    pending?.options?.description ??
-    (pending
-      ? `Voulez-vous vraiment supprimer « ${pending.label} » ? Cette action est irréversible.`
-      : "");
-  const confirmLabel = pending?.options?.confirmLabel ?? "Supprimer";
-  const cancelLabel = pending?.options?.cancelLabel ?? "Annuler";
+    pending?.kind === "alert"
+      ? pending.message
+      : (pending?.options?.description ??
+        (pending?.kind === "confirm"
+          ? `Voulez-vous vraiment supprimer « ${pending.label} » ? Cette action est irréversible.`
+          : ""));
+  const confirmLabel =
+    pending?.kind === "alert"
+      ? (pending.options?.okLabel ?? "OK")
+      : (pending?.options?.confirmLabel ?? "Supprimer");
+  const cancelLabel = pending?.kind === "confirm" ? (pending.options?.cancelLabel ?? "Annuler") : null;
 
   return (
     <ConfirmDeleteContext.Provider value={{ confirmDelete }}>
@@ -56,7 +91,7 @@ export function ConfirmDeleteProvider({ children }: { children: ReactNode }) {
         <div
           className="fixed inset-0 z-[300] flex items-center justify-center p-4"
           role="presentation"
-          onClick={() => close(false)}
+          onClick={() => (pending.kind === "alert" ? closeAlert() : closeConfirm(false))}
         >
           <div className="absolute inset-0 bg-[var(--navy-deep)]/55 backdrop-blur-[2px]" />
           <div
@@ -74,13 +109,19 @@ export function ConfirmDeleteProvider({ children }: { children: ReactNode }) {
               {description}
             </p>
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button type="button" className={btnSecondary} onClick={() => close(false)}>
-                {cancelLabel}
-              </button>
+              {cancelLabel ? (
+                <button type="button" className={btnSecondary} onClick={() => closeConfirm(false)}>
+                  {cancelLabel}
+                </button>
+              ) : null}
               <button
                 type="button"
-                className={`${btnDanger} min-h-[44px] bg-red-600 px-4 text-white hover:bg-red-700`}
-                onClick={() => close(true)}
+                className={
+                  pending.kind === "alert"
+                    ? `${btnSecondary} min-h-[44px] bg-[var(--navy)] px-4 text-white hover:bg-[var(--navy)]/90`
+                    : `${btnDanger} min-h-[44px] bg-red-600 px-4 text-white hover:bg-red-700`
+                }
+                onClick={() => (pending.kind === "alert" ? closeAlert() : closeConfirm(true))}
               >
                 {confirmLabel}
               </button>

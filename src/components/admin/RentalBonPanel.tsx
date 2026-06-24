@@ -35,14 +35,18 @@ import { RentalBonsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import type { AdminProject } from "@/components/admin/operations-types";
-import { contractToBonForm, bonMatchesDateRange, bonMatchesMaterial, bonLocationUsageDays, bonLocationUsageHours, formatBonLocationDates, formatBonLocationMaterials, formatBonLocationUsageDays, formatBonLocationUsageDetail, formatBonLocationUsageHours, formatUsageDaysTotal, formatUsageHoursTotal } from "@/lib/admin/map-rental-material";
+import { contractToBonForm, bonMatchesDateRange, bonMatchesMaterial, bonLocationUsageDays, bonLocationUsageHours, formatBonLocationDates, formatBonLocationMaterials, formatBonLocationUsageDays, formatBonLocationUsageDetail, formatBonLocationUsageHours, formatUsageDaysTotal, formatUsageHoursTotal, getBonLocationDates } from "@/lib/admin/map-rental-material";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { materialLabel } from "@/lib/admin/map-rental-material-catalog";
+import { formatBonLocationNo } from "@/lib/admin/rental-bon-number-format";
+import { assertBonSerieNoAvailable } from "@/lib/admin/bon-number-duplicate";
 import { pruneFilterValue, applyFacetScope, projectsForFacetScope, pruneProjectId, uniqueSortedLabels } from "@/lib/admin/filter-scope";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
 import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
 import { SearchableSelect } from "@/components/admin/SearchableSelect";
 import { enumToOptions, stringOptions, withEmptyOption } from "@/components/admin/searchable-options";
-import { confirmDelete, readApiError } from "@/components/admin/ux/useAdminToast";
+import { confirmDelete, readApiError, alertDialog } from "@/components/admin/ux/useAdminToast";
 
 const RENTAL_STATUSES: RentalEquipmentStatus[] = ["active", "maintenance", "down"];
 const RENTAL_STATUS_LABELS: Record<RentalEquipmentStatus, string> = {
@@ -253,6 +257,29 @@ export function RentalBonPanel({
     return { days, hours, mad, count: filtered.length };
   }, [filtered]);
 
+  const { sort, onSort, applySort } = useTableSort("date", "desc");
+
+  const sortAccessors = useMemo(
+    () => ({
+      bonNo: (r: RentalContract) => r.bonLocationNo,
+      date: (r: RentalContract) => getBonLocationDates(r)[0] ?? "",
+      material: (r: RentalContract) => formatBonLocationMaterials(r, materials),
+      project: (r: RentalContract) => projectName(r.projectId),
+      owner: (r: RentalContract) => r.ownerName,
+      driver: (r: RentalContract) => r.driverName,
+      days: (r: RentalContract) => bonLocationUsageDays(r),
+      hours: (r: RentalContract) => bonLocationUsageHours(r),
+      totalMad: (r: RentalContract) => r.totalMad,
+      status: (r: RentalContract) => RENTAL_STATUS_LABELS[r.status],
+    }),
+    [materials, projects],
+  );
+
+  const sortedRows = useMemo(
+    () => applySort(filtered, sortAccessors),
+    [filtered, applySort, sortAccessors],
+  );
+
   function resetForm() {
     setEditId(null);
     setForm(EMPTY_BON_FORM);
@@ -276,6 +303,19 @@ export function RentalBonPanel({
       return;
     }
 
+    const providedNo = formatBonLocationNo(form.bonLocationNo);
+    if (providedNo) {
+      const duplicateMsg = assertBonSerieNoAvailable(
+        rows.map((r) => ({ id: r.id, number: r.bonLocationNo })),
+        providedNo,
+        editId ?? undefined,
+      );
+      if (duplicateMsg) {
+        await alertDialog(duplicateMsg, { title: "N° bon déjà utilisé" });
+        return;
+      }
+    }
+
     const driverName = form.driverName.trim();
 
     setSaving(true);
@@ -296,7 +336,12 @@ export function RentalBonPanel({
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error(await readApiError(res));
+      const apiErr = await readApiError(res);
+      if (res.status === 409) {
+        await alertDialog(apiErr, { title: "N° bon déjà utilisé" });
+        return;
+      }
+      toast.error(apiErr);
       return;
     }
     const saved = (await res.json()) as RentalContract;
@@ -460,21 +505,21 @@ export function RentalBonPanel({
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <th className={thClass}>N° bon</th>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>Matériel</th>
-                  <th className={thClass}>Lieu travaux</th>
-                  <th className={thClass}>Loueur</th>
-                  <th className={thClass}>Conducteur</th>
-                  <th className={thClass}>Jours</th>
-                  <th className={thClass}>Heures</th>
-                  <th className={thClass}>Total MAD</th>
-                  <th className={thClass}>Statut</th>
+                  <AdminSortableTh label="N° bon" sortKey="bonNo" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Date" sortKey="date" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Matériel" sortKey="material" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Lieu travaux" sortKey="project" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Loueur" sortKey="owner" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Conducteur" sortKey="driver" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Jours" sortKey="days" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Heures" sortKey="hours" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Total MAD" sortKey="totalMad" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="Statut" sortKey="status" sort={sort} onSort={onSort} />
                   <th className={thClass} />
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => (
+                {sortedRows.map((r) => (
                   <tr key={r.id} className={rowHover}>
                     <td className={tdClass}>
                       <AdminTruncatedText text={r.bonLocationNo} lines={1} />

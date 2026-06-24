@@ -1,4 +1,5 @@
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { bonSerieNumbersMatch } from "@/lib/admin/bon-number-duplicate";
 import {
   formatBonLocationNo,
   parseSeqFromContractNo,
@@ -24,4 +25,24 @@ export async function resolveBonLocationNo(organizationId: string, provided?: st
   const formatted = formatBonLocationNo(provided ?? "");
   if (formatted) return formatted;
   return nextBonLocationNumber(organizationId);
+}
+
+export async function bonLocationNoIsTaken(
+  organizationId: string,
+  bonNo: string,
+  excludeContractId?: string,
+): Promise<boolean> {
+  const normalized = formatBonLocationNo(bonNo);
+  if (!normalized) return false;
+
+  const { data } = await getSupabaseAdminClient()
+    .from("admin_rental_contracts")
+    .select("id, contract_no")
+    .eq("organization_id", organizationId);
+
+  for (const row of data ?? []) {
+    if (excludeContractId && row.id === excludeContractId) continue;
+    if (bonSerieNumbersMatch(String(row.contract_no ?? ""), normalized)) return true;
+  }
+  return false;
 }

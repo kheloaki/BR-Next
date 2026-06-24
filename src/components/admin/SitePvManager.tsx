@@ -29,9 +29,11 @@ import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { SitePvPanelSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 
@@ -80,6 +82,25 @@ export function SitePvManager({ defaultProjectId, embedded }: { defaultProjectId
         SITE_PV_TYPE_LABELS[r.pvType].toLowerCase().includes(q),
     );
   }, [rows, search]);
+
+  const { sort, onSort, applySort } = useTableSort("date", "desc");
+
+  const pvSortAccessors = useMemo(
+    () => ({
+      number: (r: SitePv) => r.number,
+      type: (r: SitePv) => SITE_PV_TYPE_LABELS[r.pvType],
+      date: (r: SitePv) => r.pvDate,
+      object: (r: SitePv) => r.object,
+      project: (r: SitePv) => projects.find((p) => p.id === r.projectId)?.name ?? "",
+      status: (r: SitePv) => SITE_PV_STATUS_LABELS[r.status],
+    }),
+    [projects],
+  );
+
+  const sortedFiltered = useMemo(
+    () => applySort(filtered, pvSortAccessors),
+    [filtered, applySort, pvSortAccessors],
+  );
 
   const pvTypeOptions = useMemo(
     () => Object.fromEntries(SITE_PV_TYPES.map((t) => [t, SITE_PV_TYPE_LABELS[t]])),
@@ -278,17 +299,17 @@ export function SitePvManager({ defaultProjectId, embedded }: { defaultProjectId
               <AdminTableWrap>
                 <thead>
                   <tr>
-                    <th className={thClass}>N°</th>
-                    <th className={thClass}>Type</th>
-                    <th className={thClass}>Date</th>
-                    <th className={thClass}>Objet</th>
-                    <th className={thClass}>Chantier</th>
-                    <th className={thClass}>Statut</th>
+                    <AdminSortableTh label="N°" sortKey="number" sort={sort} onSort={onSort} />
+                    <AdminSortableTh label="Type" sortKey="type" sort={sort} onSort={onSort} />
+                    <AdminSortableTh label="Date" sortKey="date" sort={sort} onSort={onSort} />
+                    <AdminSortableTh label="Objet" sortKey="object" sort={sort} onSort={onSort} />
+                    <AdminSortableTh label="Chantier" sortKey="project" sort={sort} onSort={onSort} />
+                    <AdminSortableTh label="Statut" sortKey="status" sort={sort} onSort={onSort} />
                     <th className={thClass} />
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((row) => {
+                  {sortedFiltered.map((row) => {
                     const projectName = projects.find((p) => p.id === row.projectId)?.name ?? "—";
                     return (
                       <tr key={row.id} className={rowHover}>

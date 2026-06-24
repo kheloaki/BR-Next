@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { FuelJournalPanel } from "@/components/admin/FuelJournalPanel";
 import { StockStatusBadge } from "@/components/admin/StatusBadge";
@@ -16,16 +16,17 @@ import {
   rowHover,
   tdClass,
   tdTextClass,
-  thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { FuelStockPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
+import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { gasoilMovementDetail, gasoilMovementOrigin } from "@/lib/admin/gasoil-stock-movement-label";
 
 export type FuelStockTab = "stock" | "journal";
@@ -44,6 +45,24 @@ export function FuelGasoilStockPanel({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [minQty, setMinQty] = useState(0);
+  const { sort, onSort, applySort } = useTableSort("movementDate");
+
+  const sortAccessors = useMemo(
+    () => ({
+      movementDate: (m: StockMovement) => m.movementDate,
+      origin: (m: StockMovement) => gasoilMovementOrigin(m),
+      movementType: (m: StockMovement) => STOCK_MOVEMENT_LABELS[m.movementType],
+      qty: (m: StockMovement) => m.qty,
+      site: (m: StockMovement) => m.siteName ?? "",
+      detail: (m: StockMovement) => gasoilMovementDetail(m),
+    }),
+    [],
+  );
+
+  const sortedMovements = useMemo(
+    () => applySort(movements, sortAccessors),
+    [movements, sortAccessors, applySort],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -217,16 +236,16 @@ export function FuelGasoilStockPanel({
           <AdminTableWrap>
             <thead>
               <tr>
-                <th className={thClass}>Date</th>
-                <th className={thClass}>Origine</th>
-                <th className={thClass}>Type</th>
-                <th className={thClass}>Qté</th>
-                <th className={thClass}>Chantier</th>
-                <th className={thClass}>Fourn. / Bénéf.</th>
+                <AdminSortableTh label="Date" sortKey="movementDate" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Origine" sortKey="origin" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Type" sortKey="movementType" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Qté" sortKey="qty" sort={sort} onSort={onSort} align="right" />
+                <AdminSortableTh label="Chantier" sortKey="site" sort={sort} onSort={onSort} />
+                <AdminSortableTh label="Fourn. / Bénéf." sortKey="detail" sort={sort} onSort={onSort} />
               </tr>
             </thead>
             <tbody>
-              {movements.map((m) => (
+              {sortedMovements.map((m) => (
                 <tr key={m.id} className={rowHover}>
                   <td className={tdClass}>{m.movementDate}</td>
                   <td className={tdTextClass}>
