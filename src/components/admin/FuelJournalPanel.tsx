@@ -176,6 +176,12 @@ export function FuelJournalPanel({ gasoilStockQty }: { gasoilStockQty: number | 
     });
   }, [rows, search, projects, fuelFacetChecks]);
 
+  const filteredTotals = useMemo(() => {
+    let litres = 0;
+    for (const row of filtered) litres += row.litres;
+    return { litres, count: filtered.length };
+  }, [filtered]);
+
   if (loading) return <FuelJournalPanelSkeleton />;
 
   return (
@@ -327,6 +333,17 @@ export function FuelJournalPanel({ gasoilStockQty }: { gasoilStockQty: number | 
                   </td>
                 </tr>
               ))}
+              <tr className="border-t-2 border-[var(--navy)]/20 bg-[var(--background)]/60 font-medium">
+                <td className={tdClass} colSpan={4}>
+                  Total ({filteredTotals.count} bon{filteredTotals.count > 1 ? "s" : ""})
+                </td>
+                <td className={`${tdClass} tabular-nums text-[var(--navy)]`}>
+                  {filteredTotals.litres > 0
+                    ? `${filteredTotals.litres.toLocaleString("fr-MA")} L`
+                    : "—"}
+                </td>
+                <td className={tdClass} colSpan={4} />
+              </tr>
             </tbody>
           </AdminTableWrap>
         )}

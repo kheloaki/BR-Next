@@ -20,18 +20,32 @@ import type {
 } from "@/components/admin/operations-types";
 import type { Supplier } from "@/components/admin/devis-types";
 import type { GasoilUnitPriceInfo } from "@/lib/admin/gasoil-unit-price";
-import { formatDateFr, formatTimeFr24 } from "@/lib/admin/date-time-fr";
-import { GASOIL_VEHICLE_CATEGORY_LABELS } from "@/lib/admin/gasoil-bon";
+import { FrenchDateInput } from "@/components/admin/FrenchDateTimeInput";
+import { ProjectSelect } from "@/components/admin/ProjectSelect";
 import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
-import { enumToOptions, withEmptyOption } from "@/components/admin/searchable-options";
+import { SearchableSelect } from "@/components/admin/SearchableSelect";
+import { enumToOptions, stringOptions, withEmptyOption } from "@/components/admin/searchable-options";
+import { formatDateFr, formatTimeFr24 } from "@/lib/admin/date-time-fr";
+import {
+  applyFacetScope,
+  facetEnumOptions,
+  facetStringOptions,
+  projectsForFacetScope,
+  pruneFilterValue,
+  pruneProjectId,
+} from "@/lib/admin/filter-scope";
+import { GASOIL_VEHICLE_CATEGORIES, GASOIL_VEHICLE_CATEGORY_LABELS } from "@/lib/admin/gasoil-bon";
 import {
   btnDanger,
   btnPrimary,
   btnSecondary,
-  inputClass,
+  filterBarClass,
+  filterFieldWrap,
+  filterInputClass,
   rowHover,
   tdClass,
   thClass,
+  labelClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { FuelBonsPageSkeleton } from "@/components/admin/skeletons/pages";
@@ -68,7 +82,12 @@ export function FuelGasoilBonPanel({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const [filterProjectId, setFilterProjectId] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
+  const [filterMaterial, setFilterMaterial] = useState("");
+  const [filterPerson, setFilterPerson] = useState("");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
   const [form, setForm] = useState<GasoilBonFormState>({
     ...EMPTY_GASOIL_BON_FORM,
     bonType: fixedBonType,
@@ -80,7 +99,6 @@ export function FuelGasoilBonPanel({
     setLoading(true);
     const params = new URLSearchParams();
     params.set("bonType", fixedBonType);
-    if (!isCommande && filterCategory) params.set("vehicleCategory", filterCategory);
     const qs = params.toString();
     const supplierFetch = isCommande
       ? fetch("/api/admin/suppliers?supplyType=gasoil", { cache: "no-store" })
@@ -103,7 +121,7 @@ export function FuelGasoilBonPanel({
     if (contactsRes.ok) setGasoilContacts((await contactsRes.json()) as GasoilContact[]);
     if (suppliersRes?.ok) setSuppliers((await suppliersRes.json()) as Supplier[]);
     setLoading(false);
-  }, [fixedBonType, filterCategory, isCommande]);
+  }, [fixedBonType, isCommande]);
 
   useEffect(() => {
     void load();
@@ -118,10 +136,115 @@ export function FuelGasoilBonPanel({
     return projects.find((p) => p.id === id)?.name ?? "—";
   };
 
+  const gasoilFacetChecks = useMemo(
+    () => [
+      {
+        key: "projectId",
+        active: filterProjectId,
+        test: (r: GasoilBon) => r.projectId === filterProjectId,
+      },
+      ...(!isCommande
+        ? [
+            {
+              key: "category",
+              active: filterCategory,
+              test: (r: GasoilBon) => r.vehicleCategory === filterCategory,
+            },
+            {
+              key: "material",
+              active: filterMaterial,
+              test: (r: GasoilBon) =>
+                (r.equipmentName.trim() || r.vehicleLabel.trim()) === filterMaterial,
+            },
+          ]
+        : []),
+      {
+        key: "person",
+        active: filterPerson,
+        test: (r: GasoilBon) => (isCommande ? r.supplier : r.beneficiary).trim() === filterPerson,
+      },
+      {
+        key: "dates",
+        active: filterDateFrom || filterDateTo ? "1" : "",
+        test: (r: GasoilBon) => {
+          const d = r.bonDate.slice(0, 10);
+          if (filterDateFrom && d < filterDateFrom) return false;
+          if (filterDateTo && d > filterDateTo) return false;
+          return true;
+        },
+      },
+    ],
+    [filterProjectId, filterCategory, filterMaterial, filterPerson, filterDateFrom, filterDateTo, isCommande],
+  );
+
+  const scopeFor = useCallback(
+    (excludeKey: string) => applyFacetScope(rows, gasoilFacetChecks, excludeKey),
+    [rows, gasoilFacetChecks],
+  );
+
+  const filterProjects = useMemo(
+    () => projectsForFacetScope(projects, scopeFor("projectId")),
+    [projects, scopeFor],
+  );
+
+  const materialOptions = useMemo(
+    () =>
+      facetStringOptions(
+        scopeFor("material"),
+        rows.length,
+        (r) => r.equipmentName.trim() || r.vehicleLabel.trim(),
+      ),
+    [scopeFor, rows.length],
+  );
+
+  const personOptions = useMemo(
+    () =>
+      facetStringOptions(
+        scopeFor("person"),
+        rows.length,
+        (r) => (isCommande ? r.supplier : r.beneficiary),
+      ),
+    [scopeFor, rows.length, isCommande],
+  );
+
+  const categoryOptions = useMemo(
+    () =>
+      facetEnumOptions(
+        GASOIL_VEHICLE_CATEGORIES,
+        scopeFor("category"),
+        rows.length,
+        (r) => r.vehicleCategory ?? null,
+      ),
+    [scopeFor, rows.length],
+  );
+
+  const categoryLabelOptions = useMemo(() => {
+    const labels: Partial<Record<(typeof GASOIL_VEHICLE_CATEGORIES)[number], string>> = {};
+    for (const category of categoryOptions) labels[category] = GASOIL_VEHICLE_CATEGORY_LABELS[category];
+    return labels as Record<(typeof GASOIL_VEHICLE_CATEGORIES)[number], string>;
+  }, [categoryOptions]);
+
+  useEffect(() => {
+    setFilterProjectId((current) => pruneProjectId(current, filterProjects));
+    setFilterMaterial((current) => pruneFilterValue(current, materialOptions));
+    setFilterPerson((current) => pruneFilterValue(current, personOptions));
+    setFilterCategory((current) => pruneFilterValue(current, categoryOptions));
+  }, [filterProjects, materialOptions, personOptions, categoryOptions]);
+
+  const hasActiveFilters =
+    filterProjectId !== "" ||
+    filterCategory !== "" ||
+    filterMaterial !== "" ||
+    filterPerson !== "" ||
+    filterDateFrom !== "" ||
+    filterDateTo !== "";
+
   const filtered = useMemo(() => {
+    let list = applyFacetScope(rows, gasoilFacetChecks);
+
     const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter(
+    if (!q) return list;
+    return list.filter(
       (r) =>
         r.number.toLowerCase().includes(q) ||
         projectName(r.projectId).toLowerCase().includes(q) ||
@@ -131,7 +254,20 @@ export function FuelGasoilBonPanel({
         r.supplier.toLowerCase().includes(q) ||
         GASOIL_VEHICLE_CATEGORY_LABELS[r.vehicleCategory].toLowerCase().includes(q),
     );
-  }, [rows, search, projects]);
+  }, [rows, search, projects, gasoilFacetChecks]);
+
+  const filteredTotals = useMemo(() => {
+    let litres = 0;
+    let mad = 0;
+    for (const row of filtered) {
+      litres += row.litres;
+      const amount =
+        row.totalAmount ??
+        (row.unitPrice && row.unitPrice > 0 ? row.litres * row.unitPrice : 0);
+      mad += amount;
+    }
+    return { litres, mad, count: filtered.length };
+  }, [filtered]);
 
   const fetchNextBonNumber = useCallback(async () => {
     const params = new URLSearchParams({ next: "1", bonType: fixedBonType });
@@ -277,31 +413,112 @@ export function FuelGasoilBonPanel({
 
       {panelTab === "list" ? (
         <AdminInventoryCard
-          title={listTitle}
+          title={`${listTitle}${hasActiveFilters || search ? ` (${filtered.length})` : ""}`}
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder={isCommande ? "N° document, chantier, fournisseur…" : "N° bon, chantier, véhicule…"}
+          searchPlaceholder={
+            isCommande
+              ? "N° document, chantier, fournisseur…"
+              : "N° bon, matériel, chantier, conducteur…"
+          }
           actions={
             <button type="button" className={btnPrimary} onClick={openNew}>
               {isCommande ? "Nouvelle commande" : "Nouveau bon"}
             </button>
           }
         >
-          {!isCommande ? (
-            <div className="flex flex-wrap gap-2 border-b border-border px-4 py-3">
-              <SearchableEnumSelect
-                options={withEmptyOption(enumToOptions(GASOIL_VEHICLE_CATEGORY_LABELS), "Toutes catégories")}
-                value={filterCategory}
-                onChange={setFilterCategory}
-                placeholder="Toutes catégories"
-                inputClassName={`${inputClass} max-w-[200px]`}
+          <div className={filterBarClass}>
+            <div className={filterFieldWrap}>
+              <p className={labelClass}>Chantier</p>
+              <div className="mt-1">
+                <ProjectSelect
+                  projects={filterProjects}
+                  value={filterProjectId}
+                  onChange={setFilterProjectId}
+                  allowEmpty
+                  placeholder="Tous chantiers"
+                  activeOnly={false}
+                />
+              </div>
+            </div>
+            {!isCommande ? (
+              <div className={filterFieldWrap}>
+                <p className={labelClass}>Catégorie</p>
+                <SearchableEnumSelect
+                  options={withEmptyOption(enumToOptions(categoryLabelOptions), "Toutes catégories")}
+                  value={filterCategory}
+                  onChange={setFilterCategory}
+                  placeholder="Toutes catégories"
+                  inputClassName={filterInputClass}
+                />
+              </div>
+            ) : null}
+            {!isCommande ? (
+              <div className={filterFieldWrap}>
+                <p className={labelClass}>Matériel</p>
+                <SearchableSelect
+                  options={withEmptyOption(stringOptions(materialOptions), "Tout matériel")}
+                  value={filterMaterial}
+                  onChange={setFilterMaterial}
+                  placeholder="Tout matériel"
+                  inputClassName={filterInputClass}
+                />
+              </div>
+            ) : null}
+            <div className={filterFieldWrap}>
+              <p className={labelClass}>{isCommande ? "Fournisseur" : "Conducteur"}</p>
+              <SearchableSelect
+                options={withEmptyOption(
+                  stringOptions(personOptions),
+                  isCommande ? "Tous fournisseurs" : "Tous conducteurs",
+                )}
+                value={filterPerson}
+                onChange={setFilterPerson}
+                placeholder={isCommande ? "Tous fournisseurs" : "Tous conducteurs"}
+                inputClassName={filterInputClass}
               />
             </div>
-          ) : null}
+            <div className={filterFieldWrap}>
+              <p className={labelClass}>Du</p>
+              <FrenchDateInput
+                className={filterInputClass}
+                value={filterDateFrom}
+                onChange={setFilterDateFrom}
+              />
+            </div>
+            <div className={filterFieldWrap}>
+              <p className={labelClass}>Au</p>
+              <FrenchDateInput
+                className={filterInputClass}
+                value={filterDateTo}
+                onChange={setFilterDateTo}
+              />
+            </div>
+            {hasActiveFilters ? (
+              <button
+                type="button"
+                className={`${btnSecondary} w-full xl:w-auto`}
+                onClick={() => {
+                  setFilterProjectId("");
+                  setFilterCategory("");
+                  setFilterMaterial("");
+                  setFilterPerson("");
+                  setFilterDateFrom("");
+                  setFilterDateTo("");
+                }}
+              >
+                Tout effacer
+              </button>
+            ) : null}
+          </div>
 
           {filtered.length === 0 ? (
             <div className="px-5 py-12 text-center text-sm text-[var(--graphite)]/70">
-              {isCommande ? "Aucun bon de commande gasoil." : "Aucun bon de sortie gasoil."}
+              {rows.length === 0
+                ? isCommande
+                  ? "Aucun bon de commande gasoil."
+                  : "Aucun bon de sortie gasoil."
+                : "Aucun bon ne correspond aux filtres sélectionnés."}
               <button type="button" className={`mt-4 block mx-auto ${btnPrimary}`} onClick={openNew}>
                 {isCommande ? "Créer une commande" : "Créer un bon"}
               </button>
@@ -386,6 +603,22 @@ export function FuelGasoilBonPanel({
                     </td>
                   </tr>
                 ))}
+                <tr className="border-t-2 border-[var(--navy)]/20 bg-[var(--background)]/60 font-medium">
+                  <td className={tdClass} colSpan={isCommande ? 2 : 4}>
+                    Total ({filteredTotals.count} bon{filteredTotals.count > 1 ? "s" : ""})
+                  </td>
+                  <td className={`${tdClass} tabular-nums text-[var(--navy)]`}>
+                    {filteredTotals.litres > 0
+                      ? `${filteredTotals.litres.toLocaleString("fr-MA")} L`
+                      : "—"}
+                  </td>
+                  {!isCommande ? (
+                    <td className={`${tdClass} tabular-nums text-[var(--navy)]`}>
+                      {filteredTotals.mad > 0 ? `${filteredTotals.mad.toLocaleString("fr-MA")} MAD` : "—"}
+                    </td>
+                  ) : null}
+                  <td className={tdClass} colSpan={isCommande ? 4 : 5} />
+                </tr>
               </tbody>
             </AdminTableWrap>
           )}
