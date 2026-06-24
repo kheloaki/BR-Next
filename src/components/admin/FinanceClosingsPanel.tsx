@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { FinanceAccountSelect } from "@/components/admin/FinanceAccountSelect";
 import { useFinanceCore } from "@/components/admin/FinanceCaissePanel";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import type { FinanceCaisseClosing } from "@/lib/admin/finance-types";
@@ -15,8 +16,9 @@ import {
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { FinanceClosingsPanelSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 
@@ -60,7 +62,7 @@ export function FinanceClosingsPanel() {
     await loadClosings();
   }
 
-  if (loading) return <AdminLoading />;
+  if (loading) return <FinanceClosingsPanelSkeleton />;
 
   return (
     <div className={moduleWrap}>
@@ -77,11 +79,15 @@ export function FinanceClosingsPanel() {
         <div className={formGridClass}>
           <div>
             <p className={labelClass}>Caisse</p>
-            <select className={`${inputClass} mt-1`} value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
+            <div className="mt-1">
+              <FinanceAccountSelect
+                accounts={accounts}
+                value={accountId}
+                onChange={setAccountId}
+                inputClassName={inputClass}
+                placeholder="Sélectionner…"
+              />
+            </div>
           </div>
           <div>
             <p className={labelClass}>Date</p>
@@ -113,7 +119,9 @@ export function FinanceClosingsPanel() {
             {closings.map((c) => (
               <tr key={c.id} className={rowHover}>
                 <td className={tdClass}>{c.closingDate}</td>
-                <td className={tdClass}>{c.accountName ?? c.accountId}</td>
+                <td className={tdClass}>
+                  <AdminTruncatedText text={c.accountName ?? c.accountId} lines={1} />
+                </td>
                 <td className={tdClass}>{c.theoreticalBalance.toLocaleString("fr-MA")}</td>
                 <td className={tdClass}>{c.countedBalance.toLocaleString("fr-MA")}</td>
                 <td className={tdClass}>{c.difference.toLocaleString("fr-MA")}</td>

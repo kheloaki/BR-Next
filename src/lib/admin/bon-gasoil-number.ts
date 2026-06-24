@@ -40,7 +40,7 @@ export async function nextBonGasoilNumber(organizationId: string) {
   return formatBonLocationNo(maxSeq + 1);
 }
 
-/** Prochain N° document commande pour l'année en cours : 001/2026, 002/2026… */
+/** Prochain N° document commande pour l'année : 001/2026, 002/2026… (comptage séquentiel). */
 export async function nextBonCommandeDocumentNo(organizationId: string, year?: number) {
   const y = year ?? new Date().getFullYear();
   const { data } = await getSupabaseAdminClient()
@@ -49,24 +49,22 @@ export async function nextBonCommandeDocumentNo(organizationId: string, year?: n
     .eq("organization_id", organizationId)
     .eq("bon_type", "achat");
 
-  let maxSeq = 0;
+  let count = 0;
   for (const row of data ?? []) {
-    const seq = parseCommandeDocumentSeq(String(row.number ?? ""), y);
-    if (seq !== null) maxSeq = Math.max(maxSeq, seq);
+    if (parseCommandeDocumentSeq(String(row.number ?? ""), y) !== null) count += 1;
   }
-  return formatBonCommandeDocumentNo(maxSeq + 1, y);
+  return formatBonCommandeDocumentNo(count + 1, y);
 }
 
 export async function resolveBonGasoilNo(
   organizationId: string,
   provided?: string,
   bonType: GasoilBonType = "sortie",
+  year?: number,
 ) {
   const trimmed = provided?.trim() ?? "";
   if (bonType === "achat") {
-    const formatted = formatBonCommandeDocumentNo(trimmed);
-    if (formatted) return formatted;
-    return nextBonCommandeDocumentNo(organizationId);
+    return nextBonCommandeDocumentNo(organizationId, year);
   }
   const formatted = formatBonLocationNo(trimmed);
   if (formatted) return formatted;

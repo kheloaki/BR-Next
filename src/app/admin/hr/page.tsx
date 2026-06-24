@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { HRManager } from "@/components/admin/HRManager";
+import { HrPageSkeleton } from "@/components/admin/skeletons/pages";
 import { requireAdminPage } from "@/lib/admin/admin-page-auth";
 
 export const metadata: Metadata = {
@@ -13,7 +14,7 @@ export default async function AdminHRPage() {
   await requireAdminPage("/admin/hr");
   return (
     <AdminShell active="hr">
-      <Suspense fallback={<p className="text-sm">Chargement…</p>}>
+      <Suspense fallback={<HrPageSkeleton />}>
         <HRManager />
       </Suspense>
     </AdminShell>

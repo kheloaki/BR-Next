@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { CustomerSelect } from "@/components/admin/CustomerSelect";
 import type { Customer } from "@/components/admin/devis-types";
 import type { Traitement } from "@/lib/admin/traitement-types";
 import { btnPrimary, btnSecondary, inputClass } from "@/components/admin/admin-form-styles";
 import { AdminDataSheet, AdminSheetField } from "@/components/admin/ux/AdminDataSheet";
 import { readApiError } from "@/components/admin/ux/useAdminToast";
 import { formatMoney } from "@/lib/admin/price-ht-ttc";
+import { traitementsHref } from "@/lib/admin/traitement-nav";
 
 type Props = {
   open: boolean;
@@ -103,7 +105,6 @@ export function TraitementAchatToVenteSheet({
       onClose={onClose}
       title="Passer en traitement vente"
       description={`Suite de ${traitement.number} — reprenez les articles, ajustez qté et prix de vente.`}
-      width="max-w-2xl"
       footer={
         <>
           <button type="button" className={btnSecondary} onClick={onClose} disabled={saving}>
@@ -120,23 +121,17 @@ export function TraitementAchatToVenteSheet({
           <input className={inputClass} value={label} onChange={(e) => setLabel(e.target.value)} />
         </AdminSheetField>
         <AdminSheetField label="Client" required>
-          <select
-            className={inputClass}
+          <CustomerSelect
+            customers={customers}
             value={customerId}
-            onChange={(e) => {
-              const id = e.target.value;
+            onChange={(id) => {
               setCustomerId(id);
               const c = customers.find((x) => x.id === id);
               setCustomerName(c?.name ?? "");
             }}
-          >
-            <option value="">— Client —</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            placeholder="— Client —"
+            inputClassName={inputClass}
+          />
         </AdminSheetField>
         <AdminSheetField label="Ou nom client">
           <input className={inputClass} value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
@@ -190,7 +185,7 @@ export function TraitementAchatToVenteSheet({
         <p className="text-sm font-medium text-[var(--navy)]">Total HT vente : {formatMoney(totalHt)}</p>
         <p className="text-xs text-[var(--graphite)]/65">
           Achat lié :{" "}
-          <Link href={`/admin/traitements-achat?id=${encodeURIComponent(traitement.id)}`} className="underline">
+          <Link href={traitementsHref({ type: "achat", id: traitement.id })} className="underline">
             {traitement.number}
           </Link>
         </p>

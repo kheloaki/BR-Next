@@ -20,10 +20,10 @@ import type {
 } from "@/components/admin/operations-types";
 import type { Supplier } from "@/components/admin/devis-types";
 import type { GasoilUnitPriceInfo } from "@/lib/admin/gasoil-unit-price";
-import {
-  GASOIL_VEHICLE_CATEGORIES,
-  GASOIL_VEHICLE_CATEGORY_LABELS,
-} from "@/lib/admin/gasoil-bon";
+import { formatDateFr, formatTimeFr24 } from "@/lib/admin/date-time-fr";
+import { GASOIL_VEHICLE_CATEGORY_LABELS } from "@/lib/admin/gasoil-bon";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
+import { enumToOptions, withEmptyOption } from "@/components/admin/searchable-options";
 import {
   btnDanger,
   btnPrimary,
@@ -34,8 +34,9 @@ import {
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { FuelBonsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 
@@ -250,7 +251,7 @@ export function FuelGasoilBonPanel({
     a.remove();
   }
 
-  if (loading) return <AdminLoading />;
+  if (loading) return <FuelBonsPageSkeleton />;
 
   return (
     <div className="space-y-4">
@@ -288,18 +289,13 @@ export function FuelGasoilBonPanel({
         >
           {!isCommande ? (
             <div className="flex flex-wrap gap-2 border-b border-border px-4 py-3">
-              <select
-                className={`${inputClass} max-w-[200px]`}
+              <SearchableEnumSelect
+                options={withEmptyOption(enumToOptions(GASOIL_VEHICLE_CATEGORY_LABELS), "Toutes catégories")}
                 value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-              >
-                <option value="">Toutes catégories</option>
-                {GASOIL_VEHICLE_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {GASOIL_VEHICLE_CATEGORY_LABELS[c]}
-                  </option>
-                ))}
-              </select>
+                onChange={setFilterCategory}
+                placeholder="Toutes catégories"
+                inputClassName={`${inputClass} max-w-[200px]`}
+              />
             </div>
           ) : null}
 
@@ -321,6 +317,7 @@ export function FuelGasoilBonPanel({
                   <th className={thClass}>Litres</th>
                   {!isCommande ? <th className={thClass}>Prix/L</th> : null}
                   <th className={thClass}>Compteur</th>
+                  {!isCommande ? <th className={thClass}>Heure</th> : null}
                   <th className={thClass}>{isCommande ? "Fournisseur" : "Conducteur"}</th>
                   <th className={thClass}>Date</th>
                   <th className={thClass} />
@@ -333,9 +330,13 @@ export function FuelGasoilBonPanel({
                     {!isCommande ? (
                       <td className={tdClass}>{GASOIL_VEHICLE_CATEGORY_LABELS[r.vehicleCategory]}</td>
                     ) : null}
-                    <td className={tdClass}>{projectName(r.projectId)}</td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={projectName(r.projectId)} lines={1} />
+                    </td>
                     {!isCommande ? (
-                      <td className={tdClass}>{r.equipmentName || r.vehicleLabel || "—"}</td>
+                      <td className={tdClass}>
+                        <AdminTruncatedText text={r.equipmentName || r.vehicleLabel} lines={1} />
+                      </td>
                     ) : null}
                     <td className={tdClass}>{r.litres.toLocaleString("fr-MA")} L</td>
                     {!isCommande ? (
@@ -348,8 +349,13 @@ export function FuelGasoilBonPanel({
                     <td className={tdClass}>
                       {r.pumpMeter != null ? r.pumpMeter.toLocaleString("fr-MA") : "—"}
                     </td>
-                    <td className={tdClass}>{isCommande ? r.supplier || "—" : r.beneficiary || "—"}</td>
-                    <td className={tdClass}>{r.bonDate}</td>
+                    {!isCommande ? (
+                      <td className={`${tdClass} tabular-nums`}>{formatTimeFr24(r.fuelTime)}</td>
+                    ) : null}
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={isCommande ? r.supplier : r.beneficiary} lines={1} />
+                    </td>
+                    <td className={tdClass}>{formatDateFr(r.bonDate)}</td>
                     <td className={tdClass}>
                       <div className="flex flex-wrap gap-1">
                         <button

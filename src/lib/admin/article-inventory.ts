@@ -1,8 +1,9 @@
 import type { Product } from "@/components/admin/devis-types";
 import { computeStockStatus } from "@/components/admin/operations-types";
-import { isGasoilStockItem } from "@/lib/admin/gasoil-stock";
+import { GASOIL_STOCK_MODULE_MESSAGE, GASOIL_UNIT, isGasoilStockItem } from "@/lib/admin/gasoil-stock";
+import { getGasoilStockItem, getOrCreateGasoilStockItem } from "@/lib/admin/gasoil-stock-server";
 import { opsId } from "@/lib/admin/ops-id";
-import type { TraitementType } from "@/lib/admin/traitement-types";
+import type { TraitementType, TraitementSupplyKind } from "@/lib/admin/traitement-types";
 import type { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type Supabase = ReturnType<typeof getSupabaseAdminClient>;
@@ -179,7 +180,7 @@ export async function ensureInventoryForProduct(
       category: product.category,
     })
   ) {
-    throw new Error("Le stock gasoil se gère dans le module Carburant.");
+    throw new Error(GASOIL_STOCK_MODULE_MESSAGE);
   }
 
   const payload = {
@@ -296,6 +297,7 @@ export async function resolveTraitementLineLinks(
     unitPrice?: number;
   },
   traitementType: TraitementType,
+  options?: { supplyKind?: TraitementSupplyKind },
 ): Promise<{ productId: string | null; stockItemId: string | null; inventory: InventoryRow | null }> {
   let productId = line.productId?.trim() || null;
 
@@ -324,7 +326,7 @@ export async function resolveTraitementLineLinks(
         reference: (line.reference ?? "").trim() || "NN",
         designation: (line.designation ?? "").trim(),
         category: "",
-        unit: (line.unit ?? "").trim() || "PIECE",
+        unit: (line.unit ?? "").trim() || (options?.supplyKind === "gasoil" ? GASOIL_UNIT : "PIECE"),
         unit_price: Math.max(0, Number(line.unitPrice) || 0),
       })
       .select("id")
@@ -335,6 +337,18 @@ export async function resolveTraitementLineLinks(
 
   if (!productId) {
     return { productId: null, stockItemId: line.stockItemId ?? null, inventory: null };
+  }
+
+  if (options?.supplyKind === "gasoil") {
+    let stockItemId = line.stockItemId?.trim() || null;
+    if (!stockItemId) {
+      let gasoilStock = await getGasoilStockItem(supabase, organizationId);
+      if (!gasoilStock && traitementType === "achat") {
+        gasoilStock = await getOrCreateGasoilStockItem(supabase, organizationId, userId);
+      }
+      stockItemId = gasoilStock?.id ?? null;
+    }
+    return { productId, stockItemId, inventory: null };
   }
 
   const inventory = await ensureInventoryForProduct(supabase, organizationId, userId, productId);

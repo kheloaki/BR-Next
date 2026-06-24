@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { PurchaseRequestsManager } from "@/components/admin/PurchaseRequestsManager";
+import { PurchaseRequestsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { requireAdminPage } from "@/lib/admin/admin-page-auth";
 
 export const metadata: Metadata = {
@@ -13,7 +14,7 @@ export default async function AdminPurchaseRequestsPage() {
   await requireAdminPage("/admin/purchase-requests");
   return (
     <AdminShell active="purchase-requests">
-      <Suspense fallback={<p className="text-sm">Chargement…</p>}>
+      <Suspense fallback={<PurchaseRequestsPageSkeleton />}>
         <PurchaseRequestsManager />
       </Suspense>
     </AdminShell>

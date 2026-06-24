@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import type { StockMovementType } from "@/components/admin/operations-types";
 import { assertNotGasoilStockItem, getGasoilStockItem } from "@/lib/admin/gasoil-stock-server";
 import { GASOIL_STOCK_CATEGORY } from "@/lib/admin/gasoil-stock";
+import { recordStockMovementWithDepot, reverseDepotMovementEffect, applyDepotMovementEffect } from "@/lib/admin/depot-stock-server";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
-import { opsId } from "@/lib/admin/ops-id";
 import {
   fetchStockItemForMovement,
   mapStockMovementRow,
@@ -121,43 +121,61 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Quantité invalide" }, { status: 400 });
   }
 
-  const delta = qtyDelta(body.movementType, qty);
-  const newQty = Number(item.qty ?? 0) + delta;
   const unitPrice = body.unitPrice != null ? Math.max(0, Number(body.unitPrice)) : Number(item.unit_price ?? 0);
   const exitVoucherNo = await resolveExitVoucherNo(organizationId, body.movementType, body.exitVoucherNo);
 
   const project = await resolveProjectFields(supabase, organizationId, body.projectId);
   const depot = await resolveDepotFields(supabase, organizationId, body.depotId);
+  const destDepot = body.destinationDepotId
+    ? await resolveDepotFields(supabase, organizationId, body.destinationDepotId)
+    : { depot_id: null as string | null };
 
-  const movementId = opsId("mov");
   const fields = movementInsertFields(body, item, project, depot, {
     qty,
     unitPrice,
-    stockAfter: newQty,
+    stockAfter: 0,
     exitVoucherNo,
   });
 
-  const { error: movErr } = await supabase.from("admin_stock_movements").insert({
-    id: movementId,
-    user_id: userId,
-    organization_id: organizationId,
-    item_id: item.id,
-    movement_type: body.movementType,
-    movement_date: body.movementDate || new Date().toISOString().slice(0, 10),
-    ...fields,
-  });
+  try {
+    const result = await recordStockMovementWithDepot(supabase, organizationId, userId, {
+      itemId: item.id,
+      movementType: body.movementType,
+      qty,
+      movementDate: body.movementDate || new Date().toISOString().slice(0, 10),
+      depotId: depot.depot_id,
+      destinationDepotId: destDepot.depot_id,
+      fields: {
+        reference: fields.reference as string,
+        designation: fields.designation as string,
+        category: fields.category as string,
+        articleCode: fields.article_code as string,
+        unit: fields.unit as string,
+        unitPrice,
+        assignment: fields.assignment as string,
+        exitVoucherNo,
+        requester: fields.requester as string,
+        storekeeper: fields.storekeeper as string,
+        supplier: fields.supplier as string,
+        deliveryNote: fields.delivery_note as string,
+        projectId: project.project_id,
+        siteName: fields.site_name as string,
+        notes: fields.notes as string,
+      },
+    });
 
-  if (movErr) return NextResponse.json({ error: movErr.message }, { status: 500 });
-
-  const { error: updErr } = await supabase
-    .from("admin_stock_items")
-    .update({ qty: newQty, updated_at: new Date().toISOString() })
-    .eq("id", item.id)
-    .eq("organization_id", organizationId);
-
-  if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
-
-  return NextResponse.json({ ok: true, newQty, exitVoucherNo, movementId });
+    return NextResponse.json({
+      ok: true,
+      newQty: result.newGlobalQty,
+      exitVoucherNo,
+      movementId: result.movementId,
+    });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Mouvement impossible" },
+      { status: 400 },
+    );
+  }
 }
 
 export async function PATCH(request: Request) {
@@ -215,7 +233,22 @@ export async function PATCH(request: Request) {
 
   const oldDelta = qtyDelta(mov.movement_type as StockMovementType, Number(mov.qty ?? 0));
   const newDelta = qtyDelta(newType, newQty);
-  const adjustedQty = Number(item.qty ?? 0) - oldDelta + newDelta;
+  let adjustedQty = Number(item.qty ?? 0) - oldDelta + newDelta;
+
+  try {
+    await reverseDepotMovementEffect(supabase, organizationId, mov as {
+      movement_type: string;
+      qty: number;
+      item_id: string;
+      depot_id: string | null;
+      destination_depot_id: string | null;
+    });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Modification refusée" },
+      { status: 400 },
+    );
+  }
 
   const project = await resolveProjectFields(
     supabase,
@@ -227,6 +260,10 @@ export async function PATCH(request: Request) {
     organizationId,
     body.depotId !== undefined ? body.depotId : (mov.depot_id as string | null),
   );
+  const destDepotId =
+    body.destinationDepotId !== undefined
+      ? body.destinationDepotId
+      : (mov.destination_depot_id as string | null);
 
   const unitPrice =
     body.unitPrice != null ? Math.max(0, Number(body.unitPrice)) : Number(mov.unit_price ?? 0);
@@ -258,12 +295,34 @@ export async function PATCH(request: Request) {
       project_id: project.project_id,
       site_name: project.site_name,
       depot_id: depot.depot_id,
+      destination_depot_id: destDepotId,
       notes: body.notes !== undefined ? body.notes.trim() : (mov.notes as string),
     })
     .eq("id", mov.id)
     .eq("organization_id", organizationId);
 
   if (updMovErr) return NextResponse.json({ error: updMovErr.message }, { status: 500 });
+
+  try {
+    await applyDepotMovementEffect(supabase, organizationId, {
+      movement_type: newType,
+      qty: newQty,
+      item_id: item.id,
+      depot_id: depot.depot_id,
+      destination_depot_id: destDepotId,
+    });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Modification refusée" },
+      { status: 400 },
+    );
+  }
+
+  if (newType !== "transfer") {
+    adjustedQty = Math.max(0, adjustedQty);
+  } else {
+    adjustedQty = Number(item.qty ?? 0);
+  }
 
   const { error: updItemErr } = await supabase
     .from("admin_stock_items")
@@ -321,7 +380,28 @@ export async function DELETE(request: Request) {
   }
 
   const oldDelta = qtyDelta(mov.movement_type as StockMovementType, Number(mov.qty ?? 0));
-  const adjustedQty = Number(item.qty ?? 0) - oldDelta;
+  let adjustedQty = Number(item.qty ?? 0) - oldDelta;
+
+  try {
+    await reverseDepotMovementEffect(supabase, organizationId, mov as {
+      movement_type: string;
+      qty: number;
+      item_id: string;
+      depot_id: string | null;
+      destination_depot_id: string | null;
+    });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Suppression refusée" },
+      { status: 400 },
+    );
+  }
+
+  if ((mov.movement_type as StockMovementType) === "transfer") {
+    adjustedQty = Number(item.qty ?? 0);
+  } else {
+    adjustedQty = Math.max(0, adjustedQty);
+  }
 
   const { error: delErr } = await supabase
     .from("admin_stock_movements")

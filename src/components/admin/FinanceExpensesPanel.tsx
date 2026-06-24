@@ -1,31 +1,56 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
+import type { Supplier } from "@/components/admin/devis-types";
+import { FinanceExpenseForm } from "@/components/admin/FinanceExpenseForm";
 import { useFinanceCore } from "@/components/admin/FinanceCaissePanel";
-import { FinanceMovementForm } from "@/components/admin/FinanceMovementForm";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
+import type { FinanceCategory } from "@/lib/admin/finance-types";
 import { moduleWrap } from "@/components/admin/admin-form-styles";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { FinanceExpensesPanelSkeleton } from "@/components/admin/skeletons/pages";
 
 export function FinanceExpensesPanel() {
-  const { accounts, categories, projects, customers, suppliers, loading, load } = useFinanceCore();
+  const { accounts, categories: coreCategories, projects, loading, load } = useFinanceCore();
+  const [categories, setCategories] = useState<FinanceCategory[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [referentialLoading, setReferentialLoading] = useState(true);
 
-  if (loading) return <AdminLoading />;
+  const loadSuppliers = useCallback(async () => {
+    const res = await fetch("/api/admin/suppliers", { cache: "no-store" });
+    if (res.ok) setSuppliers((await res.json()) as Supplier[]);
+  }, []);
 
-  const expenseCategories = categories.filter((c) => c.direction === "expense" || c.direction === "both");
+  useEffect(() => {
+    setCategories(coreCategories.filter((c) => c.direction === "expense" || c.direction === "both"));
+  }, [coreCategories]);
+
+  useEffect(() => {
+    if (loading) return;
+    setReferentialLoading(true);
+    void loadSuppliers().finally(() => setReferentialLoading(false));
+  }, [loading, loadSuppliers]);
+
+  async function refreshAll() {
+    await load();
+    await loadSuppliers();
+  }
+
+  if (loading || referentialLoading) return <FinanceExpensesPanelSkeleton />;
 
   return (
     <div className={moduleWrap}>
       <OpsModuleHeader
         title="Dépenses"
-        description="Saisie des dépenses — enregistrées en finance uniquement (séparé des opérations)."
+        description="Sorties caisse / banque — montant HT/TTC, fournisseur et catégorie."
       />
-      <FinanceMovementForm
+      <FinanceExpenseForm
         accounts={accounts}
-        categories={expenseCategories}
-        defaultType="expense"
-        referential={{ projects, customers, suppliers }}
-        title="Nouvelle dépense"
-        onSaved={() => void load()}
+        categories={categories}
+        projects={projects}
+        suppliers={suppliers}
+        onSupplierAdded={(supplier) => setSuppliers((prev) => [...prev, supplier])}
+        onCategoryAdded={(category) => setCategories((prev) => [...prev, category])}
+        onSaved={() => void refreshAll()}
       />
     </div>
   );

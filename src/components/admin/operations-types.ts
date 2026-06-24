@@ -49,13 +49,11 @@ export interface AdminSite {
   name: string;
 }
 
-export type ProjectStatus = "draft" | "active" | "suspended" | "closed";
+export type ProjectStatus = "active" | "inactive";
 
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
-  draft: "Brouillon",
-  active: "En cours",
-  suspended: "Suspendu",
-  closed: "Clôturé",
+  active: "Actif",
+  inactive: "Inactif",
 };
 
 export interface AdminProject {
@@ -74,9 +72,85 @@ export interface AdminProject {
   chantierDocumentUrl: string;
   planUrl: string;
   notes: string;
+  budgetMad: number;
+  /** null = all sections visible */
+  ficheVisibleSections: import("@/lib/admin/project-fiche-sections").ProjectFicheSectionId[] | null;
 }
 
 export type AdminProjectForm = Omit<AdminProject, "id">;
+
+export type ProjectLaborEntry = {
+  id: string;
+  projectId: string;
+  employeeId: string | null;
+  employeeName: string;
+  workDate: string;
+  daysWorked: number;
+  dailyRate: number;
+  amount: number;
+  notes: string;
+};
+
+export type ProjectDashboardMaterial = {
+  id: string;
+  source: "parts" | "stock" | "transport";
+  date: string;
+  designation: string;
+  reference: string;
+  location: string;
+  qty: number;
+  unit: string;
+  totalMad: number;
+};
+
+export type ProjectDashboardPayment = {
+  id: string;
+  date: string;
+  paymentMethod: string;
+  reference: string;
+  amount: number;
+};
+
+export type ProjectDashboardExpense = {
+  id: string;
+  date: string;
+  category: string;
+  amount: number;
+};
+
+export type ProjectDashboardClientInvoice = {
+  id: string;
+  documentNumber: string;
+  amountHt: number;
+  amountTtc: number;
+  paidAmount: number;
+  remainingAmount: number;
+  paymentStatus: string;
+};
+
+export type ProjectDashboard = {
+  projectId: string;
+  budgetMad: number;
+  montantPaye: number;
+  resteARecevoir: number;
+  totalCostMad: number;
+  materials: ProjectDashboardMaterial[];
+  labor: ProjectLaborEntry[];
+  payments: ProjectDashboardPayment[];
+  expenses: ProjectDashboardExpense[];
+  clientInvoices: ProjectDashboardClientInvoice[];
+  costBreakdown: { materials: number; labor: number; other: number };
+  cumulativeCost: { date: string; total: number }[];
+};
+
+export type ProjectFinancialSummary = {
+  projectId: string;
+  budgetMad: number;
+  montantPaye: number;
+  resteARecevoir: number;
+  totalCostMad: number;
+  margeMad: number;
+};
 
 export type DepotType = "central" | "site" | "other";
 
@@ -105,7 +179,7 @@ export interface ProjectSummary {
   trips: { totalKm: number; entryCount: number; recent: Trip[] };
   purchaseRequests: { pendingCount: number; totalAmount: number; entryCount: number; recent: PurchaseRequest[] };
   rentals: { totalMad: number; entryCount: number; recent: RentalContract[] };
-  stock: { movementCount: number };
+  stock: { movementCount: number; recent: StockMovement[] };
 }
 
 export interface AdminEquipment {
@@ -174,9 +248,20 @@ export interface StockMovement {
   siteName: string;
   projectId: string | null;
   depotId: string | null;
+  destinationDepotId: string | null;
   notes: string;
   createdAt: string;
   traitementLink: StockTraitementLink | null;
+}
+
+export interface PurchaseRequestLine {
+  reference: string;
+  designation: string;
+  unit: string;
+  productId: string | null;
+  stockItemId: string | null;
+  qty: number;
+  unitPrice: number;
 }
 
 export interface PurchaseRequest {
@@ -205,6 +290,7 @@ export interface PurchaseRequest {
   pumpMeter: number | null;
   stockItemId: string | null;
   stockQtyAtRequest: number | null;
+  lines: PurchaseRequestLine[];
 }
 
 export type GasoilBonType = "achat" | "sortie";

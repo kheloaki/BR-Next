@@ -5,7 +5,7 @@ import { opsId } from "@/lib/admin/ops-id";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { ProjectStatus } from "@/components/admin/operations-types";
 
-const STATUSES: ProjectStatus[] = ["draft", "active", "suspended", "closed"];
+const STATUSES: ProjectStatus[] = ["active", "inactive"];
 
 export async function GET(request: Request) {
   const auth = await requireAdminUserId();
@@ -25,7 +25,35 @@ export async function GET(request: Request) {
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json((data ?? []).map((r) => mapAdminProjectRow(r as Record<string, unknown>)));
+  const projects = (data ?? []).map((r) => mapAdminProjectRow(r as Record<string, unknown>));
+
+  const financials = new URL(request.url).searchParams.get("financials") === "1";
+  if (!financials || projects.length === 0) {
+    return NextResponse.json(projects);
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { fetchProjectFinancialSummaries } = await import("@/lib/admin/project-dashboard");
+  const summaries = await fetchProjectFinancialSummaries(
+    supabase,
+    organizationId,
+    projects.map((p) => p.id),
+  );
+  const summaryById = new Map(summaries.map((s) => [s.projectId, s]));
+
+  return NextResponse.json(
+    projects.map((p) => ({
+      ...p,
+      financials: summaryById.get(p.id) ?? {
+        projectId: p.id,
+        budgetMad: p.budgetMad,
+        montantPaye: 0,
+        resteARecevoir: p.budgetMad,
+        totalCostMad: 0,
+        margeMad: 0,
+      },
+    })),
+  );
 }
 
 export async function POST(request: Request) {

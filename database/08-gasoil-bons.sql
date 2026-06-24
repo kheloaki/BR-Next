@@ -20,6 +20,7 @@ create table if not exists public.admin_gasoil_bons (
   delivery_note text not null default '',
   notes text not null default '',
   created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
   constraint admin_gasoil_bons_type_check
     check (bon_type in ('achat', 'sortie')),
   constraint admin_gasoil_bons_vehicle_check

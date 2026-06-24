@@ -53,6 +53,14 @@ const PATCHES = [
   "39-report-log-site-reports.sql",
   "40-finance-foundation.sql",
   "41-finance-roles.sql",
+  "42-project-budget-labor.sql",
+  "43-project-fiche-settings.sql",
+  "44-project-status-active-inactive.sql",
+  "45-depot-stock.sql",
+  "46-gasoil-bons-updated-at.sql",
+  "47-purchase-request-lines.sql",
+  "48-supplier-supply-type-catalog.sql",
+  "49-gasoil-unit-litres.sql",
 ];
 
 function loadDatabaseUrl() {

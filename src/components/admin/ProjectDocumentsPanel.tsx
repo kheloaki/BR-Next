@@ -7,10 +7,11 @@ import { SITE_PV_TYPE_LABELS } from "@/lib/admin/site-pv-types";
 import type { SitePvType } from "@/lib/admin/site-pv-types";
 import { SITE_REPORT_TYPE_LABELS } from "@/lib/admin/site-report-types";
 import type { SiteReportType } from "@/lib/admin/site-report-types";
-import { btnSecondary, rowHover, tdClass, thClass } from "@/components/admin/admin-form-styles";
+import { btnSecondary, rowHover, tdClass, tdTextClass, thClass } from "@/components/admin/admin-form-styles";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { ProjectDocumentsPanelSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 
 function labelForExport(row: ReportExportRow) {
   if (row.reportKind === "etat" && row.reportModule) {
@@ -52,7 +53,7 @@ export function ProjectDocumentsPanel({ projectId }: { projectId: string }) {
     void load();
   }, [load]);
 
-  if (loading) return <AdminLoading />;
+  if (loading) return <ProjectDocumentsPanelSkeleton />;
 
   return (
     <div className="space-y-4">
@@ -82,14 +83,18 @@ export function ProjectDocumentsPanel({ projectId }: { projectId: string }) {
                 return (
                   <tr key={row.id} className={rowHover}>
                     <td className={tdClass}>{row.createdAt.slice(0, 16).replace("T", " ")}</td>
-                    <td className={tdClass}>{labelForExport(row)}</td>
+                    <td className={tdTextClass}>
+                      <AdminTruncatedText text={labelForExport(row)} />
+                    </td>
                     <td className={tdClass}>{row.reportFormat.toUpperCase()}</td>
                     <td className={tdClass}>
                       {row.periodFrom || row.periodTo
                         ? `${row.periodFrom ?? "…"} → ${row.periodTo ?? "…"}`
                         : "—"}
                     </td>
-                    <td className={`${tdClass} font-mono text-xs`}>{row.filename}</td>
+                    <td className={tdTextClass}>
+                      <AdminTruncatedText text={row.filename} lines={1} />
+                    </td>
                     <td className={tdClass}>
                       {regen ? (
                         <a href={regen} className={btnSecondary} target="_blank" rel="noopener noreferrer">
@@ -126,7 +131,7 @@ export function ProjectHistoryPanel({ projectId }: { projectId: string }) {
     })();
   }, [projectId]);
 
-  if (loading) return <AdminLoading />;
+  if (loading) return <ProjectDocumentsPanelSkeleton />;
 
   const KIND_LABELS = { etat: "État", pv: "PV", rapport: "Rapport" } as const;
 

@@ -16,10 +16,15 @@ import {
   btnDanger,
   btnPrimary,
   btnSecondary,
+  filterBarClass,
+  filterFieldWrap,
+  filterInputClass,
   formGridClass,
   inputClass,
   labelClass,
+  rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import {
@@ -31,9 +36,14 @@ import {
 } from "@/components/admin/RentalMaterialFormFields";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { RentalMaterialsPanelSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { materialLabel, materialMatchesDateRange, rentalMaterialPriceSummary } from "@/lib/admin/map-rental-material-catalog";
+import { ProjectSelect } from "@/components/admin/ProjectSelect";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
+import { SearchableSelect } from "@/components/admin/SearchableSelect";
+import { enumToOptions, stringOptions, withEmptyOption } from "@/components/admin/searchable-options";
 import { confirmDelete, readApiError } from "@/components/admin/ux/useAdminToast";
 
 const MATERIAL_CATEGORIES = Object.keys(MATERIAL_CATEGORY_LABELS) as MaterialCategory[];
@@ -215,7 +225,7 @@ export function RentalMaterialPanel({
         onChange={setTab}
       />
 
-      {loading ? <AdminLoading /> : null}
+      {loading ? <RentalMaterialsPanelSkeleton /> : null}
 
       {!loading && tab === "list" ? (
         <AdminInventoryCard
@@ -229,108 +239,87 @@ export function RentalMaterialPanel({
             </button>
           }
         >
-          <div className="flex flex-wrap items-end gap-2 border-b border-border px-4 py-3">
-            <div>
+          <div className={filterBarClass}>
+            <div className={filterFieldWrap}>
               <p className={labelClass}>Chantier</p>
-              <select
-                className={`${inputClass} mt-1 min-w-[160px]`}
-                value={filterProjectId}
-                onChange={(e) => setFilterProjectId(e.target.value)}
-              >
-                <option value="">Tous chantiers</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+              <div className="mt-1">
+                <ProjectSelect
+                  projects={projects}
+                  value={filterProjectId}
+                  onChange={setFilterProjectId}
+                  allowEmpty
+                  placeholder="Tous chantiers"
+                  activeOnly={false}
+                />
+              </div>
             </div>
-            <div>
+            <div className={filterFieldWrap}>
               <p className={labelClass}>Catégorie</p>
-              <select
-                className={`${inputClass} mt-1 min-w-[160px]`}
+              <SearchableEnumSelect
+                options={withEmptyOption(enumToOptions(MATERIAL_CATEGORY_LABELS), "Toutes catégories")}
                 value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-              >
-                <option value="">Toutes catégories</option>
-                {MATERIAL_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {MATERIAL_CATEGORY_LABELS[c]}
-                  </option>
-                ))}
-              </select>
+                onChange={setFilterCategory}
+                placeholder="Toutes catégories"
+                inputClassName={filterInputClass}
+              />
             </div>
-            <div>
+            <div className={filterFieldWrap}>
               <p className={labelClass}>Mode</p>
-              <select
-                className={`${inputClass} mt-1 min-w-[160px]`}
+              <SearchableEnumSelect
+                options={withEmptyOption(enumToOptions(RENTAL_LOCATION_MODE_LABELS), "Tous modes")}
                 value={filterMode}
-                onChange={(e) => setFilterMode(e.target.value)}
-              >
-                <option value="">Tous modes</option>
-                {RENTAL_MODES.map((mode) => (
-                  <option key={mode} value={mode}>
-                    {RENTAL_LOCATION_MODE_LABELS[mode]}
-                  </option>
-                ))}
-              </select>
+                onChange={setFilterMode}
+                placeholder="Tous modes"
+                inputClassName={filterInputClass}
+              />
             </div>
-            <div>
+            <div className={filterFieldWrap}>
               <p className={labelClass}>Fournisseur</p>
-              <select
-                className={`${inputClass} mt-1 min-w-[160px]`}
+              <SearchableSelect
+                options={withEmptyOption(stringOptions(ownerOptions), "Tous fournisseurs")}
                 value={filterOwner}
-                onChange={(e) => setFilterOwner(e.target.value)}
-              >
-                <option value="">Tous fournisseurs</option>
-                {ownerOptions.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
+                onChange={setFilterOwner}
+                placeholder="Tous fournisseurs"
+                inputClassName={filterInputClass}
+              />
             </div>
-            <div>
+            <div className={filterFieldWrap}>
               <p className={labelClass}>Conducteur</p>
-              <select
-                className={`${inputClass} mt-1 min-w-[160px]`}
+              <SearchableSelect
+                options={withEmptyOption(stringOptions(driverOptions), "Tous conducteurs")}
                 value={filterDriver}
-                onChange={(e) => setFilterDriver(e.target.value)}
-              >
-                <option value="">Tous conducteurs</option>
-                {driverOptions.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
+                onChange={setFilterDriver}
+                placeholder="Tous conducteurs"
+                inputClassName={filterInputClass}
+              />
             </div>
-            <div>
+            <div className={filterFieldWrap}>
               <p className={labelClass}>Statut</p>
-              <select
-                className={`${inputClass} mt-1 min-w-[140px]`}
+              <SearchableEnumSelect
+                options={withEmptyOption(
+                  enumToOptions({ active: "Actif", inactive: "Inactif" }),
+                  "Tous statuts",
+                )}
                 value={filterActive}
-                onChange={(e) => setFilterActive(e.target.value)}
-              >
-                <option value="">Tous statuts</option>
-                <option value="active">Actif</option>
-                <option value="inactive">Inactif</option>
-              </select>
+                onChange={setFilterActive}
+                placeholder="Tous statuts"
+                inputClassName={filterInputClass}
+              />
             </div>
-            <div>
+            <div className={filterFieldWrap}>
               <p className={labelClass}>Contrat du</p>
               <input
                 type="date"
-                className={`${inputClass} mt-1 min-w-[140px]`}
+                className={filterInputClass}
                 value={filterDateFrom}
                 onChange={(e) => setFilterDateFrom(e.target.value)}
               />
             </div>
-            <div>
+            <div className={filterFieldWrap}>
               <p className={labelClass}>Au</p>
               <input
                 type="date"
-                className={`${inputClass} mt-1 min-w-[140px]`}
+                className={filterInputClass}
                 value={filterDateTo}
                 onChange={(e) => setFilterDateTo(e.target.value)}
               />
@@ -338,7 +327,7 @@ export function RentalMaterialPanel({
             {hasActiveFilters ? (
               <button
                 type="button"
-                className={`${btnSecondary} mt-5`}
+                className={`${btnSecondary} w-full xl:w-auto`}
                 onClick={() => {
                   setFilterProjectId("");
                   setFilterCategory("");
@@ -378,9 +367,15 @@ export function RentalMaterialPanel({
                 {filtered.map((m) => (
                   <tr key={m.id}>
                     <td className={tdClass}>{MATERIAL_CATEGORY_LABELS[m.materialCategory]}</td>
-                    <td className={`${tdClass} font-mono text-xs`}>{m.reference || m.matricule || "—"}</td>
-                    <td className={tdClass}>{m.designation}</td>
-                    <td className={tdClass}>{projectName(m.projectId)}</td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={m.reference || m.matricule} lines={1} />
+                    </td>
+                    <td className={tdTextClass}>
+                      <AdminTruncatedText text={m.designation} />
+                    </td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={projectName(m.projectId)} lines={1} />
+                    </td>
                     <td className={tdClass}>{RENTAL_LOCATION_MODE_LABELS[m.rentalMode]}</td>
                     <td className={`${tdClass} tabular-nums`}>{rentalMaterialPriceSummary(m)}</td>
                     <td className={tdClass}>

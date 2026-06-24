@@ -1,7 +1,10 @@
+"use client";
+
 import Link from "next/link";
+import { useMemo } from "react";
 import type { AdminDepot } from "@/components/admin/operations-types";
 import { DEPOT_TYPE_LABELS } from "@/components/admin/operations-types";
-import { inputClass } from "@/components/admin/admin-form-styles";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/admin/SearchableSelect";
 
 export function DepotSelect({
   depots,
@@ -16,6 +19,14 @@ export function DepotSelect({
   placeholder?: string;
   allowEmpty?: boolean;
 }) {
+  const options = useMemo((): SearchableSelectOption[] => {
+    return depots.map((d) => ({
+      value: d.id,
+      label: `${d.name} (${DEPOT_TYPE_LABELS[d.depotType]})`,
+      keywords: d.name,
+    }));
+  }, [depots]);
+
   if (depots.length === 0) {
     return (
       <p className="text-xs text-[#7a3d12]">
@@ -29,13 +40,12 @@ export function DepotSelect({
   }
 
   return (
-    <select className={inputClass} value={value} onChange={(e) => onChange(e.target.value)}>
-      {allowEmpty ? <option value="">{placeholder}</option> : null}
-      {depots.map((d) => (
-        <option key={d.id} value={d.id}>
-          {d.name} ({DEPOT_TYPE_LABELS[d.depotType]})
-        </option>
-      ))}
-    </select>
+    <SearchableSelect
+      options={options}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      allowEmpty={allowEmpty}
+    />
   );
 }

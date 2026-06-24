@@ -2,7 +2,6 @@ import { jsPDF } from "jspdf";
 import logoStacked from "@/assets/barane-logo-stacked.png";
 import type { PurchaseRequest } from "@/components/admin/operations-types";
 import { PURCHASE_CATEGORY_LABELS, PURCHASE_STATUS_LABELS } from "@/components/admin/operations-types";
-import { DEFAULT_VAT_RATE } from "@/lib/admin/price-ht-ttc";
 
 const COLORS = {
   navy: [26, 39, 68] as [number, number, number],
@@ -11,10 +10,6 @@ const COLORS = {
   headerBg: [241, 245, 249] as [number, number, number],
   text: [30, 41, 59] as [number, number, number],
 };
-
-function money(value: number) {
-  return new Intl.NumberFormat("fr-MA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
-}
 
 function formatDate(value: string) {
   const d = new Date(value);
@@ -99,30 +94,35 @@ export async function downloadPurchaseRequestPdf(
   doc.setFontSize(8);
   doc.text("Réf.", margin + 2, y + 4.5);
   doc.text("Désignation", margin + 22, y + 4.5);
-  doc.text("Qté", pageW - margin - 48, y + 4.5, { align: "right" });
-  doc.text("P.U. HT", pageW - margin - 32, y + 4.5, { align: "right" });
-  doc.text("Total HT", pageW - margin - 2, y + 4.5, { align: "right" });
+  doc.text("Unité", pageW - margin - 38, y + 4.5, { align: "right" });
+  doc.text("Qté", pageW - margin - 2, y + 4.5, { align: "right" });
   y += 9;
 
-  const designation = da.designation.trim() || da.subject;
-  const totalHt = da.qty * da.unitPrice;
-  doc.setFont("helvetica", "normal");
-  doc.text(da.reference || "—", margin + 2, y + 4);
-  doc.text(doc.splitTextToSize(designation, 70), margin + 22, y + 4);
-  doc.text(String(da.qty), pageW - margin - 48, y + 4, { align: "right" });
-  doc.text(money(da.unitPrice), pageW - margin - 32, y + 4, { align: "right" });
-  doc.text(money(totalHt), pageW - margin - 2, y + 4, { align: "right" });
-  y += 14;
+  const lines =
+    da.lines?.length > 0
+      ? da.lines
+      : [
+          {
+            reference: da.reference,
+            designation: da.designation.trim() || da.subject,
+            unit: da.unit,
+            qty: da.qty,
+            unitPrice: da.unitPrice,
+          },
+        ];
 
-  const ttc = totalHt * (1 + DEFAULT_VAT_RATE / 100);
-  doc.setFont("helvetica", "bold");
-  doc.text(`Total HT : ${money(totalHt)} MAD`, pageW - margin, y, { align: "right" });
-  y += 5;
   doc.setFont("helvetica", "normal");
-  doc.text(`Total TTC (${DEFAULT_VAT_RATE}%) : ${money(ttc)} MAD`, pageW - margin, y, { align: "right" });
+  for (const line of lines) {
+    const designation = line.designation.trim() || da.subject;
+    doc.text(line.reference || "—", margin + 2, y + 4);
+    doc.text(doc.splitTextToSize(designation, 90), margin + 22, y + 4);
+    doc.text(line.unit || "—", pageW - margin - 38, y + 4, { align: "right" });
+    doc.text(String(line.qty), pageW - margin - 2, y + 4, { align: "right" });
+    y += 8;
+  }
 
   if (da.justification.trim()) {
-    y += 10;
+    y += 6;
     doc.setFont("helvetica", "bold");
     doc.text("Justification", margin, y);
     y += 5;

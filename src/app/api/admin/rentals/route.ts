@@ -17,6 +17,10 @@ import { opsId } from "@/lib/admin/ops-id";
 import { formatBonLocationNo } from "@/lib/admin/rental-bon-number-format";
 import { resolveBonLocationNo } from "@/lib/admin/rental-bon-number";
 import { resolveProjectFields } from "@/lib/admin/project-resolve";
+import {
+  resolveBonTransportFromMaterials,
+  transportDepartAlreadyCharged,
+} from "@/lib/admin/rental-transport";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type MaterialRow = {
@@ -27,6 +31,8 @@ type MaterialRow = {
   designation: string;
   sub_category: string;
   owner_name: string;
+  transport_mode: string;
+  transport_price: number;
 };
 
 function normalizeLines(body: RentalBonBody, materials: Map<string, MaterialRow>) {
@@ -58,6 +64,7 @@ function buildPayload(
   bonLocationNo: string,
   primaryMaterial: MaterialRow | null,
   lines: ReturnType<typeof normalizeLines>,
+  transport: { transport_mode: string; transport_price: number },
 ) {
   const firstLine = lines[0];
 
@@ -91,8 +98,8 @@ function buildPayload(
     line_date: firstLine?.lineDate || null,
     gasoil: gasoilTotal,
     bon_lines: lines,
-    transport_mode: "",
-    transport_price: 0,
+    transport_mode: transport.transport_mode,
+    transport_price: transport.transport_price,
     equipment_name: designation || resolveEquipmentName(body),
     contract_no: bonLocationNo,
     hourly_rate: dailyRate > 0 ? dailyRate / RENTAL_HOURS_PER_DAY : Number(body.hourlyRate) || 0,
@@ -111,7 +118,7 @@ async function loadMaterials(
   if (ids.length === 0) return map;
   const { data } = await supabase
     .from("admin_rental_materials")
-    .select("id, material_category, reference, matricule, designation, sub_category, owner_name")
+    .select("id, material_category, reference, matricule, designation, sub_category, owner_name, transport_mode, transport_price")
     .eq("organization_id", organizationId)
     .in("id", ids);
   for (const row of data ?? []) map.set(row.id as string, row as MaterialRow);
@@ -193,6 +200,14 @@ export async function POST(request: Request) {
 
   const project = await resolveProjectFields(supabase, organizationId, body.projectId);
 
+  const chargedMaterialIds = new Set<string>();
+  for (const id of materialIds) {
+    if (await transportDepartAlreadyCharged(supabase, organizationId, project.project_id!, id, body.id)) {
+      chargedMaterialIds.add(id);
+    }
+  }
+  const transport = resolveBonTransportFromMaterials(materialIds, materialsMap, chargedMaterialIds);
+
   let bonLocationNo = formatBonLocationNo(body.bonLocationNo ?? body.contractNo ?? "");
   if (!bonLocationNo) {
     if (body.id) {
@@ -208,7 +223,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const payload = buildPayload(body, project, bonLocationNo, primaryMaterial, lines);
+  const payload = buildPayload(body, project, bonLocationNo, primaryMaterial, lines, transport);
 
   const result = body.id
     ? await supabase

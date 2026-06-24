@@ -1,5 +1,6 @@
 "use client";
 
+import { FrenchDateInput } from "@/components/admin/FrenchDateTimeInput";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
 import type { AdminProject } from "@/components/admin/operations-types";
 import type { Supplier } from "@/components/admin/devis-types";
@@ -43,11 +44,10 @@ export function FuelGasoilBonCommandeForm({
         </div>
         <div>
           <p className={labelClass}>Date *</p>
-          <input
-            type="date"
+          <FrenchDateInput
             className={`${inputClass} mt-1`}
             value={form.bonDate}
-            onChange={(e) => onChange({ bonDate: e.target.value })}
+            onChange={(bonDate) => onChange({ bonDate })}
           />
         </div>
         <div>

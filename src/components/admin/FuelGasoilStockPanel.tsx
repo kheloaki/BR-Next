@@ -7,6 +7,7 @@ import { FuelJournalPanel } from "@/components/admin/FuelJournalPanel";
 import { StockStatusBadge } from "@/components/admin/StatusBadge";
 import type { StockItem, StockMovement } from "@/components/admin/operations-types";
 import { STOCK_MOVEMENT_LABELS } from "@/components/admin/operations-types";
+import { traitementsHref } from "@/lib/admin/traitement-nav";
 import {
   btnPrimary,
   btnSecondary,
@@ -14,13 +15,15 @@ import {
   labelClass,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { FuelStockPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import { gasoilMovementDetail, gasoilMovementOrigin } from "@/lib/admin/gasoil-stock-movement-label";
@@ -108,7 +111,7 @@ export function FuelGasoilStockPanel({
     onUpdated?.();
   }
 
-  if (loading) return <AdminLoading />;
+  if (loading) return <FuelStockPageSkeleton />;
 
   const tabs = (
     <AdminTabs
@@ -168,7 +171,7 @@ export function FuelGasoilStockPanel({
         <span className="font-mono text-sm text-[var(--navy)]">{item.reference || "GASOIL"}</span>
         <span className="text-sm text-[var(--graphite)]/75">— {item.designation}</span>
         <StockStatusBadge status={item.status} />
-        <Link href="/admin/traitements-achat" className={`${btnPrimary} ml-auto text-sm`}>
+        <Link href={traitementsHref({ type: "achat" })} className={`${btnPrimary} ml-auto text-sm`}>
           Traitement achat gasoil
         </Link>
         <Link href="/admin/fuel/bons" className={`${btnSecondary} text-sm`}>
@@ -205,7 +208,7 @@ export function FuelGasoilStockPanel({
         {movements.length === 0 ? (
           <div className="px-5 py-10 text-center text-sm text-[var(--graphite)]/70">
             Aucun mouvement.{" "}
-            <Link href="/admin/traitements-achat" className="font-medium underline underline-offset-2">
+            <Link href={traitementsHref({ type: "achat" })} className="font-medium underline underline-offset-2">
               Traitement achat gasoil
             </Link>{" "}
             pour enregistrer une entrée stock.
@@ -226,11 +229,17 @@ export function FuelGasoilStockPanel({
               {movements.map((m) => (
                 <tr key={m.id} className={rowHover}>
                   <td className={tdClass}>{m.movementDate}</td>
-                  <td className={tdClass}>{gasoilMovementOrigin(m)}</td>
+                  <td className={tdTextClass}>
+                    <AdminTruncatedText text={gasoilMovementOrigin(m)} />
+                  </td>
                   <td className={tdClass}>{STOCK_MOVEMENT_LABELS[m.movementType]}</td>
                   <td className={tdClass}>{m.qty.toLocaleString("fr-MA")} L</td>
-                  <td className={tdClass}>{m.siteName || "—"}</td>
-                  <td className={tdClass}>{gasoilMovementDetail(m)}</td>
+                  <td className={tdClass}>
+                    <AdminTruncatedText text={m.siteName} lines={1} />
+                  </td>
+                  <td className={tdClass}>
+                    <AdminTruncatedText text={gasoilMovementDetail(m)} lines={1} />
+                  </td>
                 </tr>
               ))}
             </tbody>

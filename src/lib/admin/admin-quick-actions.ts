@@ -1,3 +1,5 @@
+import { traitementsHref } from "@/lib/admin/traitement-nav";
+
 export type AdminQuickAction = {
   href: string;
   label: string;
@@ -27,8 +29,8 @@ export const ADMIN_QUICK_ACTION_GROUPS: AdminQuickActionGroup[] = [
     label: "Approvisionnement",
     actions: [
       { href: "/admin/purchase-requests?new=1", label: "Nouvelle DA", hint: "Articles ou gasoil" },
-      { href: "/admin/traitements-achat?new=1", label: "Traitement achat" },
-      { href: "/admin/traitements-vente?new=1", label: "Traitement vente" },
+      { href: traitementsHref({ type: "achat", new: true }), label: "Traitement achat" },
+      { href: traitementsHref({ type: "vente", new: true }), label: "Traitement vente" },
       { href: "/admin/stock", label: "Stock" },
     ],
   },
@@ -43,7 +45,7 @@ export const ADMIN_QUICK_ACTION_GROUPS: AdminQuickActionGroup[] = [
     label: "Carburant",
     actions: [
       { href: "/admin/purchase-requests?new=gasoil", label: "DA gasoil" },
-      { href: "/admin/traitements-achat?new=1", label: "Traitement achat gasoil", hint: "BC / réception" },
+      { href: traitementsHref({ type: "achat", new: true }), label: "Traitement achat gasoil", hint: "BC / réception" },
       { href: "/admin/fuel/bons", label: "Bon de sortie gasoil" },
       { href: "/admin/fuel/stock", label: "Stock gasoil" },
     ],
@@ -51,9 +53,8 @@ export const ADMIN_QUICK_ACTION_GROUPS: AdminQuickActionGroup[] = [
   {
     label: "Finance",
     actions: [
-      { href: "/admin/finance/caisse", label: "Caisse" },
-      { href: "/admin/finance/banque", label: "Banque" },
-      { href: "/admin/finance/etats", label: "États finance" },
+      { href: "/admin/finance/caisse", label: "Caisse & banque" },
+      { href: "/admin/finance/factures", label: "Factures" },
     ],
   },
   {

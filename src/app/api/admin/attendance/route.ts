@@ -30,6 +30,7 @@ export async function GET(request: Request) {
   if ("error" in auth) return auth.error;
   const { userId, organizationId } = auth;
   const month = new URL(request.url).searchParams.get("month");
+  const date = new URL(request.url).searchParams.get("date");
 
   let query = getSupabaseAdminClient()
     .from("admin_attendance")
@@ -37,7 +38,9 @@ export async function GET(request: Request) {
     .eq("organization_id", organizationId)
     .order("record_date", { ascending: false });
 
-  if (month) {
+  if (date) {
+    query = query.eq("record_date", date.slice(0, 10));
+  } else if (month) {
     query = query.gte("record_date", `${month}-01`).lte("record_date", `${month}-31`);
   } else {
     query = query.limit(200);

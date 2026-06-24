@@ -3,7 +3,9 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminTabs } from "@/components/admin/AdminTabs";
-import { ProductCategorySelect } from "@/components/admin/ProductCategorySelect";
+import { ProductCategorySelectWithAdd } from "@/components/admin/ProductCategorySelectWithAdd";
+import { SearchableSelect } from "@/components/admin/SearchableSelect";
+import { withEmptyOption } from "@/components/admin/searchable-options";
 import { type Product, type ProductCategory } from "@/components/admin/devis-types";
 import {
   btnDanger,
@@ -19,14 +21,16 @@ import {
   moduleWrap,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminDataSheet, AdminSheetField } from "@/components/admin/ux/AdminDataSheet";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { ProductsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { HtTtcPriceFields } from "@/components/admin/HtTtcPriceFields";
 import { ProductUnitField } from "@/components/admin/ProductUnitField";
@@ -100,6 +104,15 @@ export function ProductsManager() {
     if (!q) return categories;
     return categories.filter((c) => c.name.toLowerCase().includes(q));
   }, [categories, categorySearch]);
+
+  const categoryFilterOptions = useMemo(
+    () =>
+      withEmptyOption(
+        categories.map((c) => ({ value: c.name, label: c.name, keywords: c.name })),
+        "Toutes catégories",
+      ),
+    [categories],
+  );
 
   const countByCategory = useMemo(() => {
     const map = new Map<string, number>();
@@ -281,7 +294,7 @@ export function ProductsManager() {
         onChange={setTab}
       />
 
-      {loading ? <AdminLoading /> : null}
+      {loading ? <ProductsPageSkeleton partial /> : null}
 
       {tab === "categories" && !loading && (
         <>
@@ -356,18 +369,13 @@ export function ProductsManager() {
             onSearchChange={setSearch}
             searchPlaceholder="Rechercher un produit…"
             actions={
-              <select
-                className={`${inputClass} max-w-[160px] min-h-[38px] py-2`}
+              <SearchableSelect
+                options={categoryFilterOptions}
                 value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-              >
-                <option value="">Toutes catégories</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.name}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setFilterCategory}
+                placeholder="Toutes catégories"
+                inputClassName={`${inputClass} max-w-[160px] min-h-[38px] py-2`}
+              />
             }
           >
             {filtered.length === 0 ? (
@@ -395,9 +403,15 @@ export function ProductsManager() {
                 <tbody>
                   {filtered.map((product) => (
                     <tr key={product.id} className="hover:bg-[var(--background)]/80 transition-colors">
-                      <td className={inventoryTdClass}>{product.reference}</td>
-                      <td className={inventoryTdClass}>{product.designation}</td>
-                      <td className={inventoryTdClass}>{product.category || "—"}</td>
+                      <td className={tdTextClass}>
+                        <AdminTruncatedText text={product.reference} lines={1} />
+                      </td>
+                      <td className={tdTextClass}>
+                        <AdminTruncatedText text={product.designation} />
+                      </td>
+                      <td className={tdClass}>
+                        <AdminTruncatedText text={product.category} lines={1} />
+                      </td>
                       <td className={inventoryTdClass}>{product.unit || "u"}</td>
                       <td className={inventoryTdNumClass}>{product.unitPrice.toLocaleString("fr-MA")}</td>
                       <td className={inventoryTdNumClass}>
@@ -462,7 +476,14 @@ export function ProductsManager() {
             />
           </AdminSheetField>
           <AdminSheetField label="Catégorie">
-            <ProductCategorySelect categories={categories} value={newCategory} onChange={setNewCategory} />
+            <ProductCategorySelectWithAdd
+              categories={categories}
+              value={newCategory}
+              onChange={setNewCategory}
+              onCategoryAdded={(c) =>
+                setCategories((prev) => (prev.some((x) => x.id === c.id) ? prev : [...prev, c]))
+              }
+            />
           </AdminSheetField>
           <AdminSheetField label="Unité" required>
             <ProductUnitField value={newUnit} onChange={setNewUnit} required />

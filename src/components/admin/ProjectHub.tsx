@@ -2,35 +2,28 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { Settings } from "lucide-react";
 import {
   PROJECT_STATUS_LABELS,
   type ProjectSummary,
 } from "@/components/admin/operations-types";
 import { AdminTabs } from "@/components/admin/AdminTabs";
+import { ProjectFicheDashboard } from "@/components/admin/ProjectFicheDashboard";
 import { ProjectFinancePanel } from "@/components/admin/ProjectFinancePanel";
 import { ProjectReportsPanel } from "@/components/admin/ProjectReportsPanel";
 import { ProjectDocumentsPanel, ProjectHistoryPanel } from "@/components/admin/ProjectDocumentsPanel";
-import { btnSecondary, moduleWrap, tdClass, thClass } from "@/components/admin/admin-form-styles";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
-import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
-import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { ProjectFicheSettingsSheet } from "@/components/admin/ProjectFicheSettingsSheet";
+import { btnSecondary, moduleWrap } from "@/components/admin/admin-form-styles";
+import { ProjectHubSkeleton } from "@/components/admin/skeletons/pages";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
-
-const MODULE_LINKS = [
-  { href: "fuel", label: "Carburant", path: "/admin/fuel/stock" },
-  { href: "hr", label: "RH & pointage", path: "/admin/hr" },
-  { href: "stock", label: "Stock", path: "/admin/stock" },
-  { href: "purchase-requests", label: "Demandes d'achat", path: "/admin/purchase-requests" },
-  { href: "equipment-rental", label: "Matériel", path: "/admin/equipment-rental/materials" },
-  { href: "rental-bons", label: "Bons location", path: "/admin/equipment-rental/bons" },
-  { href: "traitements-achat", label: "Traitement achat", path: "/admin/traitements-achat" },
-  { href: "traitements-vente", label: "Traitement vente", path: "/admin/traitements-vente" },
-] as const;
 
 export function ProjectHub({ projectId }: { projectId: string }) {
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [canManageFinance, setCanManageFinance] = useState(false);
+  const [canSeeFinancials, setCanSeeFinancials] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [tab, setTab] = useState<
     "overview" | "etats" | "finance" | "rentabilite" | "documents" | "historique"
   >("overview");
@@ -38,12 +31,24 @@ export function ProjectHub({ projectId }: { projectId: string }) {
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
-    const res = await fetch(`/api/admin/projects/${projectId}/summary`, { cache: "no-store" });
-    if (!res.ok) {
-      setError(res.status === 404 ? "Projet introuvable." : "Impossible de charger la fiche.");
+    const [summaryRes, ctxRes] = await Promise.all([
+      fetch(`/api/admin/projects/${projectId}/summary`, { cache: "no-store" }),
+      fetch("/api/admin/organization/context", { cache: "no-store" }),
+    ]);
+    if (ctxRes.ok) {
+      const ctx = (await ctxRes.json()) as {
+        canManageFinance?: boolean;
+        canAccessFinance?: boolean;
+        canSeeFinancialTotals?: boolean;
+      };
+      setCanManageFinance(Boolean(ctx.canAccessFinance));
+      setCanSeeFinancials(ctx.canSeeFinancialTotals ?? true);
+    }
+    if (!summaryRes.ok) {
+      setError(summaryRes.status === 404 ? "Projet introuvable." : "Impossible de charger la fiche.");
       setSummary(null);
     } else {
-      setSummary((await res.json()) as ProjectSummary);
+      setSummary((await summaryRes.json()) as ProjectSummary);
     }
     setLoading(false);
   }, [projectId]);
@@ -52,7 +57,7 @@ export function ProjectHub({ projectId }: { projectId: string }) {
     void load();
   }, [load]);
 
-  if (loading) return <AdminLoading />;
+  if (loading) return <ProjectHubSkeleton />;
 
   if (error || !summary) {
     return (
@@ -66,7 +71,6 @@ export function ProjectHub({ projectId }: { projectId: string }) {
   }
 
   const { project } = summary;
-  const q = `project=${projectId}`;
 
   return (
     <div className={moduleWrap}>
@@ -91,8 +95,17 @@ export function ProjectHub({ projectId }: { projectId: string }) {
         }
         actions={
           <>
-            <Link href={`/admin/projets`} className={btnSecondary}>
-              Modifier
+            <button
+              type="button"
+              className={`${btnSecondary} inline-flex items-center gap-2`}
+              title="Paramètres du projet"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <Settings className="h-4 w-4" aria-hidden />
+              Paramètres
+            </button>
+            <Link href="/admin/projets" className={btnSecondary}>
+              Liste projets
             </Link>
           </>
         }
@@ -171,91 +184,24 @@ export function ProjectHub({ projectId }: { projectId: string }) {
       ) : tab === "historique" ? (
         <ProjectHistoryPanel projectId={projectId} />
       ) : (
-        <>
-      <AdminMiniStats
-        items={[
-          { label: "Litres carburant", value: `${summary.fuel.totalLitres.toLocaleString("fr-MA")} L` },
-          { label: "Présences RH", value: String(summary.attendance.presentCount) },
-          { label: "DA en attente", value: String(summary.purchaseRequests.pendingCount) },
-          { label: "Location (MAD)", value: summary.rentals.totalMad.toLocaleString("fr-MA") },
-          { label: "Mouvements stock", value: String(summary.stock.movementCount) },
-        ]}
-      />
-
-      <div className="mb-6 flex flex-wrap gap-2">
-        {MODULE_LINKS.map((m) => (
-          <Link
-            key={m.href}
-            href={`${m.path}?${q}`}
-            className="rounded-md border border-border bg-white px-3 py-2 text-sm font-medium text-[var(--navy)] hover:border-[var(--gold)]/50 hover:bg-[#fffbf7]"
-          >
-            {m.label} →
-          </Link>
-        ))}
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-4">
-        <section>
-          <h3 className="text-sm font-semibold text-[var(--navy)] mb-2">Carburant récent</h3>
-          {summary.fuel.recent.length === 0 ? (
-            <p className="text-sm text-[var(--graphite)]/70">Aucune saisie.</p>
-          ) : (
-            <AdminTableWrap>
-              <thead>
-                <tr>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>Engin</th>
-                  <th className={thClass}>L</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summary.fuel.recent.map((r) => (
-                  <tr key={r.id}>
-                    <td className={tdClass}>{r.entryDate}</td>
-                    <td className={tdClass}>{r.equipmentName}</td>
-                    <td className={tdClass}>{r.litres}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </AdminTableWrap>
-          )}
-        </section>
-
-        <section>
-          <h3 className="text-sm font-semibold text-[var(--navy)] mb-2">Pointage récent</h3>
-          {summary.attendance.recent.length === 0 ? (
-            <p className="text-sm text-[var(--graphite)]/70">Aucun pointage.</p>
-          ) : (
-            <AdminTableWrap>
-              <thead>
-                <tr>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>Nom</th>
-                  <th className={thClass}>Statut</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summary.attendance.recent.map((r) => (
-                  <tr key={r.id}>
-                    <td className={tdClass}>{r.recordDate}</td>
-                    <td className={tdClass}>{r.employeeName}</td>
-                    <td className={tdClass}>{r.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </AdminTableWrap>
-          )}
-        </section>
-      </div>
-
-      <p className="mt-4 text-xs text-[var(--graphite)]/65">
-        Mouvements stock liés : {summary.stock.movementCount} —{" "}
-        <Link href={`/admin/stock?${q}`} className="underline text-[var(--navy)]">
-          voir le stock
-        </Link>
-      </p>
-        </>
+        <ProjectFicheDashboard
+          projectId={projectId}
+          projectName={project.name}
+          project={project}
+          summary={summary}
+          canManageFinance={canManageFinance}
+          canSeeFinancials={canSeeFinancials}
+        />
       )}
+
+      <ProjectFicheSettingsSheet
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        project={project}
+        onSaved={(updated) => {
+          setSummary((prev) => (prev ? { ...prev, project: updated } : prev));
+        }}
+      />
     </div>
   );
 }

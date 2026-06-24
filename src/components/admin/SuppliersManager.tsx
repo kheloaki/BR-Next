@@ -7,28 +7,27 @@ import {
   btnDanger,
   btnPrimary,
   btnSecondary,
-  categorySegmentBtnSelected,
-  categorySegmentBtnUnselected,
   formGridClass,
   inputClass,
-  labelClass,
   moduleWrap,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { SuppliersPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
-import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import {
-  formatSupplyTypesLabels,
-  SUPPLIER_SUPPLY_TYPE_LABELS,
-  SUPPLIER_SUPPLY_TYPES,
-  type SupplierSupplyType,
-} from "@/lib/admin/supplier-types";
+  formatSupplyTypesLabelsFromCatalog,
+  type SupplierSupplyTypeOption,
+} from "@/lib/admin/supplier-supply-type-catalog";
+import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { SupplierSupplyTypesPicker } from "@/components/admin/SupplierSupplyTypesPicker";
+import type { SupplierSupplyType } from "@/lib/admin/supplier-types";
 
 type SupplierFormState = {
   supplierName: string;
@@ -78,6 +77,7 @@ export function SuppliersManager() {
   const [form, setForm] = useState<SupplierFormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [supplyTypeOptions, setSupplyTypeOptions] = useState<SupplierSupplyTypeOption[]>([]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -116,9 +116,13 @@ export function SuppliersManager() {
         (s.bankName || "").toLowerCase().includes(q) ||
         (s.rib || "").toLowerCase().includes(q) ||
         (s.address || "").toLowerCase().includes(q) ||
-        formatSupplyTypesLabels(s.supplyTypes ?? []).toLowerCase().includes(q),
+        formatSupplyTypesLabelsFromCatalog(s.supplyTypes ?? [], supplyTypeOptions).toLowerCase().includes(q),
     );
-  }, [suppliers, search]);
+  }, [suppliers, search, supplyTypeOptions]);
+
+  function formatTypes(types: SupplierSupplyType[]) {
+    return formatSupplyTypesLabelsFromCatalog(types, supplyTypeOptions);
+  }
 
   function resetForm() {
     setEditId(null);
@@ -136,13 +140,6 @@ export function SuppliersManager() {
     setEditId(supplier.id);
     setForm(supplierToForm(supplier));
     setShowForm(true);
-  }
-
-  function toggleType(t: SupplierSupplyType) {
-    setForm((prev) => ({
-      ...prev,
-      types: prev.types.includes(t) ? prev.types.filter((x) => x !== t) : [...prev.types, t],
-    }));
   }
 
   async function saveSupplier() {
@@ -289,21 +286,12 @@ export function SuppliersManager() {
                 value={form.address}
                 onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
               />
-              <div className="sm:col-span-2">
-                <p className={labelClass}>Types d&apos;approvisionnement *</p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {SUPPLIER_SUPPLY_TYPES.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      className={form.types.includes(t) ? categorySegmentBtnSelected : categorySegmentBtnUnselected}
-                      onClick={() => toggleType(t)}
-                    >
-                      {SUPPLIER_SUPPLY_TYPE_LABELS[t]}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <SupplierSupplyTypesPicker
+                className="sm:col-span-2"
+                value={form.types}
+                onChange={(types) => setForm((f) => ({ ...f, types }))}
+                onOptionsChange={setSupplyTypeOptions}
+              />
             </div>
           </AdminFormCard>
         </div>
@@ -314,7 +302,7 @@ export function SuppliersManager() {
       ) : null}
 
       {loading ? (
-        <AdminLoading />
+        <SuppliersPageSkeleton partial />
       ) : (
         <AdminInventoryCard
           title={`Liste des fournisseurs (${filtered.length}${search ? ` / ${suppliers.length}` : ""})`}
@@ -350,19 +338,33 @@ export function SuppliersManager() {
               <tbody>
                 {filtered.map((supplier) => (
                   <tr key={supplier.id} className={rowHover}>
-                    <td className={tdClass}>{supplier.supplierName || "—"}</td>
-                    <td className={tdClass}>{supplier.companyName || "—"}</td>
-                    <td className={tdClass}>{supplier.ice || "—"}</td>
-                    <td className={tdClass}>{supplier.city || "—"}</td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={supplier.supplierName} lines={1} />
+                    </td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={supplier.companyName} lines={1} />
+                    </td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={supplier.ice} lines={1} />
+                    </td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={supplier.city} lines={1} />
+                    </td>
                     <td className={tdClass}>
                       <span className="text-xs text-[var(--graphite)]/85">
-                        {formatSupplyTypesLabels(supplier.supplyTypes ?? [])}
+                        {formatTypes(supplier.supplyTypes ?? [])}
                       </span>
                     </td>
-                    <td className={tdClass}>{supplier.contact || "—"}</td>
-                    <td className={tdClass}>{supplier.bankName || "—"}</td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={supplier.contact} lines={1} />
+                    </td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={supplier.bankName} lines={1} />
+                    </td>
                     <td className={`${tdClass} font-mono text-xs`}>{supplier.rib || "—"}</td>
-                    <td className={tdClass}>{supplier.address || "—"}</td>
+                    <td className={tdTextClass}>
+                      <AdminTruncatedText text={supplier.address} />
+                    </td>
                     <td className={tdClass}>
                       <div className="flex flex-wrap gap-1">
                         <button type="button" onClick={() => openEdit(supplier)} className={btnSecondary}>

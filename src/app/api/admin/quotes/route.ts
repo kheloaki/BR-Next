@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { QuoteDraft } from "@/components/admin/devis-types";
 import { requireAdminContext } from "@/lib/admin/require-admin";
+import { computeNextDocumentNumber, yearFromDate } from "@/lib/admin/document-number";
 import { syncTraitementAfterQuoteSave } from "@/lib/admin/traitement-sync-server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -93,6 +94,20 @@ export async function POST(request: Request) {
 
   if (lookupError) {
     return NextResponse.json({ error: lookupError.message }, { status: 500 });
+  }
+
+  if (!existing) {
+    const { data: rows, error: listError } = await supabase
+      .from("admin_quotes")
+      .select("payload")
+      .eq("organization_id", organizationId);
+    if (listError) {
+      return NextResponse.json({ error: listError.message }, { status: 500 });
+    }
+    const allQuotes = (rows ?? []).map((row) => row.payload as QuoteDraft);
+    const docType = payload.documentType ?? "devis";
+    const year = yearFromDate(payload.date);
+    payload.quoteNumber = computeNextDocumentNumber(allQuotes, docType, year);
   }
 
   if (existing) {

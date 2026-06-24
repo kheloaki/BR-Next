@@ -15,6 +15,20 @@ export function formatSupplierDisplayName(
   return (fallbackName ?? "").trim();
 }
 
+/** Société imprimée sur BC / factures fournisseur — jamais le nom du contact seul. */
+export function supplierDocumentCompanyName(
+  s: Pick<Supplier, "companyName" | "supplierName" | "name">,
+): string {
+  const company = s.companyName?.trim();
+  if (company) return company;
+  const legacy = s.name?.trim() ?? "";
+  if (legacy.includes(" — ")) {
+    const tail = legacy.split(" — ").pop()?.trim();
+    if (tail) return tail;
+  }
+  return legacy || s.supplierName?.trim() || "";
+}
+
 export function validateSupplierNames(supplierName?: string, companyName?: string): string | null {
   if (!(supplierName?.trim() || companyName?.trim())) {
     return "Indiquez le nom du fournisseur et/ou la société.";

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminTabs } from "@/components/admin/AdminTabs";
+import { FinanceAccountSelect } from "@/components/admin/FinanceAccountSelect";
 import { FinanceJournalTable, FinanceMovementForm } from "@/components/admin/FinanceMovementForm";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import type { AdminProject } from "@/components/admin/operations-types";
@@ -16,7 +17,7 @@ import {
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { FinanceCaissePanelSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
@@ -77,7 +78,7 @@ export function useFinanceCore(accountType?: "cash" | "bank") {
   };
 }
 
-export function FinanceCaissePanel() {
+export function FinanceCaissePanel({ embedded = false }: { embedded?: boolean }) {
   const toast = useAdminToast();
   const { accounts, categories, movements, projects, customers, suppliers, loading, load, loadMovements } =
     useFinanceCore("cash");
@@ -154,16 +155,10 @@ export function FinanceCaissePanel() {
     selectedAccountId &&
     `/api/admin/finance/movements?accountId=${encodeURIComponent(selectedAccountId)}&from=${dateFrom}&to=${dateTo}&format=csv`;
 
-  if (loading) return <AdminLoading />;
+  if (loading) return <FinanceCaissePanelSkeleton />;
 
-  return (
-    <div className={moduleWrap}>
-      <OpsModuleHeader
-        title="Caisse"
-        description="Entrées et sorties caisse — journal, solde et export."
-        exportHref={exportHref || undefined}
-      />
-
+  const content = (
+    <>
       {accounts.length === 0 ? (
         <AdminFormCard
           title="Initialiser la caisse"
@@ -193,17 +188,15 @@ export function FinanceCaissePanel() {
           <div className="flex flex-wrap gap-2 items-end mb-4">
             <div>
               <p className={labelClass}>Caisse</p>
-              <select
-                className={`${inputClass} mt-1 min-w-[200px]`}
-                value={selectedAccountId}
-                onChange={(e) => setSelectedAccountId(e.target.value)}
-              >
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
+              <div className="mt-1">
+                <FinanceAccountSelect
+                  accounts={accounts}
+                  value={selectedAccountId}
+                  onChange={setSelectedAccountId}
+                  inputClassName={`${inputClass} min-w-[200px]`}
+                  placeholder="Sélectionner…"
+                />
+              </div>
             </div>
             <div>
               <p className={labelClass}>Du</p>
@@ -277,6 +270,19 @@ export function FinanceCaissePanel() {
       )}
 
       <AdminToast message={toast.toast?.message ?? null} kind={toast.toast?.kind} onDismiss={toast.dismiss} />
+    </>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <div className={moduleWrap}>
+      <OpsModuleHeader
+        title="Caisse"
+        description="Entrées et sorties caisse — journal, solde et export."
+        exportHref={exportHref || undefined}
+      />
+      {content}
     </div>
   );
 }

@@ -7,8 +7,9 @@ import { applyGasoilStockForBon } from "@/lib/admin/gasoil-stock-server";
 import { gasoilBonPriceFields } from "@/lib/admin/gasoil-bon";
 import { resolveBonGasoilNo } from "@/lib/admin/bon-gasoil-number";
 import { resolveProjectFields } from "@/lib/admin/project-resolve";
-import { stockMovementQtyDelta } from "@/lib/admin/stock-movement-qty";
 import { resolveTraitementLineLinks } from "@/lib/admin/article-inventory";
+import { recordStockMovementWithDepot, type DepotStockMovementFields } from "@/lib/admin/depot-stock-server";
+import { upsertTraitementFinanceDocument } from "@/lib/admin/traitement-finance-sync";
 import type { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type Supabase = ReturnType<typeof getSupabaseAdminClient>;
@@ -96,6 +97,7 @@ export async function applyTraitementStockMovements(
     docDate: string;
     partnerName: string;
     projectId?: string | null;
+    depotId?: string | null;
     lines: {
       productId?: string | null;
       stockItemId: string | null;
@@ -138,52 +140,34 @@ export async function applyTraitementStockMovements(
       continue;
     }
 
-    const currentQty = Number(stockRow.qty ?? 0);
-    const delta = stockMovementQtyDelta(movementType, qty);
-    const newQty = Math.max(0, currentQty + delta);
-
-    if (movementType === "exit" && currentQty < qty) {
-      throw new Error(
-        `Stock insuffisant pour ${stockRow.designation} (${currentQty} disponibles, ${qty} demandés).`,
-      );
-    }
-
-    const { error: movErr } = await supabase.from("admin_stock_movements").insert({
-      id: opsId("mov"),
-      user_id: userId,
-      organization_id: organizationId,
-      item_id: stockRow.id,
-      movement_type: movementType,
-      movement_date: params.docDate || new Date().toISOString().slice(0, 10),
+    const movementType = movementTypeForStep(params.traitementType, params.step)!;
+    const fields: DepotStockMovementFields = {
       reference: stockRow.reference,
       designation: stockRow.designation,
       category: stockRow.category,
-      article_code: stockRow.articleCode ?? "",
+      articleCode: stockRow.articleCode ?? "",
       unit: line.unit || stockRow.unit || "PIECE",
-      qty,
-      unit_price: line.unitPrice || Number(stockRow.unitPrice ?? 0),
-      stock_after: newQty,
+      unitPrice: line.unitPrice || Number(stockRow.unitPrice ?? 0),
       assignment: project.site_name || "",
-      exit_voucher_no: "",
+      exitVoucherNo: "",
       requester: "",
       storekeeper: "",
       supplier: params.traitementType === "achat" ? params.partnerName : "",
-      delivery_note: params.docNumber,
-      project_id: project.project_id,
-      site_name: project.site_name,
-      depot_id: null,
+      deliveryNote: params.docNumber,
+      projectId: project.project_id,
+      siteName: project.site_name,
       notes: `${marker} · ${params.docNumber}`,
+    };
+
+    await recordStockMovementWithDepot(supabase, organizationId, userId, {
+      itemId: stockRow.id,
+      movementType,
+      qty,
+      movementDate: params.docDate || new Date().toISOString().slice(0, 10),
+      depotId: params.depotId,
+      fields,
     });
 
-    if (movErr) throw new Error(movErr.message);
-
-    const { error: updErr } = await supabase
-      .from("admin_stock_items")
-      .update({ qty: newQty, updated_at: new Date().toISOString() })
-      .eq("id", stockRow.id)
-      .eq("organization_id", organizationId);
-
-    if (updErr) throw new Error(updErr.message);
     applied += 1;
   }
 
@@ -243,6 +227,20 @@ export async function syncTraitementAfterQuoteSave(
 
   if (error) throw new Error(error.message);
 
+  let financeDocument = null;
+  if (step === "f") {
+    const refreshed = await loadTraitement(supabase, organizationId, quote.traitementId);
+    if (refreshed) {
+      financeDocument = await upsertTraitementFinanceDocument(
+        supabase,
+        organizationId,
+        userId,
+        refreshed,
+        quote,
+      );
+    }
+  }
+
   let stockResult = null;
   const shouldApplyStock =
     options?.isCreate !== false && (!prev?.quoteId || prev.quoteId !== quote.id);
@@ -256,11 +254,12 @@ export async function syncTraitementAfterQuoteSave(
       docDate,
       partnerName: traitement.partnerName,
       projectId: traitement.projectId,
+      depotId: traitement.depotId,
       lines: traitement.lines,
     });
   }
 
-  return { traitementId: traitement.id, step, stockResult };
+  return { traitementId: traitement.id, step, stockResult, financeDocument };
 }
 
 export async function registerTraitementBrStep(
@@ -287,6 +286,7 @@ export async function registerTraitementBrStep(
     docDate,
     partnerName: traitement.partnerName,
     projectId: traitement.projectId,
+    depotId: traitement.depotId,
     lines: traitement.lines,
   });
 

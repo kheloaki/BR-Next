@@ -1,7 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { FinanceAccountSelect } from "@/components/admin/FinanceAccountSelect";
 import { FinanceJournalTable, FinanceMovementForm } from "@/components/admin/FinanceMovementForm";
+import { SearchableSelect } from "@/components/admin/SearchableSelect";
+import { withEmptyOption } from "@/components/admin/searchable-options";
 import { useFinanceCore } from "@/components/admin/FinanceCaissePanel";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import type { FinanceAccount } from "@/lib/admin/finance-types";
@@ -15,12 +18,12 @@ import {
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { FinanceBanquePanelSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 
-export function FinanceBanquePanel() {
+export function FinanceBanquePanel({ embedded = false }: { embedded?: boolean }) {
   const toast = useAdminToast();
   const { accounts, categories, movements, projects, customers, suppliers, loading, load, loadMovements } =
     useFinanceCore("bank");
@@ -99,14 +102,23 @@ export function FinanceBanquePanel() {
     if (selectedAccountId) await loadMovements(selectedAccountId, dateFrom, dateTo);
   }
 
-  if (loading) return <AdminLoading />;
+  const transferAccountOptions = useMemo(
+    () =>
+      withEmptyOption(
+        [...cashAccounts, ...accounts].map((a) => ({
+          value: a.id,
+          label: `${a.name} (${a.accountType})`,
+          keywords: a.name,
+        })),
+        "—",
+      ),
+    [cashAccounts, accounts],
+  );
 
-  const allAccounts = [...cashAccounts, ...accounts];
+  if (loading) return <FinanceBanquePanelSkeleton />;
 
-  return (
-    <div className={moduleWrap}>
-      <OpsModuleHeader title="Banque" description="Comptes bancaires, mouvements, chèques et virements." />
-
+  const content = (
+    <>
       {accounts.length === 0 ? (
         <AdminFormCard
           title="Créer un compte bancaire"
@@ -141,13 +153,13 @@ export function FinanceBanquePanel() {
           />
 
           <div className="flex flex-wrap gap-2 mb-4">
-            <select className={inputClass} value={selectedAccountId} onChange={(e) => setSelectedAccountId(e.target.value)}>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name} — {(a.balance ?? 0).toLocaleString("fr-MA")} MAD
-                </option>
-              ))}
-            </select>
+            <FinanceAccountSelect
+              accounts={accounts}
+              value={selectedAccountId}
+              onChange={setSelectedAccountId}
+              inputClassName={inputClass}
+              placeholder="Compte bancaire…"
+            />
             <button type="button" className={btnSecondary} onClick={() => setShowForm(true)}>
               + Compte
             </button>
@@ -171,25 +183,27 @@ export function FinanceBanquePanel() {
               <div className={formGridClass}>
                 <div>
                   <p className={labelClass}>De</p>
-                  <select className={`${inputClass} mt-1`} value={transferFrom} onChange={(e) => setTransferFrom(e.target.value)}>
-                    <option value="">—</option>
-                    {allAccounts.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name} ({a.accountType})
-                      </option>
-                    ))}
-                  </select>
+                  <div className="mt-1">
+                    <SearchableSelect
+                      options={transferAccountOptions}
+                      value={transferFrom}
+                      onChange={setTransferFrom}
+                      placeholder="—"
+                      inputClassName={inputClass}
+                    />
+                  </div>
                 </div>
                 <div>
                   <p className={labelClass}>Vers</p>
-                  <select className={`${inputClass} mt-1`} value={transferTo} onChange={(e) => setTransferTo(e.target.value)}>
-                    <option value="">—</option>
-                    {allAccounts.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name} ({a.accountType})
-                      </option>
-                    ))}
-                  </select>
+                  <div className="mt-1">
+                    <SearchableSelect
+                      options={transferAccountOptions}
+                      value={transferTo}
+                      onChange={setTransferTo}
+                      placeholder="—"
+                      inputClassName={inputClass}
+                    />
+                  </div>
                 </div>
                 <div>
                   <p className={labelClass}>Montant</p>
@@ -230,6 +244,15 @@ export function FinanceBanquePanel() {
       ) : null}
 
       <AdminToast message={toast.toast?.message ?? null} kind={toast.toast?.kind} onDismiss={toast.dismiss} />
+    </>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <div className={moduleWrap}>
+      <OpsModuleHeader title="Banque" description="Comptes bancaires, mouvements, chèques et virements." />
+      {content}
     </div>
   );
 }

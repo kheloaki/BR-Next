@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { btnSecondary } from "@/components/admin/admin-form-styles";
+import { traitementsHref } from "@/lib/admin/traitement-nav";
 
 export function StockTraitementBanner() {
   return (
@@ -20,6 +21,13 @@ export function StockTraitementBanner() {
       </p>
       <ul className="list-disc pl-5 space-y-0.5 text-[#1a3a5c]/90">
         <li>
+          <strong>Gasoil</strong> : stock citerne, bons de sortie et journal — module{" "}
+          <Link href="/admin/fuel/stock" className="font-medium underline underline-offset-2">
+            Carburant
+          </Link>{" "}
+          (pas cette page)
+        </li>
+        <li>
           <strong>Achat</strong> : BC → BL (entrée stock) → Facture — puis <strong>→ Vente</strong> (même articles)
         </li>
         <li>
@@ -30,10 +38,10 @@ export function StockTraitementBanner() {
         <Link href="/admin/purchase-requests" className={btnSecondary}>
           Demandes d&apos;achat
         </Link>
-        <Link href="/admin/traitements-achat" className={btnSecondary}>
+        <Link href={traitementsHref({ type: "achat" })} className={btnSecondary}>
           Traitements achat
         </Link>
-        <Link href="/admin/traitements-vente" className={btnSecondary}>
+        <Link href={traitementsHref({ type: "vente" })} className={btnSecondary}>
           Traitements vente
         </Link>
       </div>

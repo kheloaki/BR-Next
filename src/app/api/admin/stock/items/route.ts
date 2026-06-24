@@ -6,7 +6,7 @@ import {
   loadInventoryRows,
   loadProducts,
 } from "@/lib/admin/article-inventory";
-import { excludeGasoilFromStockList, isGasoilStockItem } from "@/lib/admin/gasoil-stock";
+import { excludeGasoilFromStockList, GASOIL_STOCK_MODULE_MESSAGE, isGasoilStockItem } from "@/lib/admin/gasoil-stock";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Inventaire introuvable." }, { status: 404 });
   }
   if (isGasoilStockItem(existing)) {
-    return NextResponse.json({ error: "Le stock gasoil se gère dans le module Carburant." }, { status: 400 });
+    return NextResponse.json({ error: GASOIL_STOCK_MODULE_MESSAGE }, { status: 400 });
   }
 
   const payload: Record<string, unknown> = {
@@ -159,7 +159,7 @@ export async function DELETE(request: Request) {
     .maybeSingle();
   if (existing && isGasoilStockItem(existing)) {
     return NextResponse.json(
-      { error: "Le stock gasoil se gère dans le module Carburant." },
+      { error: GASOIL_STOCK_MODULE_MESSAGE },
       { status: 400 },
     );
   }

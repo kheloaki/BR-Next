@@ -7,7 +7,7 @@ import { RentalMaterialPanel } from "@/components/admin/RentalMaterialPanel";
 import type { MaterialDetailCategory, RentalMaterial, GasoilContact } from "@/components/admin/operations-types";
 import type { Supplier } from "@/components/admin/devis-types";
 import { moduleWrap } from "@/components/admin/admin-form-styles";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { RentalManagerMaterialsSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { useOpsReferential } from "@/components/admin/useOpsReferential";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
@@ -85,7 +85,7 @@ export function RentalManager({ view }: { view: RentalView }) {
         />
       ) : null}
 
-      {materialsLoading ? <AdminLoading /> : null}
+      {materialsLoading ? <RentalManagerMaterialsSkeleton /> : null}
 
       {!materialsLoading && view === "materials" ? (
         <RentalMaterialPanel

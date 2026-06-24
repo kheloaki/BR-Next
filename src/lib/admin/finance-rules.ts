@@ -81,6 +81,24 @@ export function validateMovementInput(input: {
   return null;
 }
 
+export function suggestFinanceMovementReference(prefix = "MOV"): string {
+  const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `${prefix}-${datePart}-${suffix}`;
+}
+
+export function pickDefaultFinanceAccountId(
+  accounts: { id: string; accountType?: string; isDefault?: boolean; isActive?: boolean }[],
+): string {
+  const active = accounts.filter((a) => a.isActive !== false);
+  return (
+    active.find((a) => a.isDefault)?.id ??
+    active.find((a) => a.accountType === "cash")?.id ??
+    active[0]?.id ??
+    ""
+  );
+}
+
 export const FINANCE_SYSTEM_CATEGORIES = [
   { slug: "client_payment", name: "Encaissement client", direction: "income" as const },
   { slug: "supplier_payment", name: "Paiement fournisseur", direction: "expense" as const },

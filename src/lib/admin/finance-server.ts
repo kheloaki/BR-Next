@@ -7,6 +7,8 @@ import type {
   FinanceCategory,
   FinanceCategoryDirection,
   FinanceDocument,
+  FinanceDocumentDetail,
+  FinanceDocumentPayment,
   FinanceDocumentType,
   FinanceMovement,
   FinanceMovementType,
@@ -254,6 +256,132 @@ export async function loadAccountBalances(organizationId: string, accountIds?: s
   return balances;
 }
 
+export type FinanceMovementInsertInput = {
+  accountId: string;
+  categoryId: string;
+  movementType: FinanceMovementType;
+  amount: number;
+  movementDate: string;
+  reference: string;
+  paymentMethod?: FinancePaymentMethod | null;
+  projectId?: string | null;
+  customerId?: string | null;
+  supplierId?: string | null;
+  chequeNumber?: string | null;
+  virementRef?: string | null;
+  effectRef?: string | null;
+  notes?: string | null;
+  receiptUrl?: string | null;
+  amountHt?: number | null;
+  vatAmount?: number | null;
+};
+
+export type FinanceAllocationInput = {
+  targetType: FinanceAllocationTargetType;
+  targetId: string;
+  allocatedAmount: number;
+  notes?: string | null;
+};
+
+export async function insertFinanceAllocation(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  organizationId: string,
+  movementId: string,
+  input: FinanceAllocationInput,
+) {
+  const { data: movement } = await supabase
+    .from("admin_finance_movements")
+    .select("amount, voided_at")
+    .eq("id", movementId)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+  if (!movement || movement.voided_at) {
+    throw new Error("Mouvement introuvable");
+  }
+
+  const { data: existing } = await supabase
+    .from("admin_finance_payment_allocations")
+    .select("allocated_amount")
+    .eq("movement_id", movementId);
+
+  const already = (existing ?? []).reduce((s, r) => s + Number(r.allocated_amount), 0);
+  if (already + input.allocatedAmount > Number(movement.amount) + 0.01) {
+    throw new Error("Montant alloué supérieur au paiement");
+  }
+
+  const id = newFinanceId("falloc");
+  const { data, error } = await supabase
+    .from("admin_finance_payment_allocations")
+    .insert({
+      id,
+      organization_id: organizationId,
+      movement_id: movementId,
+      target_type: input.targetType,
+      target_id: input.targetId,
+      allocated_amount: input.allocatedAmount,
+      notes: input.notes?.trim() || null,
+    })
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  if (input.targetType === "finance_document") {
+    await refreshFinanceDocumentTotals(input.targetId, organizationId);
+  }
+
+  return mapFinanceAllocation(data as Record<string, unknown>);
+}
+
+export async function recordFinancePaymentWithAllocation(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  organizationId: string,
+  userId: string,
+  movement: FinanceMovementInsertInput,
+  allocation?: FinanceAllocationInput,
+): Promise<FinanceMovement> {
+  const id = newFinanceId("fmov");
+  const { data, error } = await supabase
+    .from("admin_finance_movements")
+    .insert({
+      id,
+      organization_id: organizationId,
+      account_id: movement.accountId,
+      category_id: movement.categoryId,
+      movement_type: movement.movementType,
+      amount: movement.amount,
+      movement_date: movement.movementDate.slice(0, 10),
+      reference: movement.reference.trim(),
+      payment_method: movement.paymentMethod ?? null,
+      project_id: movement.projectId?.trim() || null,
+      customer_id: movement.customerId?.trim() || null,
+      supplier_id: movement.supplierId?.trim() || null,
+      cheque_number: movement.chequeNumber?.trim() || null,
+      virement_ref: movement.virementRef?.trim() || null,
+      effect_ref: movement.effectRef?.trim() || null,
+      created_by: userId,
+      notes: movement.notes?.trim() || null,
+      receipt_url: movement.receiptUrl?.trim() || null,
+      amount_ht: movement.amountHt ?? null,
+      vat_amount: movement.vatAmount ?? null,
+    })
+    .select(MOVEMENT_SELECT)
+    .single();
+
+  if (error) {
+    if (error.code === "23505") throw new Error("Référence déjà utilisée");
+    throw new Error(error.message);
+  }
+
+  const mapped = mapFinanceMovement(data as Record<string, unknown>);
+
+  if (allocation) {
+    await insertFinanceAllocation(supabase, organizationId, mapped.id, allocation);
+  }
+
+  return mapped;
+}
+
 export async function refreshFinanceDocumentTotals(documentId: string, organizationId: string) {
   const supabase = getSupabaseAdminClient();
   const { data: doc } = await supabase
@@ -323,3 +451,116 @@ export const DOCUMENT_SELECT = `
   admin_suppliers(name),
   admin_projects(name)
 `;
+
+export function buildFinanceSourceLabel(
+  sourceType: string | null,
+  traitementMeta?: { number: string; traitementType: "achat" | "vente" } | null,
+): string {
+  if (sourceType === "traitement" && traitementMeta) {
+    const kind = traitementMeta.traitementType === "vente" ? "vente" : "achat";
+    return `Traitement ${kind} ${traitementMeta.number}`;
+  }
+  if (sourceType === "quote") return "Facturation";
+  if (sourceType === "traitement") return "Traitement";
+  return "Manuel";
+}
+
+export async function enrichFinanceDocumentsWithSource(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  organizationId: string,
+  documents: FinanceDocument[],
+): Promise<FinanceDocument[]> {
+  const traitementIds = [
+    ...new Set(
+      documents
+        .filter((d) => d.sourceType === "traitement" && d.sourceId)
+        .map((d) => d.sourceId as string),
+    ),
+  ];
+
+  const metaById = new Map<string, { number: string; traitementType: "achat" | "vente" }>();
+  if (traitementIds.length > 0) {
+    const { data } = await supabase
+      .from("admin_traitements")
+      .select("id, number, traitement_type")
+      .eq("organization_id", organizationId)
+      .in("id", traitementIds);
+
+    for (const row of data ?? []) {
+      metaById.set(row.id as string, {
+        number: row.number as string,
+        traitementType: row.traitement_type as "achat" | "vente",
+      });
+    }
+  }
+
+  return documents.map((d) => {
+    const meta = d.sourceId ? metaById.get(d.sourceId) : undefined;
+    return {
+      ...d,
+      sourceLabel: buildFinanceSourceLabel(d.sourceType, meta),
+      sourceTraitementType: meta?.traitementType ?? null,
+    };
+  });
+}
+
+export async function fetchFinanceDocumentDetail(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  organizationId: string,
+  documentId: string,
+): Promise<FinanceDocumentDetail | null> {
+  const { data: docRow, error: docErr } = await supabase
+    .from("admin_finance_documents")
+    .select(DOCUMENT_SELECT)
+    .eq("organization_id", organizationId)
+    .eq("id", documentId)
+    .maybeSingle();
+
+  if (docErr) throw new Error(docErr.message);
+  if (!docRow) return null;
+
+  const baseDoc = mapFinanceDocument(docRow as Record<string, unknown>);
+  const [document] = await enrichFinanceDocumentsWithSource(supabase, organizationId, [baseDoc]);
+
+  const { data: allocationRows, error: allocErr } = await supabase
+    .from("admin_finance_payment_allocations")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("target_type", "finance_document")
+    .eq("target_id", documentId)
+    .order("allocated_at", { ascending: true });
+
+  if (allocErr) throw new Error(allocErr.message);
+
+  const movementIds = [...new Set((allocationRows ?? []).map((a) => a.movement_id as string))];
+  const movementById = new Map<string, FinanceMovement>();
+
+  if (movementIds.length > 0) {
+    const { data: movementRows, error: movErr } = await supabase
+      .from("admin_finance_movements")
+      .select(MOVEMENT_SELECT)
+      .eq("organization_id", organizationId)
+      .in("id", movementIds);
+
+    if (movErr) throw new Error(movErr.message);
+
+    for (const row of movementRows ?? []) {
+      movementById.set(row.id as string, mapFinanceMovement(row as Record<string, unknown>));
+    }
+  }
+
+  const payments: FinanceDocumentPayment[] = [];
+  for (const row of allocationRows ?? []) {
+    const movement = movementById.get(row.movement_id as string);
+    if (!movement || movement.voidedAt) continue;
+    payments.push({
+      ...movement,
+      allocationId: row.id as string,
+      allocatedAmount: Number(row.allocated_amount) || 0,
+      allocatedAt: row.allocated_at as string,
+      allocationNotes: (row.notes as string) || null,
+    });
+  }
+
+  return { document, payments };
+}

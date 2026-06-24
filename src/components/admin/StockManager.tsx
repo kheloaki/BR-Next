@@ -7,6 +7,9 @@ import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import { StockStatusBadge } from "@/components/admin/StatusBadge";
 import { StockMovementOrigin } from "@/components/admin/StockMovementOrigin";
 import { StockMovementHistoryPanel } from "@/components/admin/StockMovementHistoryPanel";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
+import { enumToOptions, withEmptyOption } from "@/components/admin/searchable-options";
+import { StockDepotPanel } from "@/components/admin/StockDepotPanel";
 import { useOpsReferential } from "@/components/admin/useOpsReferential";
 import {
   STOCK_MOVEMENT_LABELS,
@@ -27,16 +30,21 @@ import {
   moduleWrap,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminEmptyState } from "@/components/admin/ux/AdminEmptyState";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { StockPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { ReferentialBanner } from "@/components/admin/ux/ReferentialBanner";
+import { ProductSelectWithAdd } from "@/components/admin/ProductSelectWithAdd";
+import type { Product } from "@/components/admin/devis-types";
+import { isGasoilStockModuleError } from "@/lib/admin/gasoil-stock";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 
 export function StockManager() {
@@ -62,6 +70,12 @@ export function StockManager() {
   const [qty, setQty] = useState(0);
   const [minQty, setMinQty] = useState(0);
   const [unitPrice, setUnitPrice] = useState(0);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
+
+  const loadProducts = useCallback(async () => {
+    const res = await fetch("/api/admin/products", { cache: "no-store" });
+    if (res.ok) setCatalogProducts((await res.json()) as Product[]);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -77,7 +91,24 @@ export function StockManager() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadProducts();
+  }, [load, loadProducts]);
+
+  async function selectProductForInventory(productId: string) {
+    const itemsRes = await fetch("/api/admin/stock/items", { cache: "no-store" });
+    if (!itemsRes.ok) {
+      toast.error(await readApiError(itemsRes));
+      return;
+    }
+    const all = (await itemsRes.json()) as StockItem[];
+    setItems(all);
+    const item = all.find((i) => i.productId === productId);
+    if (item) {
+      openEditItem(item);
+    } else {
+      toast.error("Inventaire introuvable pour cet article.");
+    }
+  }
 
   const alerts = useMemo(() => items.filter((i) => i.status !== "ok"), [items]);
 
@@ -114,7 +145,7 @@ export function StockManager() {
 
   async function saveItem() {
     if (!editItemId) {
-      toast.error("Créez l'article dans Carnet → Produits ; l'inventaire sera créé automatiquement.");
+      toast.error("Sélectionnez ou créez un article du catalogue.");
       return;
     }
     setSaving(true);
@@ -130,7 +161,12 @@ export function StockManager() {
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error(await readApiError(res));
+      const message = await readApiError(res);
+      toast.error(
+        isGasoilStockModuleError(message)
+          ? `${message} Allez dans Carburant → Stock gasoil.`
+          : message,
+      );
       return;
     }
     toast.success("Inventaire mis à jour.");
@@ -179,6 +215,7 @@ export function StockManager() {
     resetItemForm();
     setTab("inventory");
     setShowAddForm(true);
+    void loadProducts();
     requestAnimationFrame(() => {
       document.getElementById("stock-add-form")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
@@ -201,7 +238,7 @@ export function StockManager() {
     <div className={moduleWrap}>
       <OpsModuleHeader
         title="Gestion de stock"
-        description="Inventaire lié au catalogue articles — ajustez quantités et seuils. Créez les articles dans Carnet → Produits."
+        description="Inventaire articles — quantités, seuils et mouvements."
         exportHref="/api/admin/stock/items?format=csv"
         actions={
           <Link href="/admin/products" className={btnPrimary}>
@@ -234,6 +271,7 @@ export function StockManager() {
       <AdminTabs
         tabs={[
           { id: "inventory", label: "Inventaire" },
+          { id: "depots", label: "Dépôts" },
           { id: "history", label: "Historique", badge: movements.length || undefined },
           { id: "alerts", label: "Alertes", badge: alerts.length },
         ]}
@@ -241,7 +279,7 @@ export function StockManager() {
         onChange={setTab}
       />
 
-      {loading ? <AdminLoading /> : null}
+      {loading ? <StockPageSkeleton partial /> : null}
 
       {!loading && tab === "inventory" && (
         <>
@@ -251,16 +289,16 @@ export function StockManager() {
             onSearchChange={setSearch}
             searchPlaceholder="Rechercher un article…"
             actions={
-              <select
-                className={`${inputClass} max-w-[160px] min-h-[38px] py-2`}
+              <SearchableEnumSelect
+                options={withEmptyOption(
+                  enumToOptions({ ok: "En stock", low: "Stock bas", out: "Rupture" }),
+                  "Tous statuts",
+                )}
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="">Tous statuts</option>
-                <option value="ok">En stock</option>
-                <option value="low">Stock bas</option>
-                <option value="out">Rupture</option>
-              </select>
+                onChange={setStatusFilter}
+                placeholder="Tous statuts"
+                inputClassName={`${inputClass} max-w-[160px] min-h-[38px] py-2`}
+              />
             }
           >
             {filtered.length === 0 ? (
@@ -288,9 +326,15 @@ export function StockManager() {
                 <tbody>
                   {filtered.map((item) => (
                     <tr key={item.id} className="hover:bg-[var(--background)]/80 transition-colors">
-                      <td className={inventoryTdClass}>{item.reference}</td>
-                      <td className={inventoryTdClass}>{item.designation}</td>
-                      <td className={inventoryTdClass}>{item.category || "—"}</td>
+                      <td className={tdTextClass}>
+                        <AdminTruncatedText text={item.reference} lines={1} />
+                      </td>
+                      <td className={tdTextClass}>
+                        <AdminTruncatedText text={item.designation} />
+                      </td>
+                      <td className={tdClass}>
+                        <AdminTruncatedText text={item.category} lines={1} />
+                      </td>
                       <td className={inventoryTdNumClass}>{item.qty}</td>
                       <td className={inventoryTdNumClass}>{item.minQty}</td>
                       <td className={inventoryTdNumClass}>{item.unitPrice.toLocaleString("fr-MA")}</td>
@@ -363,7 +407,9 @@ export function StockManager() {
                   {movements.slice(0, 8).map((m) => (
                     <tr key={m.id} className={rowHover}>
                       <td className={tdClass}>{m.movementDate}</td>
-                      <td className={tdClass}>{m.designation}</td>
+                      <td className={tdTextClass}>
+                        <AdminTruncatedText text={m.designation} />
+                      </td>
                       <td className={tdClass}>{STOCK_MOVEMENT_LABELS[m.movementType]}</td>
                       <td className={tdClass}>
                         <StockMovementOrigin link={m.traitementLink} />
@@ -384,7 +430,7 @@ export function StockManager() {
               hint={
                 editProductId
                   ? "Référence, désignation et prix : bouton Article ou Carnet → Produits."
-                  : "Référence et désignation se modifient dans Carnet → Produits."
+                  : "Choisissez un article existant ou créez-en un avec +."
               }
               footer={
                 <div className="flex flex-wrap gap-2">
@@ -414,21 +460,22 @@ export function StockManager() {
                     </Link>
                   </div>
                 ) : (
-                  <>
-                <div>
-                  <p className={labelClass}>Référence</p>
-                  <input className={`${inputClass} mt-1`} value={ref} onChange={(e) => setRef(e.target.value)} disabled />
-                </div>
-                <div className="sm:col-span-2">
-                  <p className={labelClass}>Désignation *</p>
-                  <input
-                    className={`${inputClass} mt-1`}
-                    value={designation}
-                    onChange={(e) => setDesignation(e.target.value)}
-                    disabled
-                  />
-                </div>
-                  </>
+                  <div className="sm:col-span-2">
+                    <p className={labelClass}>Article catalogue</p>
+                    <div className="mt-1">
+                      <ProductSelectWithAdd
+                        products={catalogProducts}
+                        value=""
+                        resetAfterSelect
+                        onChange={(id) => void selectProductForInventory(id)}
+                        onProductAdded={(p) => {
+                          setCatalogProducts((prev) =>
+                            prev.some((x) => x.id === p.id) ? prev : [...prev, p],
+                          );
+                        }}
+                      />
+                    </div>
+                  </div>
                 )}
                 <div>
                   <p className={labelClass}>Code article</p>
@@ -447,6 +494,10 @@ export function StockManager() {
             </div>
           ) : null}
         </>
+      )}
+
+      {!loading && tab === "depots" && (
+        <StockDepotPanel items={items} onChanged={load} />
       )}
 
       {!loading && tab === "history" && (

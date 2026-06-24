@@ -119,11 +119,11 @@ export default async function AdminPage({
             , {c.monthDocsCount} document{c.monthDocsCount !== 1 ? "s" : ""} ce mois.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Link href={facturationDocumentsPath()} className={btnPrimary}>
+        <div className="flex w-full flex-col gap-2 sm:flex-row">
+          <Link href={facturationDocumentsPath()} className={`${btnPrimary} w-full sm:w-auto`}>
             Documents enregistrés
           </Link>
-          <Link href="/admin/projets" className={btnSecondary}>
+          <Link href="/admin/projets" className={`${btnSecondary} w-full sm:w-auto`}>
             Chantiers
           </Link>
         </div>
@@ -165,7 +165,7 @@ export default async function AdminPage({
           {o.traitementsOpen > 0 ? (
             <p>
               <strong>{o.traitementsOpen}</strong> traitement{o.traitementsOpen > 1 ? "s" : ""} achat/vente en cours.{" "}
-              <Link href="/admin/traitements-achat" className="underline underline-offset-2">
+              <Link href="/admin/traitements" className="underline underline-offset-2">
                 Ouvrir
               </Link>
             </p>
@@ -243,13 +243,13 @@ export default async function AdminPage({
           label="Traitements"
           value={String(o.traitementsOpen)}
           hint="Achat / vente en cours"
-          href="/admin/traitements-achat"
+          href="/admin/traitements"
         />
       </div>
 
       <div className="mt-4 grid lg:grid-cols-3 gap-4">
         <div className="rounded-md border border-border bg-white p-5 lg:col-span-2">
-          <div className="flex items-end justify-between gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.12em] text-[var(--graphite)]/70">Activité du mois en cours</p>
               <p className="mt-1 text-3xl font-semibold text-[var(--navy)]">{moneyMad(c.monthTotalTtc)}</p>
@@ -342,8 +342,7 @@ export default async function AdminPage({
         <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           <ShortcutCard href="/admin/projets" title="Projets & états" description="Chantiers, KPIs et exports PDF/Excel." />
           <ShortcutCard href="/admin/etats" title="États ERP" description="Rapports Sage par chantier et période." />
-          <ShortcutCard href="/admin/traitements-achat" title="Traitements achat" description="BC, BL, factures fournisseurs." />
-          <ShortcutCard href="/admin/traitements-vente" title="Traitements vente" description="Devis, BL, factures clients." />
+          <ShortcutCard href="/admin/traitements" title="Traitements" description="Achat et vente — BC, BL, devis, factures." />
           <ShortcutCard href="/admin/stock" title="Stock" description="Inventaire, mouvements et alertes." />
           <ShortcutCard href="/admin/fuel/stock" title="Carburant" description="Stock gasoil et consommation." />
           <ShortcutCard href="/admin/equipment-rental/bons" title="Location" description="Bons journaliers matériel." />

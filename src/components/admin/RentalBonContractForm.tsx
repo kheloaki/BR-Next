@@ -3,7 +3,10 @@
 import { useMemo } from "react";
 import { GasoilContactSelectWithAdd } from "@/components/admin/GasoilContactSelectWithAdd";
 import { HtTtcPriceFields } from "@/components/admin/HtTtcPriceFields";
+import { FrenchDateInput } from "@/components/admin/FrenchDateTimeInput";
+import { MatriculeInput } from "@/components/admin/MatriculeInput";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
+import { SearchableSelect } from "@/components/admin/SearchableSelect";
 import type {
   AdminProject,
   GasoilContact,
@@ -213,7 +216,7 @@ export function RentalBonContractForm({
         </p>
       ) : null}
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto touch-pan-x overscroll-x-contain">
         <table className="w-full min-w-[640px] border-collapse text-sm">
           <thead>
             <tr className="border-b-2 border-[var(--navy)] bg-[#fafafa]">
@@ -226,9 +229,9 @@ export function RentalBonContractForm({
                 Pv / jr HT / TTC
                 <span className="block font-normal normal-case text-[var(--graphite)]/60">1 jr = {RENTAL_HOURS_PER_DAY} h</span>
               </th>
-              <th className="border-r border-[var(--navy)] px-2 py-2 text-[10px] font-bold uppercase">
+              <th className="min-w-[7.5rem] border-r border-[var(--navy)] px-2 py-2 text-[10px] font-bold uppercase">
                 N° usage
-                <span className="block font-normal normal-case text-[var(--graphite)]/60">jr ou h</span>
+                <span className="block font-normal normal-case text-[var(--graphite)]/60">quantité · jour ou heure</span>
               </th>
               <th className="w-10 px-1 py-2" />
             </tr>
@@ -237,37 +240,35 @@ export function RentalBonContractForm({
             {form.lines.map((line, index) => (
               <tr key={index} className="border-b border-[var(--navy)]/30">
                 <td className="border-r border-[var(--navy)]/30 p-1 align-top">
-                  <input
-                    type="date"
+                  <FrenchDateInput
                     className={inputClassDense}
                     disabled={!form.projectId}
                     value={line.lineDate}
-                    onChange={(e) => patchLine(index, { lineDate: e.target.value })}
+                    onChange={(lineDate) => patchLine(index, { lineDate })}
                   />
                 </td>
                 <td className="border-r border-[var(--navy)]/30 p-1 align-top">
-                  <input
-                    className={inputClassDense}
+                  <MatriculeInput
+                    compact
                     disabled={!form.projectId}
                     value={line.matricule}
-                    onChange={(e) => patchLine(index, { matricule: e.target.value })}
+                    onChange={(matricule) => patchLine(index, { matricule })}
                   />
                 </td>
                 <td className="border-r border-[var(--navy)]/30 p-1 align-top">
-                  <select
-                    className={`${inputClassDense} mb-1`}
+                  <SearchableSelect
+                    compact
                     disabled={!form.projectId}
                     value={line.materialId}
-                    onChange={(e) => onLineMaterialChange(index, e.target.value)}
-                  >
-                    <option value="">— Matériel catalogue —</option>
-                    {materialsForProject.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        [{MATERIAL_CATEGORY_LABELS[m.materialCategory as MaterialCategory]}] {materialLabel(m)}
-                        {m.driverName ? ` · ${m.driverName}` : ""}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(materialId) => onLineMaterialChange(index, materialId)}
+                    placeholder="— Matériel catalogue —"
+                    inputClassName={`${inputClassDense} mb-1`}
+                    options={materialsForProject.map((m) => ({
+                      value: m.id,
+                      label: `[${MATERIAL_CATEGORY_LABELS[m.materialCategory as MaterialCategory]}] ${materialLabel(m)}${m.driverName ? ` · ${m.driverName}` : ""}`,
+                      keywords: `${m.reference} ${m.matricule} ${m.designation}`,
+                    }))}
+                  />
                   <input
                     className={inputClassDense}
                     disabled={!form.projectId}
@@ -289,30 +290,44 @@ export function RentalBonContractForm({
                     Ligne : {formatMoney(computeBonLineRental(line))} HT
                   </p>
                 </td>
-                <td className="border-r border-[var(--navy)]/30 p-1 align-top">
-                  <div className="flex gap-1">
+                <td className="min-w-[7.5rem] border-r border-[var(--navy)]/30 p-1 align-top">
+                  <div className="flex flex-col gap-1.5">
                     <input
                       type="number"
                       min={0}
                       step="0.5"
-                      className={`${inputClassDense} w-14 tabular-nums`}
+                      className={`${inputClassDense} w-full tabular-nums`}
                       disabled={!form.projectId}
                       value={line.usageQty || ""}
                       onChange={(e) =>
                         patchLine(index, { usageQty: Math.max(0, Number(e.target.value) || 0) })
                       }
                     />
-                    <select
-                      className={`${inputClassDense} min-w-0 flex-1`}
-                      disabled={!form.projectId}
-                      value={line.usageUnit || "jour"}
-                      onChange={(e) =>
-                        patchLine(index, { usageUnit: e.target.value as "jour" | "heure" })
-                      }
-                    >
-                      <option value="jour">jr</option>
-                      <option value="heure">h</option>
-                    </select>
+                    <div className="grid grid-cols-2 gap-1">
+                      {(
+                        [
+                          { unit: "jour" as const, label: "Jour" },
+                          { unit: "heure" as const, label: "Heure" },
+                        ] as const
+                      ).map(({ unit, label }) => {
+                        const active = (line.usageUnit || "jour") === unit;
+                        return (
+                          <button
+                            key={unit}
+                            type="button"
+                            disabled={!form.projectId}
+                            className={
+                              active
+                                ? "min-h-[32px] rounded-md bg-[var(--navy)] px-1 text-[10px] font-semibold text-white disabled:opacity-50"
+                                : "min-h-[32px] rounded-md border border-border bg-white px-1 text-[10px] font-medium text-[var(--graphite)] disabled:opacity-50"
+                            }
+                            onClick={() => patchLine(index, { usageUnit: unit })}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </td>
                 <td className="p-1 align-top">

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import logoStacked from "@/assets/barane-logo-stacked.png";
-import { formatMoney, htToTtc } from "@/lib/admin/price-ht-ttc";
+import { formatMoney, lineTotalTtc, computeDocumentTotals } from "@/lib/admin/price-ht-ttc";
 import {
   DOCUMENT_LABELS,
   isDeliveryNote,
@@ -29,7 +29,6 @@ function formatActivityLine(activity: string) {
 type DocumentPreviewProps = {
   documentType: DocumentType;
   quoteNumber: string;
-  reference: string;
   date: string;
   dueDate?: string;
   linkedFactureNumber?: string;
@@ -48,7 +47,6 @@ type DocumentPreviewProps = {
 export function DocumentPreview({
   documentType,
   quoteNumber,
-  reference,
   date,
   dueDate,
   linkedFactureNumber,
@@ -71,14 +69,12 @@ export function DocumentPreview({
       ? "Facturé à"
       : "Client";
   const depositLabel = documentType === "facture" ? "Acompte versé" : "Acompte";
-  const totalHt = items.reduce(
-    (acc, item) => (item.isNote ? acc : acc + item.qty * item.unitPrice),
-    0,
+  const { totalHt, netHt, vatAmount, totalTtc, netToPay } = computeDocumentTotals(
+    items,
+    vatRate,
+    discount,
+    deposit,
   );
-  const netHt = Math.max(0, totalHt - discount);
-  const vatAmount = (netHt * vatRate) / 100;
-  const totalTtc = netHt + vatAmount;
-  const netToPay = Math.max(0, totalTtc - deposit);
 
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-white shadow-sm">
@@ -110,15 +106,15 @@ export function DocumentPreview({
         </div>
         <div className="mt-3 border-b border-[var(--gold)]/40" aria-hidden />
         <div className="mt-3 flex justify-end pb-1">
-          <div className="relative max-w-[155px] shrink-0 overflow-hidden rounded-xl border border-[var(--gold)]/40 bg-gradient-to-br from-[#fffbf7] to-[#fff0e0] py-2 pl-4 pr-3 text-left shadow-md">
+          <div className="relative max-w-[220px] shrink-0 overflow-hidden rounded-xl border border-[var(--gold)]/40 bg-gradient-to-br from-[#fffbf7] to-[#fff0e0] py-3 pl-5 pr-4 text-left shadow-md">
             <span className="absolute inset-y-0 left-0 w-1.5 bg-[var(--gold)]" aria-hidden />
-            <p className="text-[8px] font-bold uppercase tracking-[0.18em] text-[#b04a09]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#b04a09]">
               {isPurchaseOrder ? "Fournisseur" : "Client"}
             </p>
-            <p className="mt-1 text-[11px] font-bold leading-tight text-[var(--navy)]">
+            <p className="mt-1.5 text-sm font-bold leading-snug text-[var(--navy)]">
               {clientName || "—"}
             </p>
-            <p className="mt-1 text-[10px] leading-snug text-[var(--graphite)]/85">
+            <p className="mt-1.5 text-xs leading-snug text-[var(--graphite)]/85">
               ICE : {clientIce || "—"}
             </p>
           </div>
@@ -150,7 +146,6 @@ export function DocumentPreview({
           ...(deliveryNote && linkedFactureNumber
             ? [{ label: "Facture", value: `N° ${linkedFactureNumber}` }]
             : []),
-          { label: "Référence", value: reference || "—" },
         ].map((chip) => (
           <div
             key={chip.label}
@@ -167,10 +162,9 @@ export function DocumentPreview({
       <div className="mx-4 mb-3 overflow-hidden rounded-md border border-border">
         <div
           className={`grid ${
-            deliveryNote ? "grid-cols-[44px_1fr_48px]" : "grid-cols-[44px_1fr_36px_56px]"
+            deliveryNote ? "grid-cols-[1fr_48px]" : "grid-cols-[1fr_36px_56px]"
           } bg-[var(--navy)] text-[9px] font-bold uppercase tracking-wide text-white px-2 py-1.5`}
         >
-          <span>Réf.</span>
           <span>Désignation</span>
           <span className="text-right">Qté</span>
           {!deliveryNote ? <span className="text-right">Montant</span> : null}
@@ -194,13 +188,10 @@ export function DocumentPreview({
                   key={`row-${idx}`}
                   className={`grid items-start gap-x-2 gap-y-1 px-2 py-2 text-[10px] ${
                     deliveryNote
-                      ? "grid-cols-[44px_minmax(0,1fr)_48px]"
-                      : "grid-cols-[44px_minmax(0,1fr)_40px_56px]"
+                      ? "grid-cols-[minmax(0,1fr)_48px]"
+                      : "grid-cols-[minmax(0,1fr)_40px_56px]"
                   } ${idx % 2 === 1 ? "bg-[#f9fafb]" : ""}`}
                 >
-                  <span className="pt-0.5 font-semibold text-[var(--navy)] break-words">
-                    {item.reference || "—"}
-                  </span>
                   <p className="min-w-0 text-left leading-snug text-[var(--graphite)] whitespace-pre-wrap break-words [overflow-wrap:anywhere] [hyphens:none]">
                     {item.designation}
                   </p>
@@ -212,7 +203,7 @@ export function DocumentPreview({
                     <span className="pt-0.5 text-right font-semibold text-[var(--navy)] leading-tight">
                       <span className="block">{money(item.qty * item.unitPrice)}</span>
                       <span className="block text-[9px] font-normal text-[var(--graphite)]/70">
-                        {formatMoney(item.qty * htToTtc(item.unitPrice, vatRate))}
+                        {formatMoney(lineTotalTtc(item.qty, item.unitPrice, vatRate))}
                       </span>
                     </span>
                   ) : null}

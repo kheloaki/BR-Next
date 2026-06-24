@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  ArrowLeftRight,
   BarChart3,
   ChartLine,
   CircleDollarSign,
@@ -53,8 +54,7 @@ export const ADMIN_SECTION_ICON: Record<AdminSection, LucideIcon> = {
   engins: Tractor,
   personnel: UserCog,
   stock: Wrench,
-  "traitements-achat": ShoppingCart,
-  "traitements-vente": Receipt,
+  traitements: ArrowLeftRight,
   "purchase-requests": ShoppingCart,
   fuel: Fuel,
   "fuel-consommation": ChartLine,
@@ -66,6 +66,7 @@ export const ADMIN_SECTION_ICON: Record<AdminSection, LucideIcon> = {
   "finance-tresorerie": CircleDollarSign,
   "finance-clients": HandCoins,
   "finance-fournisseurs": Store,
+  "finance-factures": Receipt,
   "finance-depenses": Receipt,
   "finance-clotures": Lock,
   "finance-etats": BarChart3,

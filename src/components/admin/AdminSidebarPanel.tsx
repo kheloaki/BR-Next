@@ -9,26 +9,6 @@ import { AdminNavLinks } from "@/components/admin/AdminNavLinks";
 import { AdminSidebarProvider, useAdminSidebar } from "@/components/admin/AdminSidebarContext";
 import type { AdminSection } from "@/components/admin/AdminSidebar";
 
-function SidebarCollapseControl() {
-  const { collapsed, toggleCollapsed } = useAdminSidebar();
-
-  return (
-    <button
-      type="button"
-      onClick={toggleCollapsed}
-      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-white text-[var(--graphite)]/80 shadow-sm transition hover:border-[var(--gold)]/50 hover:text-[var(--navy)]"
-      aria-label={collapsed ? "Développer le menu latéral" : "Réduire le menu latéral"}
-      title={collapsed ? "Développer le menu" : "Réduire le menu"}
-    >
-      {collapsed ? (
-        <ChevronRight className="h-4 w-4" strokeWidth={2} aria-hidden />
-      ) : (
-        <ChevronLeft className="h-4 w-4" strokeWidth={2} aria-hidden />
-      )}
-    </button>
-  );
-}
-
 function SidebarEdgeToggle() {
   const { collapsed, toggleCollapsed } = useAdminSidebar();
 
@@ -64,17 +44,17 @@ function AdminSidebarPanelInner({
   const initial = (fullName || email || "A").charAt(0).toUpperCase();
 
   return (
-    <div className="flex w-full min-h-[calc(100dvh-3.5rem)] lg:min-h-screen">
+    <div className="flex w-full min-h-[calc(100dvh-3.5rem-4.25rem-env(safe-area-inset-bottom,0px))] lg:min-h-screen">
       <aside
         className={`relative hidden shrink-0 border-r border-border bg-[var(--background)] transition-[width] duration-200 ease-out lg:block ${
-          collapsed ? "w-[76px]" : "w-[268px]"
+          collapsed ? "w-[76px]" : "w-[280px]"
         }`}
       >
         <SidebarEdgeToggle />
 
         <div className="flex h-full min-h-[calc(100dvh-3.5rem)] flex-col overflow-y-auto p-3 lg:min-h-screen lg:p-4">
           <div
-            className={`flex items-center gap-2 ${collapsed ? "flex-col justify-center gap-2" : "justify-between"}`}
+            className={`flex items-center gap-2 ${collapsed ? "justify-center" : ""}`}
           >
             <div
               className={`flex min-w-0 items-center gap-2 ${collapsed ? "justify-center" : ""}`}
@@ -88,7 +68,6 @@ function AdminSidebarPanelInner({
                 </div>
               ) : null}
             </div>
-            {!collapsed ? <SidebarCollapseControl /> : null}
           </div>
 
           <div className="mt-5 flex-1">
@@ -118,7 +97,9 @@ function AdminSidebarPanelInner({
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 overflow-x-auto px-3 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6">{children}</main>
+      <main className="min-w-0 flex-1 overflow-x-auto px-3 py-4 pb-[calc(4.25rem+env(safe-area-inset-bottom,0px)+0.5rem)] sm:px-5 sm:py-5 lg:px-6 lg:py-6 lg:pb-6">
+        {children}
+      </main>
     </div>
   );
 }

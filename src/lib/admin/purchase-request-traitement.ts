@@ -1,7 +1,8 @@
 import type { PurchaseRequest } from "@/components/admin/operations-types";
 import { resolveTraitementLineLinks } from "@/lib/admin/article-inventory";
-import { getGasoilStockItem } from "@/lib/admin/gasoil-stock-server";
 import { isGasoilPurchaseRequest } from "@/lib/admin/map-purchase-request";
+import { GASOIL_UNIT } from "@/lib/admin/gasoil-stock";
+import { parsePurchaseRequestLines } from "@/lib/admin/map-purchase-request-lines";
 import { opsId } from "@/lib/admin/ops-id";
 import { resolveProjectFields } from "@/lib/admin/project-resolve";
 import { nextTraitementNumber } from "@/lib/admin/traitement-number";
@@ -29,49 +30,7 @@ export async function createTraitementFromPurchaseRequest(
   const traitementId = opsId("trt");
   const steps = defaultTraitementSteps("achat");
 
-  let productId: string | null = da.productId ?? null;
-  let stockItemId: string | null = da.stockItemId ?? null;
-  let reference = da.reference || "";
-  let designation = da.designation.trim() || da.subject.trim();
-  let unit = da.unit || "PIECE";
-  const qty = da.qty;
-  const unitPrice = da.unitPrice;
-
-  if (isGasoil) {
-    const gasoilStock = da.stockItemId
-      ? await supabase
-          .from("admin_stock_items")
-          .select("id")
-          .eq("id", da.stockItemId)
-          .eq("organization_id", organizationId)
-          .maybeSingle()
-          .then((r) => r.data?.id as string | undefined)
-      : null;
-    const stockId = gasoilStock ?? (await getGasoilStockItem(supabase, organizationId))?.id;
-    if (!stockId) throw new Error("Stock gasoil introuvable — configurez le carburant d'abord.");
-    stockItemId = stockId;
-    productId = null;
-    reference = reference || "GASOIL";
-    designation = designation || "Gasoil";
-    unit = "L";
-  } else {
-    const linked = await resolveTraitementLineLinks(
-      supabase,
-      organizationId,
-      userId,
-      {
-        productId: da.productId ?? undefined,
-        stockItemId: da.stockItemId ?? undefined,
-        reference,
-        designation,
-        unit,
-        unitPrice,
-      },
-      "achat",
-    );
-    productId = linked.productId ?? da.productId ?? null;
-    stockItemId = linked.stockItemId ?? da.stockItemId ?? null;
-  }
+  const daLines = da.lines?.length ? da.lines : parsePurchaseRequestLines(da as unknown as Record<string, unknown>);
 
   const { error: trtErr } = await supabase.from("admin_traitements").insert({
     id: traitementId,
@@ -93,22 +52,66 @@ export async function createTraitementFromPurchaseRequest(
 
   if (trtErr) throw new Error(trtErr.message);
 
-  const { error: lineErr } = await supabase.from("admin_traitement_lines").insert({
-    id: opsId("trl"),
-    traitement_id: traitementId,
-    product_id: productId,
-    stock_item_id: stockItemId,
-    reference,
-    designation,
-    unit,
-    qty,
-    unit_price: unitPrice,
-    sort_order: 0,
-  });
+  const sourceLines = isGasoil
+    ? [
+        {
+          reference: da.reference || "GASOIL",
+          designation: da.designation.trim() || da.subject.trim() || "Gasoil",
+          unit: GASOIL_UNIT,
+          qty: da.qty,
+          unitPrice: da.unitPrice,
+          productId: da.productId,
+          stockItemId: da.stockItemId,
+        },
+      ]
+    : daLines;
 
-  if (lineErr) {
+  if (sourceLines.length === 0) {
     await supabase.from("admin_traitements").delete().eq("id", traitementId);
-    throw new Error(lineErr.message);
+    throw new Error("Aucune ligne article sur cette DA.");
+  }
+
+  for (let i = 0; i < sourceLines.length; i++) {
+    const line = sourceLines[i]!;
+    let reference = line.reference || "";
+    let designation = line.designation.trim() || da.subject.trim();
+    let unit = line.unit || (isGasoil ? GASOIL_UNIT : "PIECE");
+    const qty = line.qty;
+    const unitPrice = line.unitPrice;
+
+    const linked = await resolveTraitementLineLinks(
+      supabase,
+      organizationId,
+      userId,
+      {
+        productId: line.productId ?? undefined,
+        stockItemId: line.stockItemId ?? undefined,
+        reference,
+        designation,
+        unit,
+        unitPrice,
+      },
+      "achat",
+      isGasoil ? { supplyKind: "gasoil" } : undefined,
+    );
+
+    const { error: lineErr } = await supabase.from("admin_traitement_lines").insert({
+      id: opsId("trl"),
+      traitement_id: traitementId,
+      product_id: linked.productId ?? line.productId ?? null,
+      stock_item_id: linked.stockItemId ?? line.stockItemId ?? null,
+      reference,
+      designation,
+      unit,
+      qty,
+      unit_price: unitPrice,
+      sort_order: i,
+    });
+
+    if (lineErr) {
+      await supabase.from("admin_traitements").delete().eq("id", traitementId);
+      throw new Error(lineErr.message);
+    }
   }
 
   const { error: daErr } = await supabase

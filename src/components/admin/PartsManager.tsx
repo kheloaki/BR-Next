@@ -6,6 +6,8 @@ import { AdminTabs } from "@/components/admin/AdminTabs";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import { EquipmentSelect } from "@/components/admin/EquipmentSelect";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
+import { StockItemSelect } from "@/components/admin/StockItemSelect";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
 import { useOpsReferential } from "@/components/admin/useOpsReferential";
 import type { PartsUsage, StockItem } from "@/components/admin/operations-types";
 import {
@@ -15,16 +17,23 @@ import {
   moduleWrap,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { PartsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { ReferentialBanner } from "@/components/admin/ux/ReferentialBanner";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+
+const USAGE_TYPE_LABELS: Record<PartsUsage["usageType"], string> = {
+  part: "Pièce",
+  lubricant: "Lubrifiant",
+};
 
 export function PartsManager() {
   const toast = useAdminToast();
@@ -131,7 +140,12 @@ export function PartsManager() {
         }
       />
 
-      <ReferentialBanner sitesCount={0} equipmentCount={equipment.length} requireEquipment />
+      <ReferentialBanner
+        sitesCount={projects.length}
+        equipmentCount={equipment.length}
+        requireSites
+        requireEquipment
+      />
 
       {!loading ? (
         <AdminMiniStats
@@ -153,7 +167,7 @@ export function PartsManager() {
         onChange={setTab}
       />
 
-      {loading ? <AdminLoading /> : null}
+      {loading ? <PartsPageSkeleton partial /> : null}
 
       {!loading && tab === "byEq" ? (
         <div className="space-y-2">
@@ -192,17 +206,29 @@ export function PartsManager() {
                   <th className={thClass}>Engin</th>
                   <th className={thClass}>Réf.</th>
                   <th className={thClass}>Désignation</th>
+                  <th className={thClass}>Type</th>
                   <th className={thClass}>Qté</th>
+                  <th className={thClass}>Montant</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((r) => (
                   <tr key={r.id} className={rowHover}>
                     <td className={tdClass}>{r.usageDate}</td>
-                    <td className={tdClass}>{r.equipmentName}</td>
-                    <td className={tdClass}>{r.reference || "—"}</td>
-                    <td className={tdClass}>{r.designation || "—"}</td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={r.equipmentName} lines={1} />
+                    </td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={r.reference} lines={1} />
+                    </td>
+                    <td className={tdTextClass}>
+                      <AdminTruncatedText text={r.designation} />
+                    </td>
+                    <td className={tdClass}>{USAGE_TYPE_LABELS[r.usageType] ?? r.usageType}</td>
                     <td className={tdClass}>{r.qty}</td>
+                    <td className={`${tdClass} tabular-nums`}>
+                      {(r.qty * r.unitPrice).toLocaleString("fr-MA")} MAD
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -225,18 +251,21 @@ export function PartsManager() {
             <input type="date" className={inputClass} value={usageDate} onChange={(e) => setUsageDate(e.target.value)} />
             <ProjectSelect projects={projects} value={projectId} onChange={setProjectId} allowEmpty />
             <EquipmentSelect equipment={equipment} value={equipmentId} onChange={setEquipmentId} />
-            <select className={inputClass} value={stockItemId} onChange={(e) => setStockItemId(e.target.value)}>
-              <option value="">Article stock (optionnel)</option>
-              {stock.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.reference} — {s.designation}
-                </option>
-              ))}
-            </select>
-            <select className={inputClass} value={usageType} onChange={(e) => setUsageType(e.target.value as "part" | "lubricant")}>
-              <option value="part">Pièce</option>
-              <option value="lubricant">Lubrifiant</option>
-            </select>
+            <StockItemSelect
+              items={stock}
+              value={stockItemId}
+              onChange={setStockItemId}
+              placeholder="Article stock (optionnel)"
+              showStock
+              inputClassName={inputClass}
+            />
+            <SearchableEnumSelect
+              options={{ part: "Pièce", lubricant: "Lubrifiant" }}
+              value={usageType}
+              onChange={(v) => setUsageType(v as "part" | "lubricant")}
+              allowEmpty={false}
+              inputClassName={inputClass}
+            />
             <input type="number" className={inputClass} placeholder="Qté *" value={qty} onChange={(e) => setQty(Number(e.target.value) || 0)} />
           </div>
         </AdminFormCard>

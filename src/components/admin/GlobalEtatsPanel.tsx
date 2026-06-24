@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ProjectSelect } from "@/components/admin/ProjectSelect";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
 import type { AdminProject } from "@/components/admin/operations-types";
 import { btnSecondary, inputClass, moduleWrap } from "@/components/admin/admin-form-styles";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { GlobalEtatsPanelSkeleton } from "@/components/admin/skeletons/pages";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import { ProjectReportExportButtons } from "@/components/admin/ProjectReportExportButtons";
+import { SituationEnginSelect } from "@/components/admin/SituationEnginSelect";
 import { REPORT_MODULE_LABELS } from "@/lib/admin/reports/report-labels";
 import type { ProjectReportModule } from "@/lib/admin/project-report-types";
 
@@ -15,6 +18,7 @@ const MODULES: ProjectReportModule[] = [
   "gasoil",
   "stock",
   "rentals",
+  "situation_engins",
   "personnel",
   "purchases",
   "facturation",
@@ -31,6 +35,7 @@ export function GlobalEtatsPanel() {
   const [canExport, setCanExport] = useState(true);
   const [canFinancial, setCanFinancial] = useState(false);
   const [exportError, setExportError] = useState("");
+  const [enginMaterialId, setEnginMaterialId] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,7 +63,16 @@ export function GlobalEtatsPanel() {
     void load();
   }, [load]);
 
-  if (loading) return <AdminLoading />;
+  useEffect(() => {
+    setEnginMaterialId("");
+  }, [projectId, module]);
+
+  const moduleOptions = useMemo(
+    () => Object.fromEntries(MODULES.map((m) => [m, REPORT_MODULE_LABELS[m]])) as Record<string, string>,
+    [],
+  );
+
+  if (loading) return <GlobalEtatsPanelSkeleton />;
 
   return (
     <div className={moduleWrap}>
@@ -70,14 +84,13 @@ export function GlobalEtatsPanel() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-4">
         <label className="block text-sm sm:col-span-2">
           <span className="mb-1 block text-[var(--graphite)]/75">Projet</span>
-          <select className={inputClass} value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.code ? `${p.code} — ` : ""}
-                {p.name}
-              </option>
-            ))}
-          </select>
+          <ProjectSelect
+            projects={projects}
+            value={projectId}
+            onChange={setProjectId}
+            placeholder="Sélectionner…"
+            activeOnly={false}
+          />
         </label>
         <label className="block text-sm">
           <span className="mb-1 block text-[var(--graphite)]/75">Du</span>
@@ -89,14 +102,24 @@ export function GlobalEtatsPanel() {
         </label>
         <label className="block text-sm sm:col-span-2">
           <span className="mb-1 block text-[var(--graphite)]/75">Module</span>
-          <select className={inputClass} value={module} onChange={(e) => setModule(e.target.value as ProjectReportModule)}>
-            {MODULES.map((m) => (
-              <option key={m} value={m}>
-                {REPORT_MODULE_LABELS[m]}
-              </option>
-            ))}
-          </select>
+          <SearchableEnumSelect
+            options={moduleOptions}
+            value={module}
+            onChange={(v) => setModule(v as ProjectReportModule)}
+            inputClassName={inputClass}
+            allowEmpty={false}
+          />
         </label>
+        {module === "situation_engins" ? (
+          <label className="block text-sm sm:col-span-2">
+            <span className="mb-1 block text-[var(--graphite)]/75">Engin (optionnel)</span>
+            <SituationEnginSelect
+              projectId={projectId}
+              value={enginMaterialId}
+              onChange={setEnginMaterialId}
+            />
+          </label>
+        ) : null}
       </div>
 
       <ProjectReportExportButtons
@@ -104,6 +127,7 @@ export function GlobalEtatsPanel() {
         module={module}
         from={from}
         to={to}
+        materialId={enginMaterialId}
         canExport={canExport}
         canFinancial={canFinancial}
         onError={setExportError}

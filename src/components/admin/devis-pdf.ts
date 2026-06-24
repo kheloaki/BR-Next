@@ -4,10 +4,15 @@ import cachetSignature from "@/assets/barane-cachet-signature.png";
 import {
   DOCUMENT_LABELS,
   isDeliveryNote,
+  isSupplierDocument,
+  type Customer,
   type DevisTemplate,
   type DocumentType,
   type QuoteDraft,
+  type Supplier,
 } from "@/components/admin/devis-types";
+import { computeDocumentTotals } from "@/lib/admin/price-ht-ttc";
+import { enrichQuoteCounterparty } from "@/lib/admin/quote-counterparty";
 
 /** BARANE brand palette for PDF (RGB) */
 const COLORS = {
@@ -218,10 +223,10 @@ function drawClientBox(
   const textMaxW = boxW - barW - padLeft - padRight;
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(9.5);
+  doc.setFontSize(11);
   const nameLines = doc.splitTextToSize(draft.clientName || "—", textMaxW);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.5);
+  doc.setFontSize(9);
   const iceLine = `ICE : ${draft.clientIce || "—"}`;
   const addrLines = draft.clientAddress
     ? doc.splitTextToSize(draft.clientAddress, textMaxW)
@@ -241,7 +246,7 @@ function drawClientBox(
   doc.roundedRect(boxX, boxY, boxW, boxH, 2.5, 2.5, "S");
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(6.5);
+  doc.setFontSize(8);
   setText(doc, COLORS.gold);
   const docType = draft.documentType ?? "devis";
   const partyLabel = isPurchaseOrder(draft)
@@ -254,17 +259,17 @@ function drawClientBox(
   doc.text(partyLabel, textX, boxY + 5.5);
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(9.5);
+  doc.setFontSize(11);
   setText(doc, COLORS.navy);
-  doc.text(nameLines, textX, boxY + 11);
+  doc.text(nameLines, textX, boxY + 12);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.5);
+  doc.setFontSize(9);
   setText(doc, COLORS.slate);
-  doc.text(iceLine, textX, boxY + 11 + nameLines.length * 4);
+  doc.text(iceLine, textX, boxY + 12 + nameLines.length * 4.2);
 
   if (draft.clientAddress) {
-    const addrY = boxY + 11 + nameLines.length * 4 + 4;
+    const addrY = boxY + 12 + nameLines.length * 4.2 + 4;
     doc.text(addrLines, textX, addrY);
   }
 
@@ -290,7 +295,7 @@ function drawHeader(ctx: PdfCtx, template: DevisTemplate, draft: QuoteDraft, log
   const headerRowBottom = Math.max(top + logoH, brandBottom);
   drawHRule(ctx, headerRowBottom + 2);
 
-  const boxW = 94;
+  const boxW = 108;
   const boxX = right - boxW;
   const boxY = headerRowBottom + 6;
   const boxH = drawClientBox(ctx, draft, boxX, boxY, boxW);
@@ -342,7 +347,6 @@ function drawMetaRow(ctx: PdfCtx, draft: QuoteDraft, startY: number) {
     ...(delivery && draft.linkedFactureNumber
       ? [{ label: "Facture", value: `N° ${draft.linkedFactureNumber}`, w: 36 }]
       : []),
-    { label: "Référence", value: draft.reference || "—", w: delivery ? 40 : isFacture && draft.dueDate ? 32 : 56 },
   ];
   let x = left;
   for (const col of cols) {
@@ -372,12 +376,11 @@ function drawItemsTable(
   const { doc, left, right } = ctx;
   const delivery = isDeliveryNote(draft.documentType ?? "devis");
   const c0 = left;
-  const c1 = c0 + (delivery ? 22 : 18);
-  const c2 = delivery ? c1 + 128 : c1 + 92;
-  const c3 = delivery ? right : c2 + 18;
-  const c4 = delivery ? c3 : c3 + 20;
-  const c5 = delivery ? c4 : c4 + 12;
-  const c6 = right;
+  const c1 = delivery ? c0 + 150 : c0 + 110;
+  const c2 = delivery ? right : c1 + 18;
+  const c3 = delivery ? c2 : c2 + 20;
+  const c4 = delivery ? c3 : c3 + 12;
+  const c5 = right;
   const headerH = 9;
   const lineHeight = 3.9;
   const rowPadY = 2.5;
@@ -388,17 +391,15 @@ function drawItemsTable(
   doc.rect(left, tableTop, right - left, headerH, "F");
   const headers = delivery
     ? [
-        { x: (c0 + c1) / 2, t: "Réf." },
-        { x: (c1 + c2) / 2, t: "Désignation" },
-        { x: (c2 + c3) / 2, t: "Qté livrée" },
+        { x: (c0 + c1) / 2, t: "Désignation" },
+        { x: (c1 + c2) / 2, t: "Qté livrée" },
       ]
     : [
-        { x: (c0 + c1) / 2, t: "Réf." },
-        { x: (c1 + c2) / 2, t: "Désignation" },
-        { x: (c2 + c3) / 2, t: "Qté" },
-        { x: (c3 + c4) / 2, t: "P.U." },
-        { x: (c4 + c5) / 2, t: "Rem." },
-        { x: (c5 + c6) / 2, t: "Montant HT" },
+        { x: (c0 + c1) / 2, t: "Désignation" },
+        { x: (c1 + c2) / 2, t: "Qté" },
+        { x: (c2 + c3) / 2, t: "P.U." },
+        { x: (c3 + c4) / 2, t: "Rem." },
+        { x: (c4 + c5) / 2, t: "Montant HT" },
       ];
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
@@ -437,7 +438,7 @@ function drawItemsTable(
     }
 
     doc.setFont("helvetica", "normal");
-    const descWidth = c2 - c1 - descPadX * 2;
+    const descWidth = c1 - c0 - descPadX * 2;
     const wrapped = wrapDesignationLines(doc, item.designation, descWidth, descFontSize);
     const rowHeight = Math.max(9, wrapped.length * lineHeight + rowPadY * 2);
     const rowTop = y - rowPadY;
@@ -452,33 +453,28 @@ function drawItemsTable(
     const qtyLabel = item.unit ? `${money(item.qty)} ${item.unit}` : money(item.qty);
     const numericY = rowTop + rowHeight / 2 + 1;
 
-    setText(doc, COLORS.navy);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.text(item.reference || "—", c0 + descPadX, y);
-
     doc.setFont("helvetica", "normal");
     doc.setFontSize(descFontSize);
     setText(doc, COLORS.text);
-    doc.text(wrapped, c1 + descPadX, y);
+    doc.text(wrapped, c0 + descPadX, y);
 
     doc.setFontSize(8);
     setText(doc, COLORS.text);
-    doc.text(qtyLabel, (c2 + c3) / 2, numericY, { align: "center" });
+    doc.text(qtyLabel, (c1 + c2) / 2, numericY, { align: "center" });
     if (!delivery) {
       const amount = item.qty * item.unitPrice;
-      doc.text(money(item.unitPrice), (c3 + c4) / 2, numericY, { align: "center" });
-      doc.text(money(0), (c4 + c5) / 2, numericY, { align: "center" });
+      doc.text(money(item.unitPrice), (c2 + c3) / 2, numericY, { align: "center" });
+      doc.text(money(0), (c3 + c4) / 2, numericY, { align: "center" });
       doc.setFont("helvetica", "bold");
       setText(doc, COLORS.navy);
-      doc.text(money(amount), (c5 + c6) / 2, numericY, { align: "center" });
+      doc.text(money(amount), (c4 + c5) / 2, numericY, { align: "center" });
       doc.setFont("helvetica", "normal");
     }
 
     y = rowTop + rowHeight + 1;
   }
 
-  const vertLines = delivery ? [c1, c2] : [c1, c2, c3, c4, c5];
+  const vertLines = delivery ? [c1] : [c1, c2, c3, c4];
   vertLines.forEach((x) => {
     setDraw(doc, COLORS.border);
     doc.line(x, tableTop + headerH, x, tableBottom);
@@ -584,35 +580,50 @@ function drawFooter(ctx: PdfCtx, template: DevisTemplate, y: number) {
 }
 
 export async function downloadDevisPdf(draft: QuoteDraft, template: DevisTemplate) {
+  let resolved = draft;
+  if (!draft.clientIce?.trim() && draft.clientName?.trim()) {
+    try {
+      const isPo = isSupplierDocument(draft.documentType ?? "devis");
+      const res = await fetch(isPo ? "/api/admin/suppliers" : "/api/admin/customers", { cache: "no-store" });
+      if (res.ok) {
+        const list = (await res.json()) as Supplier[] | Customer[];
+        resolved = enrichQuoteCounterparty(
+          draft,
+          isPo ? (list as Supplier[]) : [],
+          isPo ? [] : (list as Customer[]),
+        );
+      }
+    } catch {
+      // keep original draft
+    }
+  }
+
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const left = 12;
   const right = 198;
   const ctx: PdfCtx = { doc, left, right, pageW: 210 };
-  const documentType = draft.documentType ?? "devis";
+  const documentType = resolved.documentType ?? "devis";
 
-  const totalHt = draft.items.reduce(
-    (acc, i) => (i.isNote ? acc : acc + i.qty * i.unitPrice),
-    0,
+  const totals = computeDocumentTotals(
+    resolved.items,
+    resolved.vatRate,
+    resolved.discount,
+    resolved.deposit,
   );
-  const netHt = Math.max(0, totalHt - draft.discount);
-  const vatAmount = (netHt * draft.vatRate) / 100;
-  const totalTtc = netHt + vatAmount;
-  const netToPay = Math.max(0, totalTtc - draft.deposit);
-  const totals = { totalHt, netHt, vatAmount, totalTtc, netToPay };
 
   const logoDataUrl = await loadImageDataUrl(logoStacked.src);
-  const headerBottom = drawHeader(ctx, template, draft, logoDataUrl);
-  const titleBottom = drawTitleBlock(ctx, draft, headerBottom);
-  const metaBottom = drawMetaRow(ctx, draft, titleBottom);
+  const headerBottom = drawHeader(ctx, template, resolved, logoDataUrl);
+  const titleBottom = drawTitleBlock(ctx, resolved, headerBottom);
+  const metaBottom = drawMetaRow(ctx, resolved, titleBottom);
 
   const delivery = isDeliveryNote(documentType);
   const tableTop = metaBottom + 2;
   const tableBottom = delivery ? 250 : 208;
-  drawItemsTable(ctx, draft, tableTop, tableBottom);
+  drawItemsTable(ctx, resolved, tableTop, tableBottom);
 
   if (!delivery) {
     const bottomY = 214;
-    drawTotals(ctx, draft, totals, bottomY);
+    drawTotals(ctx, resolved, totals, bottomY);
   } else {
     const { doc, left, right } = ctx;
     const noteY = tableBottom + 6;
@@ -628,7 +639,7 @@ export async function downloadDevisPdf(draft: QuoteDraft, template: DevisTemplat
   }
 
   const signatureTop = 252;
-  if (draft.includeCachet) {
+  if (resolved.includeCachet) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     setText(doc, COLORS.slate);

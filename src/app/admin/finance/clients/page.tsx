@@ -1,18 +1,22 @@
-import type { Metadata } from "next";
-import { AdminShell } from "@/components/admin/AdminShell";
-import { FinanceClientsPanel } from "@/components/admin/FinanceClientsPanel";
-import { requireFinancePage } from "@/lib/admin/finance-page-auth";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Finance clients",
-  robots: { index: false, follow: false },
-};
+function redirectToFactures(
+  tab: "clients" | "fournisseurs",
+  searchParams: { [key: string]: string | string[] | undefined },
+) {
+  const qs = new URLSearchParams();
+  qs.set("tab", tab);
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (key === "tab" || value == null) continue;
+    qs.set(key, Array.isArray(value) ? value[0]! : value);
+  }
+  redirect(`/admin/finance/factures?${qs.toString()}`);
+}
 
-export default async function AdminFinanceClientsPage() {
-  await requireFinancePage("/admin/finance/clients");
-  return (
-    <AdminShell active="finance-clients">
-      <FinanceClientsPanel />
-    </AdminShell>
-  );
+export default async function AdminFinanceClientsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  redirectToFactures("clients", await searchParams);
 }

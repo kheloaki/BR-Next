@@ -12,12 +12,14 @@ import {
   moduleWrap,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { CustomersPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { confirmDelete, useAdminToast } from "@/components/admin/ux/useAdminToast";
 
@@ -178,7 +180,7 @@ export function CustomersManager() {
       ) : null}
 
       {loading ? (
-        <AdminLoading />
+        <CustomersPageSkeleton partial />
       ) : (
         <AdminInventoryCard
           title="Liste des clients"
@@ -209,10 +211,18 @@ export function CustomersManager() {
               <tbody>
                 {filtered.map((customer) => (
                   <tr key={customer.id} className={rowHover}>
-                    <td className={tdClass}>{customer.name}</td>
-                    <td className={tdClass}>{customer.ice || "—"}</td>
-                    <td className={tdClass}>{customer.city || "—"}</td>
-                    <td className={tdClass}>{customer.address || "—"}</td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={customer.name} lines={1} />
+                    </td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={customer.ice} lines={1} />
+                    </td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={customer.city} lines={1} />
+                    </td>
+                    <td className={tdTextClass}>
+                      <AdminTruncatedText text={customer.address} />
+                    </td>
                     <td className={tdClass}>
                       <button type="button" onClick={() => void deleteCustomer(customer)} className={btnDanger}>
                         Supprimer

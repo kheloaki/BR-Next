@@ -7,6 +7,9 @@ import { StockMovementOrigin } from "@/components/admin/StockMovementOrigin";
 import { traitementStockHref } from "@/lib/admin/stock-traitement-link";
 import { DepotSelect } from "@/components/admin/DepotSelect";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
+import { SearchableSelect } from "@/components/admin/SearchableSelect";
+import { stringOptions, withEmptyOption } from "@/components/admin/searchable-options";
 import type { AdminDepot, AdminProject, StockItem, StockMovement, StockMovementType } from "@/components/admin/operations-types";
 import { STOCK_MOVEMENT_LABELS, STOCK_UNITS } from "@/components/admin/operations-types";
 import {
@@ -18,11 +21,13 @@ import {
   labelClass,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { confirmDelete, readApiError } from "@/components/admin/ux/useAdminToast";
 
 type StockMovementHistoryPanelProps = {
@@ -189,18 +194,20 @@ export function StockMovementHistoryPanel({
         onSearchChange={setSearch}
         searchPlaceholder="Référence, article, fournisseur, BL…"
         actions={
-          <select
-            className={`${inputClass} max-w-[240px] min-h-[38px] py-2`}
+          <SearchableSelect
+            options={withEmptyOption(
+              items.map((i) => ({
+                value: i.id,
+                label: `${i.reference} — ${i.designation}`,
+                keywords: `${i.reference} ${i.designation}`,
+              })),
+              "Tous les articles",
+            )}
             value={filterItemId}
-            onChange={(e) => onFilterItemIdChange(e.target.value)}
-          >
-            <option value="">Tous les articles</option>
-            {items.map((i) => (
-              <option key={i.id} value={i.id}>
-                {i.reference} — {i.designation}
-              </option>
-            ))}
-          </select>
+            onChange={onFilterItemIdChange}
+            placeholder="Tous les articles"
+            inputClassName={`${inputClass} max-w-[240px] min-h-[38px] py-2`}
+          />
         }
       >
         {filtered.length === 0 ? (
@@ -234,8 +241,12 @@ export function StockMovementHistoryPanel({
               {filtered.map((m) => (
                 <tr key={m.id} className={rowHover}>
                   <td className={tdClass}>{m.movementDate}</td>
-                  <td className={`${tdClass} font-mono text-xs`}>{m.reference}</td>
-                  <td className={tdClass}>{m.designation}</td>
+                  <td className={tdClass}>
+                    <AdminTruncatedText text={m.reference} lines={1} />
+                  </td>
+                  <td className={tdTextClass}>
+                    <AdminTruncatedText text={m.designation} />
+                  </td>
                   <td className={tdClass}>{STOCK_MOVEMENT_LABELS[m.movementType]}</td>
                   <td className={tdClass}>
                     <StockMovementOrigin link={m.traitementLink} />
@@ -249,15 +260,27 @@ export function StockMovementHistoryPanel({
                   >
                     {m.movementType === "exit" ? fmtQty(m.stockAfter) : "—"}
                   </td>
-                  <td className={tdClass}>{m.assignment || "—"}</td>
+                  <td className={tdTextClass}>
+                    <AdminTruncatedText text={m.assignment} />
+                  </td>
                   <td className={`${tdClass} font-mono text-xs`}>{m.exitVoucherNo || "—"}</td>
-                  <td className={tdClass}>{m.requester || "—"}</td>
-                  <td className={tdClass}>{m.siteName || "—"}</td>
-                  <td className={tdClass}>{depotName(m.depotId)}</td>
-                  <td className={tdClass}>{m.supplier || "—"}</td>
-                  <td className={tdClass}>{m.deliveryNote || "—"}</td>
-                  <td className={`${tdClass} max-w-[120px] truncate`} title={m.notes}>
-                    {m.notes || "—"}
+                  <td className={tdClass}>
+                    <AdminTruncatedText text={m.requester} lines={1} />
+                  </td>
+                  <td className={tdClass}>
+                    <AdminTruncatedText text={m.siteName} lines={1} />
+                  </td>
+                  <td className={tdClass}>
+                    <AdminTruncatedText text={depotName(m.depotId)} lines={1} />
+                  </td>
+                  <td className={tdClass}>
+                    <AdminTruncatedText text={m.supplier} lines={1} />
+                  </td>
+                  <td className={tdTextClass}>
+                    <AdminTruncatedText text={m.deliveryNote} />
+                  </td>
+                  <td className={tdTextClass}>
+                    <AdminTruncatedText text={m.notes} />
                   </td>
                   <td className={tdClass}>
                     <div className="flex flex-wrap gap-1">
@@ -318,17 +341,13 @@ export function StockMovementHistoryPanel({
           <div className={`${formGridClass} max-w-3xl`}>
             <div>
               <p className={labelClass}>Type</p>
-              <select
-                className={`${inputClass} mt-1`}
+              <SearchableEnumSelect
+                options={STOCK_MOVEMENT_LABELS}
                 value={movType}
-                onChange={(e) => setMovType(e.target.value as StockMovementType)}
-              >
-                {(Object.keys(STOCK_MOVEMENT_LABELS) as StockMovementType[]).map((k) => (
-                  <option key={k} value={k}>
-                    {STOCK_MOVEMENT_LABELS[k]}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setMovType(v as StockMovementType)}
+                allowEmpty={false}
+                inputClassName={`${inputClass} mt-1`}
+              />
             </div>
             <div>
               <p className={labelClass}>Date</p>
@@ -351,13 +370,13 @@ export function StockMovementHistoryPanel({
             </div>
             <div>
               <p className={labelClass}>Unité</p>
-              <select className={`${inputClass} mt-1`} value={movUnit} onChange={(e) => setMovUnit(e.target.value)}>
-                {STOCK_UNITS.map((u) => (
-                  <option key={u} value={u}>
-                    {u}
-                  </option>
-                ))}
-              </select>
+              <SearchableEnumSelect
+                options={stringOptions([...STOCK_UNITS])}
+                value={movUnit}
+                onChange={setMovUnit}
+                allowEmpty={false}
+                inputClassName={`${inputClass} mt-1`}
+              />
             </div>
             <div>
               <p className={labelClass}>Code article</p>

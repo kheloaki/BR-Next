@@ -10,7 +10,8 @@ export function AdminTabs({
   onChange: (id: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-1 border-b border-border mb-5 -mx-1 px-1">
+    <div className="mb-5 -mx-1 overflow-x-auto border-b border-border px-1 touch-pan-x overscroll-x-contain">
+      <div className="flex min-w-max gap-1">
       {tabs.map((tab) => {
         const isActive = active === tab.id;
         return (
@@ -18,7 +19,7 @@ export function AdminTabs({
             key={tab.id}
             type="button"
             onClick={() => onChange(tab.id)}
-            className={`px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition rounded-t-md ${
+            className={`shrink-0 whitespace-nowrap px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition rounded-t-md ${
               isActive
                 ? "border-[var(--gold)] text-[var(--navy)] bg-white"
                 : "border-transparent text-[var(--graphite)]/70 hover:text-[var(--navy)] hover:bg-white/60"
@@ -37,6 +38,7 @@ export function AdminTabs({
           </button>
         );
       })}
+      </div>
     </div>
   );
 }

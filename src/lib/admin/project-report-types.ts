@@ -22,7 +22,8 @@ export type ProjectReportModule =
   | "production"
   | "purchases"
   | "facturation"
-  | "profitability";
+  | "profitability"
+  | "situation_engins";
 
 export type ProjectReportFormat = "json" | "pdf" | "excel" | "csv" | "html";
 

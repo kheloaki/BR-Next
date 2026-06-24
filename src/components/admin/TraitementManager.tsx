@@ -6,7 +6,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
+import { CustomerSelect } from "@/components/admin/CustomerSelect";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
+import { withEmptyOption } from "@/components/admin/searchable-options";
+import { DepotSelect } from "@/components/admin/DepotSelect";
 import { SupplierSelectWithAdd } from "@/components/admin/SupplierSelectWithAdd";
+import { ProductSelectWithAdd } from "@/components/admin/ProductSelectWithAdd";
 import type { StockItem } from "@/components/admin/operations-types";
 import type { Customer } from "@/components/admin/devis-types";
 import type { Product, Supplier } from "@/components/admin/devis-types";
@@ -14,28 +19,40 @@ import {
   btnDanger,
   btnPrimary,
   btnSecondary,
+  filterBarClass,
+  filterInputClass,
   inputClass,
   labelClass,
   moduleWrap,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminDataSheet, AdminSheetField } from "@/components/admin/ux/AdminDataSheet";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { TraitementsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import { useOpsReferential } from "@/components/admin/useOpsReferential";
-import { formatMoney } from "@/lib/admin/price-ht-ttc";
+import { HtTtcPriceFields } from "@/components/admin/HtTtcPriceFields";
+import { VatRateSelect } from "@/components/admin/VatRateSelect";
+import { DEFAULT_VAT_RATE, formatMoney, lineTotalTtc, linesTotalTtc } from "@/lib/admin/price-ht-ttc";
 import { TraitementAchatToVenteSheet, canConvertAchatToVente } from "@/components/admin/TraitementAchatToVenteSheet";
 import { TraitementDocumentQuickSheet } from "@/components/admin/TraitementDocumentQuickSheet";
+import { TraitementFinancePanel } from "@/components/admin/TraitementFinancePanel";
+import { TraitementFinanceTableCell } from "@/components/admin/TraitementFinanceTableCell";
+import { TraitementImmediatePaymentPrompt } from "@/components/admin/TraitementImmediatePaymentPrompt";
 import { TraitementGasoilCommandeSheet } from "@/components/admin/TraitementGasoilCommandeSheet";
 import { TraitementGasoilReceptionSheet } from "@/components/admin/TraitementGasoilReceptionSheet";
 import { traitementStepToDocumentType } from "@/lib/admin/traitement-document";
+import { traitementsHref } from "@/lib/admin/traitement-nav";
+import { inferDraftTraitementSupplyKind } from "@/lib/admin/traitement-supply-kind";
+import { GASOIL_UNIT } from "@/lib/admin/gasoil-stock";
 import {
   TRAITEMENT_STATUS_LABELS,
   TRAITEMENT_STEP_LABELS,
@@ -126,12 +143,14 @@ function newDraftLine(): DraftLine {
   };
 }
 
-export function TraitementManager({ kind }: { kind: TraitementType }) {
-  const isAchat = kind === "achat";
+export function TraitementManager() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const typeParam = searchParams.get("type");
+  const kind: TraitementType = typeParam === "vente" ? "vente" : "achat";
+  const isAchat = kind === "achat";
   const toast = useAdminToast();
-  const { projects } = useOpsReferential();
+  const { projects, depots } = useOpsReferential();
   const [tab, setTab] = useState<"list" | "form">("list");
   const [rows, setRows] = useState<Traitement[]>([]);
   const [articles, setArticles] = useState<Product[]>([]);
@@ -146,12 +165,14 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
 
   const [label, setLabel] = useState("");
   const [projectId, setProjectId] = useState("");
+  const [depotId, setDepotId] = useState("");
   const [partnerName, setPartnerName] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<TraitementStatus>("open");
   const [lines, setLines] = useState<DraftLine[]>([]);
+  const [vatRate, setVatRate] = useState(DEFAULT_VAT_RATE);
   const [steps, setSteps] = useState<Traitement["steps"]>({});
   const [activeStep, setActiveStep] = useState<TraitementStepKey | null>(null);
   const [brModalRow, setBrModalRow] = useState<Traitement | null>(null);
@@ -161,11 +182,16 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
   const [docSheet, setDocSheet] = useState<{ traitement: Traitement; stepKey: TraitementStepKey } | null>(
     null,
   );
+  const [immediatePayment, setImmediatePayment] = useState<{
+    traitementId: string;
+    traitementType: TraitementType;
+  } | null>(null);
   const [gasoilBcModal, setGasoilBcModal] = useState<Traitement | null>(null);
   const [gasoilBlModal, setGasoilBlModal] = useState<Traitement | null>(null);
   const [achatToVenteRow, setAchatToVenteRow] = useState<Traitement | null>(null);
+  const [financePayRequest, setFinancePayRequest] = useState(false);
 
-  const title = isAchat ? "Traitement d'achat" : "Traitement de vente";
+  const title = "Traitements";
   const stepKeys = TRAITEMENT_STEPS_BY_TYPE[kind];
   const firstDocStep = stepKeys.find((k) => traitementStepToDocumentType(k, kind)) ?? null;
   const firstDocLabel = firstDocStep ? TRAITEMENT_STEP_LABELS[firstDocStep] : "";
@@ -209,6 +235,11 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
     );
   }, [rows, search, statusFilter]);
 
+  const statusFilterOptions = useMemo(
+    () => withEmptyOption(Object.entries(TRAITEMENT_STATUS_LABELS).map(([value, label]) => ({ value, label })), "Tous"),
+    [],
+  );
+
   const openCount = rows.filter((r) => r.status === "open" || r.status === "in_progress").length;
 
   const stockByProductId = useMemo(() => {
@@ -219,16 +250,34 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
     return map;
   }, [stockItems]);
 
+  const productsById = useMemo(() => {
+    const map = new Map<string, Product>();
+    for (const product of articles) map.set(product.id, product);
+    return map;
+  }, [articles]);
+
+  const editingRow = editingId ? rows.find((r) => r.id === editingId) : null;
+
+  const draftSupplyKind = useMemo(
+    () => inferDraftTraitementSupplyKind(lines, productsById),
+    [lines, productsById],
+  );
+
+  const isGasoilTraitement =
+    editingRow?.supplyKind === "gasoil" || draftSupplyKind === "gasoil";
+
   function resetForm() {
     setEditingId(null);
     setLabel("");
     setProjectId("");
+    setDepotId("");
     setPartnerName("");
     setSupplierId("");
     setCustomerId("");
     setNotes("");
     setStatus("open");
     setLines([]);
+    setVatRate(DEFAULT_VAT_RATE);
     setSteps({});
     setActiveStep(null);
   }
@@ -242,6 +291,7 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
     setEditingId(row.id);
     setLabel(row.label);
     setProjectId(row.projectId ?? "");
+    setDepotId(row.depotId ?? "");
     setPartnerName(row.partnerName);
     setSupplierId(row.supplierId ?? "");
     setCustomerId(row.customerId ?? "");
@@ -268,12 +318,28 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
 
   useEffect(() => {
     const id = searchParams.get("id");
-    if (!id || loading || rows.length === 0) return;
+    if (!id || loading) return;
     const row = rows.find((r) => r.id === id);
     if (row && editingId !== id) {
       openEdit(row);
+      return;
     }
-  }, [searchParams, loading, rows, editingId, kind]);
+    if (rows.length === 0 || row) return;
+
+    let cancelled = false;
+    void (async () => {
+      const res = await fetch(`/api/admin/traitements?id=${encodeURIComponent(id)}`, { cache: "no-store" });
+      if (!res.ok || cancelled) return;
+      const one = (await res.json()) as Traitement;
+      if (one.traitementType !== kind) {
+        router.replace(traitementsHref({ type: one.traitementType, id }));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, loading, rows, editingId, kind, router]);
 
   useEffect(() => {
     if (loading || searchParams.get("new") !== "1") return;
@@ -317,6 +383,11 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
     }
     if (stepKey === "bl" && row.supplyKind === "gasoil") {
       setGasoilBlModal(row);
+      return;
+    }
+    if (stepKey === "f" && row.steps.f?.status === "done") {
+      openDocSheet(row, stepKey);
+      setFinancePayRequest(true);
       return;
     }
     openDocSheet(row, stepKey);
@@ -374,11 +445,26 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
       return;
     }
 
+    const draftKind = inferDraftTraitementSupplyKind(payloadLines, productsById);
+    if (draftKind === "mixed") {
+      toast.error(
+        "Un traitement ne peut pas mélanger gasoil et articles — créez un traitement séparé pour chaque type.",
+      );
+      return;
+    }
+
+    const gasoilTraitement = editingRow?.supplyKind === "gasoil" || draftKind === "gasoil";
+    if (!gasoilTraitement && !depotId.trim()) {
+      toast.error("Sélectionnez le dépôt de stock pour ce traitement.");
+      return;
+    }
+
     setSaving(true);
     const body = {
       traitementType: kind,
       label,
       projectId: projectId || undefined,
+      depotId: depotId || undefined,
       partnerName,
       supplierId: isAchat ? supplierId || undefined : undefined,
       customerId: !isAchat ? customerId || undefined : undefined,
@@ -408,6 +494,7 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
       setEditingId(saved.id);
       setLabel(saved.label);
       setProjectId(saved.projectId ?? "");
+      setDepotId(saved.depotId ?? "");
       setPartnerName(saved.partnerName);
       setSupplierId(saved.supplierId ?? "");
       setCustomerId(saved.customerId ?? "");
@@ -427,7 +514,11 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
         })),
       );
       setTab("form");
-      openDocSheet(saved, openDocStep);
+      if (saved.supplyKind === "gasoil" && (openDocStep === "bc" || openDocStep === "bl")) {
+        handleStepClick(saved, openDocStep);
+      } else {
+        openDocSheet(saved, openDocStep);
+      }
       return;
     }
 
@@ -459,14 +550,13 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
       sortOrder: i,
     })),
   );
+  const draftTotalTtc = linesTotalTtc(
+    lines.map((l) => ({ qty: l.qty, unitPrice: l.unitPrice ?? 0 })),
+    vatRate,
+  );
 
   if (loading) {
-    return (
-      <div className={moduleWrap}>
-        <OpsModuleHeader title={title} description="Chargement…" />
-        <AdminLoading />
-      </div>
-    );
+    return <TraitementsPageSkeleton />;
   }
 
   return (
@@ -481,7 +571,7 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
         actions={
           tab === "list" ? (
             <button type="button" className={btnPrimary} onClick={openNew}>
-              Nouveau traitement
+              Nouveau traitement {isAchat ? "achat" : "vente"}
             </button>
           ) : (
             <button
@@ -496,6 +586,23 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
             </button>
           )
         }
+      />
+
+      <AdminTabs
+        tabs={[
+          { id: "achat", label: "Achat" },
+          { id: "vente", label: "Vente" },
+        ]}
+        active={kind}
+        onChange={(id) => {
+          const next = id as TraitementType;
+          if (next === kind) return;
+          if (tab === "form") {
+            resetForm();
+            setTab("list");
+          }
+          router.replace(traitementsHref({ type: next }));
+        }}
       />
 
       <AdminTabs
@@ -531,21 +638,18 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
             onSearchChange={setSearch}
             searchPlaceholder="N°, objet, partenaire…"
           >
-            <div className="flex flex-wrap items-end gap-2 border-b border-border px-4 py-3">
-              <div>
+            <div className={filterBarClass}>
+              <div className="min-w-0 w-full xl:w-auto xl:min-w-[10rem]">
                 <p className={labelClass}>Statut</p>
-                <select
-                  className={`${inputClass} mt-1 min-w-[140px]`}
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <option value="">Tous</option>
-                  {(Object.keys(TRAITEMENT_STATUS_LABELS) as TraitementStatus[]).map((s) => (
-                    <option key={s} value={s}>
-                      {TRAITEMENT_STATUS_LABELS[s]}
-                    </option>
-                  ))}
-                </select>
+                <div className="mt-1">
+                  <SearchableEnumSelect
+                    options={statusFilterOptions}
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    inputClassName={filterInputClass}
+                    placeholder="Tous"
+                  />
+                </div>
               </div>
             </div>
 
@@ -563,6 +667,7 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
                     <th className={thClass}>{partnerLabel}</th>
                     <th className={thClass}>Articles</th>
                     <th className={thClass}>Documents</th>
+                    <th className={thClass}>Finance</th>
                     {isAchat ? <th className={thClass}>Vente</th> : null}
                     {!isAchat ? <th className={thClass}>Achat orig.</th> : null}
                     <th className={thClass}>Statut</th>
@@ -576,9 +681,15 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
                     return (
                       <tr key={row.id} className={rowHover}>
                         <td className={`${tdClass} font-mono text-xs`}>{row.number}</td>
-                        <td className={tdClass}>{row.label}</td>
-                        <td className={tdClass}>{projectName}</td>
-                        <td className={tdClass}>{row.partnerName || "—"}</td>
+                        <td className={tdTextClass}>
+                          <AdminTruncatedText text={row.label} />
+                        </td>
+                        <td className={tdClass}>
+                          <AdminTruncatedText text={projectName} lines={1} />
+                        </td>
+                        <td className={tdClass}>
+                          <AdminTruncatedText text={row.partnerName} lines={1} />
+                        </td>
                         <td className={`${tdClass} tabular-nums`}>{row.lines.length}</td>
                         <td className={tdClass}>
                           <TraitementStepButtons
@@ -588,11 +699,14 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
                             onStepClick={(stepKey) => handleStepClick(row, stepKey)}
                           />
                         </td>
+                        <td className={tdClass}>
+                          <TraitementFinanceTableCell traitement={row} />
+                        </td>
                         {isAchat ? (
                           <td className={tdClass}>
                             {row.venteTraitementId ? (
                               <Link
-                                href={`/admin/traitements-vente?id=${encodeURIComponent(row.venteTraitementId)}`}
+                                href={traitementsHref({ type: "vente", id: row.venteTraitementId })}
                                 className="text-xs text-[var(--navy)] underline underline-offset-2"
                               >
                                 Ouvrir vente
@@ -614,7 +728,7 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
                           <td className={tdClass}>
                             {row.sourceTraitementId ? (
                               <Link
-                                href={`/admin/traitements-achat?id=${encodeURIComponent(row.sourceTraitementId)}`}
+                                href={traitementsHref({ type: "achat", id: row.sourceTraitementId })}
                                 className="text-xs text-[var(--navy)] underline underline-offset-2"
                               >
                                 Voir achat
@@ -662,13 +776,25 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
                   <ProjectSelect projects={projects} value={projectId} onChange={setProjectId} allowEmpty />
                 </div>
               </div>
+              {!isGasoilTraitement ? (
+                <div>
+                  <p className={labelClass}>Dépôt stock *</p>
+                  <div className="mt-1">
+                    <DepotSelect depots={depots} value={depotId} onChange={setDepotId} allowEmpty={false} />
+                  </div>
+                </div>
+              ) : null}
+              {isGasoilTraitement ? (
+                <p className="col-span-full rounded-md border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-3 py-2 text-sm text-[var(--navy)]">
+                  Achat gasoil : pas de dépôt articles — le stock citerne est mis à jour à la réception (BL).
+                </p>
+              ) : null}
               <div>
                 <p className={labelClass}>{partnerLabel}</p>
                 {isAchat ? (
                   <div className="mt-1">
                     <SupplierSelectWithAdd
                       suppliers={suppliers}
-                      supplyType="divers"
                       value={supplierId}
                       onChange={(id, name) => {
                         setSupplierId(id);
@@ -683,39 +809,33 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
                     />
                   </div>
                 ) : (
-                  <select
-                    className={`${inputClass} mt-1`}
-                    value={customerId}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      setCustomerId(id);
-                      const c = customers.find((x) => x.id === id);
-                      setPartnerName(c?.name ?? "");
-                    }}
-                  >
-                    <option value="">— Client —</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="mt-1">
+                    <CustomerSelect
+                      customers={customers}
+                      value={customerId}
+                      onChange={(id) => {
+                        setCustomerId(id);
+                        const c = customers.find((x) => x.id === id);
+                        setPartnerName(c?.name ?? "");
+                      }}
+                      placeholder="— Client —"
+                      inputClassName={inputClass}
+                    />
+                  </div>
                 )}
               </div>
               {editingId ? (
                 <div>
                   <p className={labelClass}>Statut</p>
-                  <select
-                    className={`${inputClass} mt-1`}
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as TraitementStatus)}
-                  >
-                    {(Object.keys(TRAITEMENT_STATUS_LABELS) as TraitementStatus[]).map((s) => (
-                      <option key={s} value={s}>
-                        {TRAITEMENT_STATUS_LABELS[s]}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="mt-1">
+                    <SearchableEnumSelect
+                      options={TRAITEMENT_STATUS_LABELS}
+                      value={status}
+                      onChange={(v) => setStatus(v as TraitementStatus)}
+                      inputClassName={inputClass}
+                      allowEmpty={false}
+                    />
+                  </div>
                 </div>
               ) : null}
               <div className={editingId ? "" : "sm:col-span-2"}>
@@ -727,37 +847,25 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
 
           <AdminFormCard
             title="Articles"
-            hint="Articles du catalogue (Carnet → Produits). Chaque article a un inventaire lié (qté, seuil). Créez d'abord l'article dans le catalogue si besoin."
+            hint="Articles du catalogue (Carnet → Produits). Chaque article a un inventaire lié (qté, seuil)."
           >
-            <div className="mb-3 flex flex-wrap items-end gap-2">
+            <div className="mb-3 flex flex-wrap items-end gap-3">
               <div className="min-w-[220px] flex-1">
                 <p className={labelClass}>Ajouter depuis le catalogue</p>
-                <select
-                  className={`${inputClass} mt-1`}
-                  defaultValue=""
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      addLineFromProduct(e.target.value);
-                      e.target.value = "";
-                    }
-                  }}
-                >
-                  <option value="">— Choisir un article —</option>
-                  {articles.map((product) => {
-                    const stock = stockByProductId.get(product.id);
-                    return (
-                      <option key={product.id} value={product.id}>
-                        {product.reference ? `${product.reference} — ` : ""}
-                        {product.designation}
-                        {stock ? ` · stock ${stock.qty}` : " · stock 0"}
-                      </option>
-                    );
-                  })}
-                </select>
+                <div className="mt-1">
+                  <ProductSelectWithAdd
+                    products={articles}
+                    value=""
+                    resetAfterSelect
+                    stockByProductId={stockByProductId}
+                    onChange={(id) => addLineFromProduct(id)}
+                    onProductAdded={(p) => {
+                      setArticles((prev) => (prev.some((x) => x.id === p.id) ? prev : [...prev, p]));
+                    }}
+                  />
+                </div>
               </div>
-              <Link href="/admin/products" className={`${btnSecondary} mt-5`}>
-                + Nouvel article
-              </Link>
+              <VatRateSelect compact value={vatRate} onChange={setVatRate} label="TVA (%)" />
               <button type="button" className={`${btnSecondary} mt-5`} onClick={() => setLines((p) => [...p, newDraftLine()])}>
                 Ligne libre
               </button>
@@ -770,8 +878,8 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
                   <th className={thClass}>Désignation</th>
                   <th className={thClass}>Unité</th>
                   <th className={thClass}>Qté</th>
-                  <th className={thClass}>P.U.</th>
-                  <th className={thClass}>Total</th>
+                  <th className={thClass}>P.U. HT / TTC</th>
+                  <th className={thClass}>Total HT / TTC</th>
                   <th className={thClass} />
                 </tr>
               </thead>
@@ -795,7 +903,8 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
                     <td className={tdClass}>
                       <input
                         className={`${inputClass} w-20`}
-                        value={line.unit ?? "PIECE"}
+                        value={line.unit ?? (isGasoilTraitement ? GASOIL_UNIT : "PIECE")}
+                        readOnly={isGasoilTraitement}
                         onChange={(e) => updateLine(line.key, { unit: e.target.value })}
                       />
                     </td>
@@ -808,18 +917,20 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
                         onChange={(e) => updateLine(line.key, { qty: Number(e.target.value) || 0 })}
                       />
                     </td>
-                    <td className={tdClass}>
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        className={`${inputClass} w-28`}
-                        value={line.unitPrice ?? 0}
-                        onChange={(e) => updateLine(line.key, { unitPrice: Number(e.target.value) || 0 })}
+                    <td className={`${tdClass} min-w-[11rem]`}>
+                      <HtTtcPriceFields
+                        vatRate={vatRate}
+                        valueHt={line.unitPrice ?? 0}
+                        onChangeHt={(unitPrice) => updateLine(line.key, { unitPrice })}
+                        compact
+                        showLabels={false}
                       />
                     </td>
-                    <td className={`${tdClass} tabular-nums`}>
-                      {formatMoney((line.qty || 0) * (line.unitPrice || 0))}
+                    <td className={`${tdClass} tabular-nums whitespace-nowrap`}>
+                      <span className="block">{formatMoney((line.qty || 0) * (line.unitPrice || 0))}</span>
+                      <span className="block text-[10px] text-[var(--graphite)]/70">
+                        {formatMoney(lineTotalTtc(line.qty || 0, line.unitPrice || 0, vatRate))}
+                      </span>
                     </td>
                     <td className={tdClass}>
                       <button type="button" className={btnDanger} onClick={() => removeLine(line.key)}>
@@ -830,7 +941,9 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
                 ))}
               </tbody>
             </AdminTableWrap>
-            <p className="mt-3 text-sm font-medium text-[var(--navy)]">Total HT : {formatMoney(draftTotal)}</p>
+            <p className="mt-3 text-sm font-medium text-[var(--navy)]">
+              Total HT : {formatMoney(draftTotal)} · TTC ({vatRate} %) : {formatMoney(draftTotalTtc)}
+            </p>
           </AdminFormCard>
 
           {editingId && isAchat ? (() => {
@@ -841,7 +954,7 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
                 <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-950">
                   Traitement vente lié :{" "}
                   <Link
-                    href={`/admin/traitements-vente?id=${encodeURIComponent(row.venteTraitementId)}`}
+                    href={traitementsHref({ type: "vente", id: row.venteTraitementId })}
                     className="font-medium underline underline-offset-2"
                   >
                     Ouvrir la vente
@@ -874,7 +987,7 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
               <p className="rounded-md border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-3 py-2 text-sm text-[var(--navy)]">
                 Suite du traitement achat :{" "}
                 <Link
-                  href={`/admin/traitements-achat?id=${encodeURIComponent(row.sourceTraitementId)}`}
+                  href={traitementsHref({ type: "achat", id: row.sourceTraitementId })}
                   className="font-medium underline underline-offset-2"
                 >
                   Voir l&apos;achat d&apos;origine
@@ -887,8 +1000,8 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
             <AdminFormCard
               title="Documents"
               hint={
-                rows.find((r) => r.id === editingId)?.supplyKind === "gasoil"
-                  ? "Gasoil : BC (bon commande gasoil) → Réception (BL, stock citerne) → Facture."
+                isGasoilTraitement
+                  ? "Gasoil : BC (bon commande gasoil) → Réception (BL, stock citerne) → Facture (finance auto)."
                   : "Cliquez une étape pour la création rapide (popup). BL et BR mettent à jour le stock. Mode avancé disponible dans la popup."
               }
             >
@@ -898,16 +1011,18 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
                 activeStep={activeStep}
                 onStepClick={(stepKey) => {
                   setActiveStep(stepKey);
-                  const row = rows.find((r) => r.id === editingId);
+                  const row = editingRow;
+                  const supplyKind = row?.supplyKind ?? (draftSupplyKind === "gasoil" ? "gasoil" : "articles");
                   const traitement: Traitement = row
                     ? { ...row, steps }
                     : {
                         id: editingId,
                         traitementType: kind,
-                        supplyKind: "articles",
+                        supplyKind,
                         number: "",
                         label,
                         projectId: projectId || null,
+                        depotId: depotId || null,
                         supplierId: supplierId || null,
                         customerId: customerId || null,
                         partnerName,
@@ -958,6 +1073,18 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
             </AdminFormCard>
           )}
 
+          {editingId && steps.f?.status === "done" ? (() => {
+            const row = rows.find((r) => r.id === editingId);
+            if (!row) return null;
+            return (
+              <TraitementFinancePanel
+                traitement={{ ...row, steps }}
+                requestPaymentOpen={financePayRequest}
+                onPaymentOpenHandled={() => setFinancePayRequest(false)}
+              />
+            );
+          })() : null}
+
           <div className="flex flex-wrap gap-2">
             <button type="button" className={btnPrimary} disabled={saving} onClick={() => void save()}>
               {saving ? "Enregistrement…" : editingId ? "Enregistrer" : "Créer le traitement"}
@@ -998,7 +1125,7 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
         onCreated={async (venteId) => {
           toast.success("Traitement vente créé — Devis, BL, facture.");
           await load();
-          router.push(`/admin/traitements-vente?id=${encodeURIComponent(venteId)}`);
+          router.push(traitementsHref({ type: "vente", id: venteId }));
         }}
         onError={(message) => toast.error(message)}
       />
@@ -1015,6 +1142,17 @@ export function TraitementManager({ kind }: { kind: TraitementType }) {
         }}
         onError={(message) => toast.error(message)}
         onSuccess={(message) => toast.success(message)}
+        onFactureSaved={(traitementId, traitementType) => {
+          setImmediatePayment({ traitementId, traitementType });
+        }}
+      />
+
+      <TraitementImmediatePaymentPrompt
+        open={Boolean(immediatePayment)}
+        traitementId={immediatePayment?.traitementId ?? ""}
+        traitementType={immediatePayment?.traitementType ?? kind}
+        onClose={() => setImmediatePayment(null)}
+        onDone={() => void load()}
       />
 
       <TraitementGasoilCommandeSheet

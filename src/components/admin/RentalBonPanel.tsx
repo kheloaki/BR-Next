@@ -19,19 +19,28 @@ import {
   btnDanger,
   btnPrimary,
   btnSecondary,
+  filterBarClass,
+  filterFieldWrap,
+  filterInputClass,
   inputClass,
   labelClass,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { RentalBonsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import type { AdminProject } from "@/components/admin/operations-types";
 import { contractToBonForm, bonMatchesDateRange, bonMatchesMaterial, formatBonLocationDates, formatBonLocationMaterials } from "@/lib/admin/map-rental-material";
 import { materialLabel } from "@/lib/admin/map-rental-material-catalog";
+import { ProjectSelect } from "@/components/admin/ProjectSelect";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
+import { SearchableSelect } from "@/components/admin/SearchableSelect";
+import { enumToOptions, stringOptions, withEmptyOption } from "@/components/admin/searchable-options";
 import { confirmDelete, readApiError } from "@/components/admin/ux/useAdminToast";
 
 const RENTAL_STATUSES: RentalEquipmentStatus[] = ["active", "maintenance", "down"];
@@ -238,7 +247,7 @@ export function RentalBonPanel({
         onChange={setTab}
       />
 
-      {loading ? <AdminLoading /> : null}
+      {loading ? <RentalBonsPageSkeleton partial /> : null}
 
       {!loading && tab === "list" ? (
         <AdminInventoryCard
@@ -252,96 +261,81 @@ export function RentalBonPanel({
             </button>
           }
         >
-          <div className="flex flex-wrap items-end gap-2 border-b border-border px-4 py-3">
-            <div>
+          <div className={filterBarClass}>
+            <div className={filterFieldWrap}>
               <p className={labelClass}>Chantier</p>
-              <select
-                className={`${inputClass} mt-1 min-w-[160px]`}
-                value={filterProjectId}
-                onChange={(e) => setFilterProjectId(e.target.value)}
-              >
-                <option value="">Tous chantiers</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+              <div className="mt-1 w-full">
+                <ProjectSelect
+                  projects={projects}
+                  value={filterProjectId}
+                  onChange={setFilterProjectId}
+                  allowEmpty
+                  placeholder="Tous chantiers"
+                  activeOnly={false}
+                />
+              </div>
             </div>
-            <div>
+            <div className={filterFieldWrap}>
               <p className={labelClass}>Matériel</p>
-              <select
-                className={`${inputClass} mt-1 min-w-[200px]`}
+              <SearchableSelect
+                options={withEmptyOption(
+                  materialOptions.map((m) => ({
+                    value: m.id,
+                    label: materialLabel(m),
+                    keywords: `${m.reference} ${m.matricule} ${m.designation}`,
+                  })),
+                  "Tout matériel",
+                )}
                 value={filterMaterialId}
-                onChange={(e) => setFilterMaterialId(e.target.value)}
-              >
-                <option value="">Tout matériel</option>
-                {materialOptions.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {materialLabel(m)}
-                  </option>
-                ))}
-              </select>
+                onChange={setFilterMaterialId}
+                placeholder="Tout matériel"
+                inputClassName={filterInputClass}
+              />
             </div>
-            <div>
+            <div className={filterFieldWrap}>
               <p className={labelClass}>Statut</p>
-              <select
-                className={`${inputClass} mt-1 min-w-[140px]`}
+              <SearchableEnumSelect
+                options={withEmptyOption(enumToOptions(RENTAL_STATUS_LABELS), "Tous statuts")}
                 value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-              >
-                <option value="">Tous statuts</option>
-                {RENTAL_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {RENTAL_STATUS_LABELS[s]}
-                  </option>
-                ))}
-              </select>
+                onChange={setFilterStatus}
+                placeholder="Tous statuts"
+                inputClassName={filterInputClass}
+              />
             </div>
-            <div>
+            <div className={filterFieldWrap}>
               <p className={labelClass}>Loueur</p>
-              <select
-                className={`${inputClass} mt-1 min-w-[160px]`}
+              <SearchableSelect
+                options={withEmptyOption(stringOptions(ownerOptions), "Tous loueurs")}
                 value={filterOwner}
-                onChange={(e) => setFilterOwner(e.target.value)}
-              >
-                <option value="">Tous loueurs</option>
-                {ownerOptions.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
+                onChange={setFilterOwner}
+                placeholder="Tous loueurs"
+                inputClassName={filterInputClass}
+              />
             </div>
-            <div>
+            <div className={filterFieldWrap}>
               <p className={labelClass}>Conducteur</p>
-              <select
-                className={`${inputClass} mt-1 min-w-[160px]`}
+              <SearchableSelect
+                options={withEmptyOption(stringOptions(driverOptions), "Tous conducteurs")}
                 value={filterDriver}
-                onChange={(e) => setFilterDriver(e.target.value)}
-              >
-                <option value="">Tous conducteurs</option>
-                {driverOptions.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
+                onChange={setFilterDriver}
+                placeholder="Tous conducteurs"
+                inputClassName={filterInputClass}
+              />
             </div>
-            <div>
+            <div className={filterFieldWrap}>
               <p className={labelClass}>Du</p>
               <input
                 type="date"
-                className={`${inputClass} mt-1 min-w-[140px]`}
+                className={filterInputClass}
                 value={filterDateFrom}
                 onChange={(e) => setFilterDateFrom(e.target.value)}
               />
             </div>
-            <div>
+            <div className={filterFieldWrap}>
               <p className={labelClass}>Au</p>
               <input
                 type="date"
-                className={`${inputClass} mt-1 min-w-[140px]`}
+                className={filterInputClass}
                 value={filterDateTo}
                 onChange={(e) => setFilterDateTo(e.target.value)}
               />
@@ -349,7 +343,7 @@ export function RentalBonPanel({
             {hasActiveFilters ? (
               <button
                 type="button"
-                className={`${btnSecondary} mt-5`}
+                className={`${btnSecondary} w-full xl:w-auto`}
                 onClick={() => {
                   setFilterProjectId("");
                   setFilterMaterialId("");
@@ -393,12 +387,22 @@ export function RentalBonPanel({
               <tbody>
                 {filtered.map((r) => (
                   <tr key={r.id} className={rowHover}>
-                    <td className={`${tdClass} font-mono text-xs`}>{r.bonLocationNo || "—"}</td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={r.bonLocationNo} lines={1} />
+                    </td>
                     <td className={`${tdClass} whitespace-nowrap text-xs`}>{formatBonLocationDates(r)}</td>
-                    <td className={tdClass}>{formatBonLocationMaterials(r, materials)}</td>
-                    <td className={tdClass}>{projectName(r.projectId)}</td>
-                    <td className={tdClass}>{r.ownerName || "—"}</td>
-                    <td className={tdClass}>{r.driverName || "—"}</td>
+                    <td className={tdTextClass}>
+                      <AdminTruncatedText text={formatBonLocationMaterials(r, materials)} />
+                    </td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={projectName(r.projectId)} lines={1} />
+                    </td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={r.ownerName} lines={1} />
+                    </td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={r.driverName} lines={1} />
+                    </td>
                     <td className={tdClass}>{r.bonLines.length || r.daysCount || "—"}</td>
                     <td className={tdClass}>{r.totalMad.toLocaleString("fr-MA")}</td>
                     <td className={tdClass}>
@@ -428,17 +432,17 @@ export function RentalBonPanel({
           hint="Bon journalier — lieu de travaux, lignes date / usage / tarif (1 jr = 9 h)."
           footer={
             <div className="flex flex-wrap items-center gap-3">
-              <div>
+              <div className={filterFieldWrap}>
                 <p className={labelClass}>Statut</p>
-                <select
-                  className={`${inputClass} mt-1 min-w-[140px]`}
+                <SearchableEnumSelect
+                  options={RENTAL_STATUS_LABELS}
                   value={form.status}
-                  onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as RentalBonFormState["status"] }))}
-                >
-                  <option value="active">Actif</option>
-                  <option value="maintenance">Maintenance</option>
-                  <option value="down">En panne</option>
-                </select>
+                  onChange={(status) =>
+                    setForm((f) => ({ ...f, status: status as RentalBonFormState["status"] }))
+                  }
+                  allowEmpty={false}
+                  inputClassName={filterInputClass}
+                />
               </div>
               <div className="flex flex-1 flex-wrap justify-end gap-2">
                 <button

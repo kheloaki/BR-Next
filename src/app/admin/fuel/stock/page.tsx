@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { FuelManager } from "@/components/admin/FuelManager";
+import { FuelStockPageSkeleton } from "@/components/admin/skeletons/pages";
 import { requireAdminPage } from "@/lib/admin/admin-page-auth";
 
 export const metadata: Metadata = {
@@ -13,7 +14,7 @@ export default async function AdminFuelStockPage() {
   await requireAdminPage("/admin/fuel/stock");
   return (
     <AdminShell active="fuel-stock">
-      <Suspense fallback={<p className="text-sm">Chargement…</p>}>
+      <Suspense fallback={<FuelStockPageSkeleton />}>
         <FuelManager view="stock" />
       </Suspense>
     </AdminShell>

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { btnSecondary } from "@/components/admin/admin-form-styles";
+import { btnSecondary, moduleTitle } from "@/components/admin/admin-form-styles";
 
 export function OpsModuleHeader({
   title,
@@ -13,15 +13,15 @@ export function OpsModuleHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="border-b border-border pb-4 mb-4 flex flex-wrap items-start justify-between gap-3">
+    <div className="mb-4 flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
       <div className="min-w-0 flex-1">
-        <h2 className="text-2xl font-semibold text-[var(--navy)] tracking-tight">{title}</h2>
-        <p className="text-sm text-[var(--graphite)]/80 mt-1 max-w-2xl">{description}</p>
+        <h2 className={moduleTitle}>{title}</h2>
+        <p className="mt-1 max-w-2xl text-sm text-[var(--graphite)]/80">{description}</p>
       </div>
-      <div className="flex flex-wrap items-center gap-2 shrink-0">
+      <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
         {actions}
         {exportHref ? (
-          <a href={exportHref} className={btnSecondary}>
+          <a href={exportHref} className={`${btnSecondary} w-full sm:w-auto`}>
             Exporter CSV
           </a>
         ) : null}

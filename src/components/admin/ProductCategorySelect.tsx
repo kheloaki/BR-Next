@@ -1,5 +1,8 @@
+"use client";
+
+import { useMemo } from "react";
 import type { ProductCategory } from "@/components/admin/devis-types";
-import { inputClass } from "@/components/admin/admin-form-styles";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/admin/SearchableSelect";
 
 export function ProductCategorySelect({
   categories,
@@ -7,21 +10,30 @@ export function ProductCategorySelect({
   onChange,
   allowEmpty = true,
   placeholder = "Catégorie…",
+  className,
 }: {
   categories: ProductCategory[];
   value: string;
   onChange: (name: string) => void;
   allowEmpty?: boolean;
   placeholder?: string;
+  className?: string;
 }) {
+  const options = useMemo((): SearchableSelectOption[] => {
+    return categories.map((c) => ({
+      value: c.name,
+      label: c.name,
+    }));
+  }, [categories]);
+
   return (
-    <select className={inputClass} value={value} onChange={(e) => onChange(e.target.value)}>
-      {allowEmpty ? <option value="">{placeholder}</option> : null}
-      {categories.map((c) => (
-        <option key={c.id} value={c.name}>
-          {c.name}
-        </option>
-      ))}
-    </select>
+    <SearchableSelect
+      options={options}
+      value={value}
+      onChange={onChange}
+      allowEmpty={allowEmpty}
+      placeholder={placeholder}
+      className={className}
+    />
   );
 }

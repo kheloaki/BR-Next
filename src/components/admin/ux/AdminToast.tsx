@@ -22,7 +22,7 @@ export function AdminToast({
   return (
     <div
       role="status"
-      className={`fixed bottom-5 right-5 z-[100] max-w-sm rounded-md border px-4 py-3 text-sm shadow-lg animate-in fade-in slide-in-from-bottom-2 ${styles[k]}`}
+      className={`fixed bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px)+1rem)] right-4 z-[100] max-w-sm rounded-md border px-4 py-3 text-sm shadow-lg animate-in fade-in slide-in-from-bottom-2 lg:bottom-5 lg:right-5 ${styles[k]}`}
     >
       <div className="flex items-start justify-between gap-3">
         <p>{message}</p>

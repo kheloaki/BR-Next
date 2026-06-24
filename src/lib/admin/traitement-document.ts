@@ -1,6 +1,10 @@
 import type { DocumentType, LineItem, QuoteDraft } from "@/components/admin/devis-types";
 import { facturationBuilderPath, facturationEditPath } from "@/lib/admin/facturation-nav";
+import { traitementReturnPath } from "@/lib/admin/traitement-nav";
+import { resolveDocumentClientNameForTraitement } from "@/lib/admin/quote-counterparty";
 import type { Traitement, TraitementStepKey, TraitementType } from "@/lib/admin/traitement-types";
+
+export { traitementReturnPath };
 
 export function traitementStepToDocumentType(
   step: TraitementStepKey,
@@ -29,12 +33,6 @@ export function traitementDocumentBuilderPath(
   return `${base}?${params.toString()}`;
 }
 
-export function traitementReturnPath(traitementType: TraitementType, traitementId: string) {
-  return traitementType === "achat"
-    ? `/admin/traitements-achat?id=${encodeURIComponent(traitementId)}`
-    : `/admin/traitements-vente?id=${encodeURIComponent(traitementId)}`;
-}
-
 export function traitementLinesToQuoteItems(traitement: Traitement): LineItem[] {
   return traitement.lines.map((line) => ({
     productId: line.productId || `tr-${line.id}`,
@@ -51,14 +49,24 @@ export function buildQuoteDraftFromTraitement(
   step: TraitementStepKey,
   documentType: DocumentType,
   quoteNumber: string,
+  opts?: { suppliers?: import("@/components/admin/devis-types").Supplier[]; customers?: import("@/components/admin/devis-types").Customer[] },
 ): Partial<QuoteDraft> {
   const linkedBc = traitement.steps.bc;
   const linkedDevis = traitement.steps.devis;
   const linkedFacture = traitement.steps.f;
 
+  const clientName =
+    opts?.suppliers || opts?.customers
+      ? resolveDocumentClientNameForTraitement(
+          traitement,
+          opts.suppliers ?? [],
+          opts.customers ?? [],
+        )
+      : traitement.partnerName.trim() || traitement.label;
+
   const draft: Partial<QuoteDraft> = {
     documentType,
-    clientName: traitement.partnerName.trim() || traitement.label,
+    clientName,
     reference: traitement.label,
     date: new Date().toISOString().slice(0, 10),
     items: traitementLinesToQuoteItems(traitement),
@@ -113,6 +121,7 @@ export function buildTraitementQuoteDraft(
     date: string;
     dueDate?: string;
     clientName: string;
+    clientIce?: string;
     reference: string;
     vatRate: number;
     includeCachet?: boolean;
@@ -133,7 +142,7 @@ export function buildTraitementQuoteDraft(
     createdAt: fields.existingCreatedAt || new Date().toISOString(),
     documentType,
     clientName: fields.clientName.trim() || traitement.partnerName.trim() || traitement.label,
-    clientIce: base.clientIce ?? "",
+    clientIce: fields.clientIce?.trim() || base.clientIce?.trim() || "",
     clientAddress: base.clientAddress,
     quoteNumber: fields.quoteNumber.trim(),
     reference: fields.reference.trim() || base.reference || traitement.label,

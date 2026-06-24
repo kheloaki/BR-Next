@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
 import { useOpsReferential } from "@/components/admin/useOpsReferential";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
@@ -15,13 +16,15 @@ import {
   moduleWrap,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { LogisticsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 
@@ -73,6 +76,16 @@ export function LogisticsManager() {
         r.destination.toLowerCase().includes(q),
     );
   }, [rows, search]);
+
+  const tripStatusOptions = useMemo(
+    () =>
+      ({
+        in_transit: "En route",
+        arrived: "Arrivé",
+        delivered: "Livré",
+      }) as Record<TripStatus, string>,
+    [],
+  );
 
   async function submit() {
     if (!vehicleCode.trim() || !departure.trim() || !destination.trim()) {
@@ -141,7 +154,7 @@ export function LogisticsManager() {
         onChange={setTab}
       />
 
-      {loading ? <AdminLoading /> : null}
+      {loading ? <LogisticsPageSkeleton partial /> : null}
 
       {!loading && tab === "trips" ? (
         <AdminInventoryCard
@@ -174,9 +187,11 @@ export function LogisticsManager() {
                   <tr key={r.id} className={rowHover}>
                     <td className={tdClass}>{r.tripDate}</td>
                     <td className={tdClass}>{r.vehicleCode}</td>
-                    <td className={tdClass}>{r.driverName || "—"}</td>
                     <td className={tdClass}>
-                      {r.departure} → {r.destination}
+                      <AdminTruncatedText text={r.driverName} lines={1} />
+                    </td>
+                    <td className={tdTextClass}>
+                      <AdminTruncatedText text={`${r.departure} → ${r.destination}`} />
                     </td>
                     <td className={tdClass}>{r.distanceKm}</td>
                     <td className={tdClass}>
@@ -207,11 +222,13 @@ export function LogisticsManager() {
             <input className={inputClass} placeholder="Départ *" value={departure} onChange={(e) => setDeparture(e.target.value)} />
             <input className={inputClass} placeholder="Destination *" value={destination} onChange={(e) => setDestination(e.target.value)} />
             <input type="number" className={inputClass} placeholder="Distance km" value={distanceKm || ""} onChange={(e) => setDistanceKm(Number(e.target.value) || 0)} />
-            <select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value as TripStatus)}>
-              <option value="in_transit">En route</option>
-              <option value="arrived">Arrivé</option>
-              <option value="delivered">Livré</option>
-            </select>
+            <SearchableEnumSelect
+              options={tripStatusOptions}
+              value={status}
+              onChange={(v) => setStatus(v as TripStatus)}
+              inputClassName={inputClass}
+              allowEmpty={false}
+            />
           </div>
         </AdminFormCard>
       ) : null}

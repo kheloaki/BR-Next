@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { QuoteDraft } from "@/components/admin/devis-types";
 import { btnSecondary, inputClass, labelClass } from "@/components/admin/admin-form-styles";
+import { SearchableSelect } from "@/components/admin/SearchableSelect";
 import { facturationBuilderPath } from "@/lib/admin/facturation-nav";
 
 const MANUAL = "__manual__";
@@ -55,13 +56,28 @@ export function DeliveryNoteSelect({
     return () => window.removeEventListener("focus", onFocus);
   }, [load]);
 
-  const options = useMemo(
+  const blOptions = useMemo(
     () => [...bls].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")),
     [bls],
   );
 
+  const options = useMemo(() => {
+    const rows = blOptions
+      .map((bl) => {
+        const num = bl.quoteNumber || bl.reference;
+        if (!num) return null;
+        return {
+          value: num,
+          label: blLabel(bl),
+          keywords: `${num} ${bl.clientName ?? ""}`,
+        };
+      })
+      .filter(Boolean) as { value: string; label: string; keywords: string }[];
+    return [...rows, { value: MANUAL, label: "Autre (saisie manuelle)", keywords: "manuel autre" }];
+  }, [blOptions]);
+
   const knownNumbers = useMemo(
-    () => new Set(options.flatMap((bl) => [bl.quoteNumber, bl.reference].filter(Boolean))),
+    () => new Set(options.filter((o) => o.value !== MANUAL).map((o) => o.value)),
     [options],
   );
 
@@ -82,24 +98,15 @@ export function DeliveryNoteSelect({
     <div className={className}>
       {label ? <p className={labelClass}>{label}</p> : null}
       <div className={`${label ? "mt-1" : ""} flex gap-2`}>
-        <select
-          className={`${inputClass} min-w-0 flex-1`}
+        <SearchableSelect
+          options={options}
           value={selectValue}
+          onChange={handleSelectChange}
+          placeholder={loading ? "Chargement des BL…" : placeholder}
+          inputClassName={`${inputClass} min-w-0 flex-1`}
           disabled={loading}
-          onChange={(e) => handleSelectChange(e.target.value)}
-        >
-          <option value="">{loading ? "Chargement des BL…" : placeholder}</option>
-          {options.map((bl) => {
-            const num = bl.quoteNumber || bl.reference;
-            if (!num) return null;
-            return (
-              <option key={bl.id} value={num}>
-                {blLabel(bl)}
-              </option>
-            );
-          })}
-          <option value={MANUAL}>Autre (saisie manuelle)</option>
-        </select>
+          allowEmpty={false}
+        />
         <Link
           href={facturationBuilderPath("bon_livraison")}
           target="_blank"
@@ -119,7 +126,7 @@ export function DeliveryNoteSelect({
           placeholder="N° BL ou référence libre"
         />
       ) : null}
-      {!loading && options.length === 0 ? (
+      {!loading && blOptions.length === 0 ? (
         <p className="mt-1.5 text-xs text-[var(--graphite)]/65">
           Aucun bon de livraison enregistré — cliquez sur + pour en créer un.
         </p>

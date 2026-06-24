@@ -6,11 +6,13 @@ export function buildProjectReportApiUrl(
   format: "pdf" | "excel" | "csv" | "html",
   from?: string,
   to?: string,
+  extra?: { materialId?: string },
 ) {
   const p = new URLSearchParams();
   p.set("format", format);
   if (from) p.set("from", from);
   if (to) p.set("to", to);
+  if (extra?.materialId) p.set("materialId", extra.materialId);
   if (format === "html") p.set("print", "1");
   return `/api/admin/projects/${encodeURIComponent(projectId)}/reports/${encodeURIComponent(module)}?${p.toString()}`;
 }
@@ -34,12 +36,13 @@ export async function downloadProjectReport(
   format: "pdf" | "excel" | "csv" | "html",
   from?: string,
   to?: string,
+  extra?: { materialId?: string },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!projectId.trim()) {
     return { ok: false, error: "Sélectionnez un projet." };
   }
 
-  const url = buildProjectReportApiUrl(projectId, module, format, from, to);
+  const url = buildProjectReportApiUrl(projectId, module, format, from, to, extra);
 
   if (format === "html") {
     window.open(url, "_blank", "noopener,noreferrer");

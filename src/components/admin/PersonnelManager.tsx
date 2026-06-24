@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
+import { MatriculeInput } from "@/components/admin/MatriculeInput";
 import { PersonnelCategorySelectWithAdd } from "@/components/admin/PersonnelCategorySelectWithAdd";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
 import { useOpsReferential } from "@/components/admin/useOpsReferential";
@@ -20,7 +21,7 @@ import {
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { PersonnelPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminDataSheet } from "@/components/admin/ux/AdminDataSheet";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
@@ -202,7 +203,7 @@ export function PersonnelManager() {
         onChange={setTab}
       />
 
-      {loading ? <AdminLoading /> : null}
+      {loading ? <PersonnelPageSkeleton partial /> : null}
 
       {!loading && tab === "personnel" ? (
         <AdminInventoryCard
@@ -233,13 +234,12 @@ export function PersonnelManager() {
                 {filteredEmployees.map((emp) => (
                   <tr key={emp.id}>
                     <td className={tdClass}>
-                      <input
-                        className={inputClass}
-                        defaultValue={emp.matricule}
-                        onBlur={(e) => {
-                          if (e.target.value !== emp.matricule) {
-                            void updateEmployee(emp, { matricule: e.target.value });
-                          }
+                      <MatriculeInput
+                        compact
+                        deferCommit
+                        value={emp.matricule}
+                        onChange={(matricule) => {
+                          if (matricule !== emp.matricule) void updateEmployee(emp, { matricule });
                         }}
                       />
                     </td>
@@ -360,11 +360,9 @@ export function PersonnelManager() {
         <div className={formGridClass}>
           <div>
             <p className={labelClass}>Matricule</p>
-            <input
-              className={`${inputClass} mt-1`}
-              value={newEmpMatricule}
-              onChange={(e) => setNewEmpMatricule(e.target.value)}
-            />
+            <div className="mt-1">
+              <MatriculeInput value={newEmpMatricule} onChange={setNewEmpMatricule} />
+            </div>
           </div>
           <div>
             <p className={labelClass}>Nom & prénom *</p>

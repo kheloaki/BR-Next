@@ -3,14 +3,18 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AdminTabs } from "@/components/admin/AdminTabs";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
+import { withEmptyOption } from "@/components/admin/searchable-options";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import { ProjectDocumentUpload } from "@/components/admin/ProjectDocumentUpload";
 import {
   PROJECT_STATUS_LABELS,
   type AdminProject,
   type AdminProjectForm,
+  type ProjectFinancialSummary,
   type ProjectStatus,
 } from "@/components/admin/operations-types";
+import { formatMoney } from "@/lib/admin/price-ht-ttc";
 import {
   btnDanger,
   btnGhost,
@@ -23,18 +27,16 @@ import {
 import { AdminEmptyState } from "@/components/admin/ux/AdminEmptyState";
 import { AdminFilterBar } from "@/components/admin/ux/AdminFilterBar";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { ProjectsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 
-const STATUSES: ProjectStatus[] = ["draft", "active", "suspended", "closed"];
+const STATUSES: ProjectStatus[] = ["active", "inactive"];
 
 const STATUS_BADGE: Record<ProjectStatus, string> = {
-  draft: "bg-[var(--graphite)]/10 text-[var(--graphite)] border border-border",
   active: "bg-emerald-50 text-emerald-800 border border-emerald-200/80",
-  suspended: "bg-amber-50 text-amber-900 border border-amber-200/80",
-  closed: "bg-[var(--background)] text-[var(--graphite)]/75 border border-border",
+  inactive: "bg-[var(--graphite)]/10 text-[var(--graphite)] border border-border",
 };
 
 function formatDate(value: string | null) {
@@ -61,7 +63,11 @@ const emptyForm = (): AdminProjectForm => ({
   chantierDocumentUrl: "",
   planUrl: "",
   notes: "",
+  budgetMad: 0,
+  ficheVisibleSections: null,
 });
+
+type ProjectListRow = AdminProject & { financials?: ProjectFinancialSummary };
 
 function FormField({
   label,
@@ -87,7 +93,7 @@ function FormField({
 
 export function ProjectsManager() {
   const toast = useAdminToast();
-  const [rows, setRows] = useState<AdminProject[]>([]);
+  const [rows, setRows] = useState<ProjectListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
@@ -99,10 +105,10 @@ export function ProjectsManager() {
   const load = useCallback(async () => {
     setLoading(true);
     const url = statusFilter
-      ? `/api/admin/projects?status=${encodeURIComponent(statusFilter)}`
-      : "/api/admin/projects";
+      ? `/api/admin/projects?status=${encodeURIComponent(statusFilter)}&financials=1`
+      : "/api/admin/projects?financials=1";
     const res = await fetch(url, { cache: "no-store" });
-    if (res.ok) setRows((await res.json()) as AdminProject[]);
+    if (res.ok) setRows((await res.json()) as ProjectListRow[]);
     setLoading(false);
   }, [statusFilter]);
 
@@ -124,6 +130,11 @@ export function ProjectsManager() {
         p.location.toLowerCase().includes(q),
     );
   }, [rows, search]);
+
+  const statusFilterOptions = useMemo(
+    () => withEmptyOption(STATUSES.map((s) => ({ value: s, label: PROJECT_STATUS_LABELS[s] })), "Tous statuts"),
+    [],
+  );
 
   const activeCount = rows.filter((p) => p.status === "active").length;
 
@@ -150,6 +161,8 @@ export function ProjectsManager() {
       chantierDocumentUrl: p.chantierDocumentUrl,
       planUrl: p.planUrl,
       notes: p.notes,
+      budgetMad: p.budgetMad,
+      ficheVisibleSections: p.ficheVisibleSections,
     });
     setTab("form");
   }
@@ -205,10 +218,10 @@ export function ProjectsManager() {
         <AdminMiniStats
           items={[
             { label: "Projets", value: String(rows.length) },
-            { label: "En cours", value: String(activeCount) },
+            { label: "Actifs", value: String(activeCount) },
             {
-              label: "Clôturés",
-              value: String(rows.filter((p) => p.status === "closed").length),
+              label: "Inactifs",
+              value: String(rows.filter((p) => p.status === "inactive").length),
             },
           ]}
         />
@@ -223,23 +236,18 @@ export function ProjectsManager() {
         onChange={(id) => setTab(id as "list" | "form")}
       />
 
-      {loading ? <AdminLoading /> : null}
+      {loading ? <ProjectsPageSkeleton partial /> : null}
 
       {!loading && tab === "list" ? (
         <>
           <AdminFilterBar search={search} onSearchChange={setSearch} searchPlaceholder="Nom, code, client…">
-            <select
-              className={`${inputClass} max-w-[180px]`}
+            <SearchableEnumSelect
+              options={statusFilterOptions}
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="">Tous statuts</option>
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {PROJECT_STATUS_LABELS[s]}
-                </option>
-              ))}
-            </select>
+              onChange={setStatusFilter}
+              inputClassName={`${inputClass} max-w-[180px]`}
+              placeholder="Tous statuts"
+            />
           </AdminFilterBar>
 
           {filtered.length === 0 ? (
@@ -289,17 +297,13 @@ export function ProjectsManager() {
               />
             </FormField>
             <FormField label="Statut">
-              <select
-                className={inputClass}
+              <SearchableEnumSelect
+                options={Object.fromEntries(STATUSES.map((s) => [s, PROJECT_STATUS_LABELS[s]]))}
                 value={form.status}
-                onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as ProjectStatus }))}
-              >
-                {STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {PROJECT_STATUS_LABELS[s]}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setForm((f) => ({ ...f, status: v as ProjectStatus }))}
+                inputClassName={inputClass}
+                allowEmpty={false}
+              />
             </FormField>
             <FormField label="Intitulé chantier" className="md:col-span-2">
               <input
@@ -315,6 +319,17 @@ export function ProjectsManager() {
                 placeholder="Maître d'ouvrage / client"
                 value={form.clientName}
                 onChange={(e) => setForm((f) => ({ ...f, clientName: e.target.value }))}
+              />
+            </FormField>
+            <FormField label="Budget projet (MAD)">
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                className={inputClass}
+                placeholder="Montant du marché / contrat"
+                value={form.budgetMad || ""}
+                onChange={(e) => setForm((f) => ({ ...f, budgetMad: Number(e.target.value) || 0 }))}
               />
             </FormField>
             <FormField label="Responsable">
@@ -416,11 +431,12 @@ function ProjectCard({
   onEdit,
   onDelete,
 }: {
-  project: AdminProject;
+  project: ProjectListRow;
   onEdit: () => void;
   onDelete: () => void;
 }) {
   const hubHref = `/admin/projets/${p.id}`;
+  const fin = p.financials;
   const period =
     p.startDate || p.endDate
       ? [formatDate(p.startDate), formatDate(p.endDate)].filter(Boolean).join(" → ")
@@ -484,6 +500,26 @@ function ProjectCard({
             <li className="flex gap-2">
               <span className="shrink-0 text-[var(--graphite)]/55">Période</span>
               <span className="truncate">{period}</span>
+            </li>
+          ) : null}
+          {fin ? (
+            <li className="mt-2 grid grid-cols-1 gap-2 rounded-md border border-border bg-[var(--background)]/50 px-2 py-2 text-xs sm:grid-cols-3">
+              <div>
+                <p className="text-[var(--graphite)]/55">Budget</p>
+                <p className="font-semibold text-[var(--navy)]">{formatMoney(fin.budgetMad)}</p>
+              </div>
+              <div>
+                <p className="text-[var(--graphite)]/55">Payé</p>
+                <p className="font-semibold text-emerald-800">{formatMoney(fin.montantPaye)}</p>
+              </div>
+              <div>
+                <p className="text-[var(--graphite)]/55">Marge</p>
+                <p
+                  className={`font-semibold ${fin.margeMad >= 0 ? "text-emerald-800" : "text-red-700"}`}
+                >
+                  {formatMoney(fin.margeMad)}
+                </p>
+              </div>
             </li>
           ) : null}
         </ul>

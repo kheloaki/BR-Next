@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { PersonnelCategory } from "@/components/admin/operations-types";
 import { btnPrimary, btnSecondary, inputClass, labelClass } from "@/components/admin/admin-form-styles";
 import { AdminDataSheet, AdminSheetField } from "@/components/admin/ux/AdminDataSheet";
 import { readApiError } from "@/components/admin/ux/useAdminToast";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/admin/SearchableSelect";
 
 export function PersonnelCategorySelectWithAdd({
   categories,
@@ -27,6 +28,10 @@ export function PersonnelCategorySelectWithAdd({
   const [newName, setNewName] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const options = useMemo((): SearchableSelectOption[] => {
+    return categories.map((c) => ({ value: c.name, label: c.name }));
+  }, [categories]);
 
   async function submitCategory() {
     const name = newName.trim();
@@ -57,14 +62,14 @@ export function PersonnelCategorySelectWithAdd({
     <>
       {label ? <p className={labelClass}>{label}</p> : null}
       <div className={`flex gap-2 ${label ? "mt-1" : ""}`}>
-        <select className={`${inputClass} min-w-0 flex-1`} value={value} onChange={(e) => onChange(e.target.value)}>
-          {allowEmpty ? <option value="">{placeholder}</option> : null}
-          {categories.map((c) => (
-            <option key={c.id} value={c.name}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+        <SearchableSelect
+          options={options}
+          value={value}
+          onChange={onChange}
+          allowEmpty={allowEmpty}
+          placeholder={placeholder}
+          className="flex-1"
+        />
         <button
           type="button"
           className={`${btnSecondary} shrink-0 px-3`}

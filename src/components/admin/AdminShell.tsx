@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AdminMobileBottomNav } from "@/components/admin/AdminMobileBottomNav";
 import { AdminMobileChrome } from "@/components/admin/AdminMobileChrome";
 import { AdminQuickActionsFab } from "@/components/admin/AdminQuickActionsFab";
 import { AdminSidebarPanel } from "@/components/admin/AdminSidebarPanel";
@@ -17,6 +18,7 @@ export function AdminShell({
       <div className="min-h-screen bg-[var(--background)]">
         <AdminMobileChrome active={active} />
         <AdminSidebarPanel active={active}>{children}</AdminSidebarPanel>
+        <AdminMobileBottomNav />
         <AdminQuickActionsFab />
       </div>
     </ConfirmDeleteProvider>

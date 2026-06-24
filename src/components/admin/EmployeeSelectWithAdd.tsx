@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AdminEmployee, AdminProject, PersonnelCategory } from "@/components/admin/operations-types";
 import { btnPrimary, btnSecondary, inputClass, labelClass } from "@/components/admin/admin-form-styles";
+import { MatriculeInput } from "@/components/admin/MatriculeInput";
 import { PersonnelCategorySelectWithAdd } from "@/components/admin/PersonnelCategorySelectWithAdd";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
 import { AdminDataSheet, AdminSheetField } from "@/components/admin/ux/AdminDataSheet";
 import { readApiError } from "@/components/admin/ux/useAdminToast";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/admin/SearchableSelect";
 
 export function EmployeeSelectWithAdd({
   employees,
@@ -43,6 +45,14 @@ export function EmployeeSelectWithAdd({
   }, [categories]);
 
   const cats = onCategoriesChange ? categories : localCategories;
+
+  const options = useMemo((): SearchableSelectOption[] => {
+    return employees.map((e) => ({
+      value: e.id,
+      label: `${e.matricule ? `${e.matricule} — ` : ""}${e.name}${e.role ? ` (${e.role})` : ""}`,
+      keywords: `${e.matricule ?? ""} ${e.name} ${e.role ?? ""}`,
+    }));
+  }, [employees]);
 
   function updateCategories(next: PersonnelCategory[]) {
     setLocalCategories(next);
@@ -90,20 +100,13 @@ export function EmployeeSelectWithAdd({
     <>
       {label ? <p className={labelClass}>{label}</p> : null}
       <div className={`flex gap-2 ${label ? "mt-1" : ""}`}>
-        <select
-          className={`${inputClass} min-w-0 flex-1`}
+        <SearchableSelect
+          options={options}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
-        >
-          <option value="">{placeholder}</option>
-          {employees.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.matricule ? `${e.matricule} — ` : ""}
-              {e.name}
-              {e.role ? ` (${e.role})` : ""}
-            </option>
-          ))}
-        </select>
+          onChange={onChange}
+          placeholder={placeholder}
+          className="flex-1"
+        />
         <button
           type="button"
           className={`${btnSecondary} shrink-0 px-3`}
@@ -136,11 +139,9 @@ export function EmployeeSelectWithAdd({
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <p className={labelClass}>Matricule</p>
-            <input
-              className={`${inputClass} mt-1`}
-              value={matricule}
-              onChange={(e) => setMatricule(e.target.value)}
-            />
+            <div className="mt-1">
+              <MatriculeInput value={matricule} onChange={setMatricule} />
+            </div>
           </div>
           <div>
             <p className={labelClass}>Nom & prénom *</p>

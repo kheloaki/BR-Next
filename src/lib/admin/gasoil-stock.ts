@@ -3,6 +3,16 @@ import type { StockItem } from "@/components/admin/operations-types";
 /** Dedicated category — gasoil stock is managed only under Carburant. */
 export const GASOIL_STOCK_CATEGORY = "gasoil";
 
+/** Unit for all gasoil quantities (stock, DA, traitements, bons). */
+export const GASOIL_UNIT = "L";
+
+export const GASOIL_STOCK_MODULE_MESSAGE = "Le stock gasoil se gère dans le module Carburant.";
+export const GASOIL_STOCK_MODULE_HREF = "/admin/fuel/stock";
+
+export function isGasoilStockModuleError(message: string) {
+  return message.includes("module Carburant");
+}
+
 const GASOIL_PATTERN = /gasoil|gazoil|diesel|carburant/i;
 
 export function isGasoilStockItem(item: {

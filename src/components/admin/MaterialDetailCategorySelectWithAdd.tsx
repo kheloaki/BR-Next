@@ -5,6 +5,7 @@ import type { MaterialCategory, MaterialDetailCategory } from "@/components/admi
 import { btnPrimary, btnSecondary, inputClass, labelClass } from "@/components/admin/admin-form-styles";
 import { AdminDataSheet, AdminSheetField } from "@/components/admin/ux/AdminDataSheet";
 import { readApiError } from "@/components/admin/ux/useAdminToast";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/admin/SearchableSelect";
 
 const HINTS: Partial<Record<MaterialCategory, string>> = {
   engin: "Ex. Pelle, Compacteur, Chargeuse…",
@@ -37,6 +38,14 @@ export function MaterialDetailCategorySelectWithAdd({
     [categories, materialCategory],
   );
 
+  const options = useMemo((): SearchableSelectOption[] => {
+    const base = filtered.map((c) => ({ value: c.name, label: c.name }));
+    if (value && !base.some((o) => o.value === value)) {
+      base.push({ value, label: value });
+    }
+    return base;
+  }, [filtered, value]);
+
   async function submitCategory() {
     const name = newName.trim();
     if (!name) {
@@ -66,21 +75,13 @@ export function MaterialDetailCategorySelectWithAdd({
     <>
       {label ? <p className={labelClass}>{label}</p> : null}
       <div className={`flex gap-2 ${label ? "mt-1" : ""}`}>
-        <select
-          className={`${inputClass} min-w-0 flex-1`}
+        <SearchableSelect
+          options={options}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
-        >
-          <option value="">— Sélectionner —</option>
-          {filtered.map((c) => (
-            <option key={c.id} value={c.name}>
-              {c.name}
-            </option>
-          ))}
-          {value && !filtered.some((c) => c.name === value) ? (
-            <option value={value}>{value}</option>
-          ) : null}
-        </select>
+          onChange={onChange}
+          placeholder="— Sélectionner —"
+          className="flex-1"
+        />
         <button
           type="button"
           className={`${btnSecondary} shrink-0 px-3`}

@@ -38,6 +38,7 @@ export interface Traitement {
   number: string;
   label: string;
   projectId: string | null;
+  depotId: string | null;
   supplierId: string | null;
   customerId: string | null;
   partnerName: string;
@@ -50,7 +51,20 @@ export interface Traitement {
   venteTraitementId: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Populated on list API when step F is done (articles only). */
+  financeSummary?: TraitementFinanceListSummary | null;
 }
+
+export type TraitementFinanceListSummary =
+  | {
+      documentId: string;
+      documentNumber: string;
+      amountTtc: number;
+      paidAmount: number;
+      remainingAmount: number;
+      paymentStatus: string;
+    }
+  | { pendingSync: true };
 
 export type TraitementLineInput = {
   id?: string;

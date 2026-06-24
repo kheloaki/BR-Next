@@ -1,4 +1,5 @@
 import type { AdminSection } from "@/components/admin/AdminSidebar";
+import { traitementsHref } from "@/lib/admin/traitement-nav";
 
 export type FuelView = "consommation" | "stock" | "bons" | "commande";
 
@@ -50,8 +51,8 @@ export const FUEL_TAB_REDIRECT: Record<string, string> = {
   log: "/admin/fuel/stock?tab=journal",
   journal: "/admin/fuel/stock?tab=journal",
   stock: "/admin/fuel/stock",
-  commande: "/admin/traitements-achat",
-  achat: "/admin/traitements-achat",
+  commande: traitementsHref({ type: "achat" }),
+  achat: traitementsHref({ type: "achat" }),
   bons: "/admin/fuel/bons",
   stats: "/admin/fuel/consommation",
   new: "/admin/fuel/bons",

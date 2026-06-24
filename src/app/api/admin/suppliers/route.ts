@@ -4,20 +4,42 @@ import {
   resolveSupplierNamesFromBody,
   validateSupplierNames,
 } from "@/lib/admin/map-supplier";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import {
+  mergeSupplyTypeOptions,
+  type SupplierSupplyTypeOption,
+} from "@/lib/admin/supplier-supply-type-catalog";
 import { requireAdminContext } from "@/lib/admin/require-admin";
 import {
   normalizeSupplyTypes,
-  SUPPLIER_SUPPLY_TYPES,
   supplierMatchesSupplyType,
   type SupplierSupplyType,
 } from "@/lib/admin/supplier-types";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+
+async function loadOrgSupplyTypeOptions(organizationId: string): Promise<SupplierSupplyTypeOption[]> {
+  const { data, error } = await getSupabaseAdminClient()
+    .from("admin_supplier_supply_types")
+    .select("slug, label")
+    .eq("organization_id", organizationId)
+    .order("label");
+  if (error) throw new Error(error.message);
+  const custom = (data ?? []).map((r) => ({
+    slug: String(r.slug),
+    label: String(r.label),
+    isSystem: false,
+  }));
+  return mergeSupplyTypeOptions(custom);
+}
+
+async function filterValidSupplyTypes(organizationId: string, types: SupplierSupplyType[]) {
+  const options = await loadOrgSupplyTypeOptions(organizationId);
+  const valid = new Set(options.map((o) => o.slug));
+  return types.filter((t) => valid.has(t));
+}
 
 function parseSupplyTypeFilter(value: string | null): SupplierSupplyType | null {
-  if (!value?.trim()) return null;
-  return SUPPLIER_SUPPLY_TYPES.includes(value as SupplierSupplyType)
-    ? (value as SupplierSupplyType)
-    : null;
+  const slug = value?.trim();
+  return slug || null;
 }
 
 const SUPPLIER_SELECT =
@@ -84,10 +106,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: nameError }, { status: 400 });
   }
 
-  const supplyTypes =
+  const supplyTypesRaw =
     body.supplyTypes === undefined
       ? (["divers"] as SupplierSupplyType[])
       : normalizeSupplyTypes(body.supplyTypes);
+  const supplyTypes = await filterValidSupplyTypes(organizationId, supplyTypesRaw);
   if (supplyTypes.length === 0) {
     return NextResponse.json({ error: "Au moins un type d'approvisionnement requis" }, { status: 400 });
   }

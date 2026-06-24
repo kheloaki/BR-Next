@@ -111,6 +111,9 @@ export type FinanceDocument = {
   paymentStatus: FinancePaymentStatus;
   notes: string | null;
   createdAt: string;
+  /** Enriched when listing documents (traitement number, etc.) */
+  sourceLabel?: string | null;
+  sourceTraitementType?: "achat" | "vente" | null;
 };
 
 export type FinanceAllocation = {
@@ -122,6 +125,18 @@ export type FinanceAllocation = {
   allocatedAmount: number;
   allocatedAt: string;
   notes: string | null;
+};
+
+export type FinanceDocumentDetail = {
+  document: FinanceDocument;
+  payments: FinanceDocumentPayment[];
+};
+
+export type FinanceDocumentPayment = FinanceMovement & {
+  allocationId: string;
+  allocatedAmount: number;
+  allocatedAt: string;
+  allocationNotes: string | null;
 };
 
 export type FinanceCaisseClosing = {
@@ -184,6 +199,14 @@ export const FINANCE_PAYMENT_STATUS_LABELS: Record<FinancePaymentStatus, string>
   partial: "Partiel",
   paid: "Payé",
   overdue: "En retard",
+};
+
+export const FINANCE_PAYMENT_METHOD_LABELS: Record<FinancePaymentMethod, string> = {
+  cash: "Espèces",
+  bank: "Banque",
+  cheque: "Chèque",
+  transfer: "Virement bancaire",
+  effect: "Effet / traite",
 };
 
 export const FINANCE_DOCUMENT_TYPE_LABELS: Record<FinanceDocumentType, string> = {

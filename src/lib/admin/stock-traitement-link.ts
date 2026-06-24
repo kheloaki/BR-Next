@@ -1,5 +1,6 @@
 import type { TraitementStepKey, TraitementType } from "@/lib/admin/traitement-types";
 import { TRAITEMENT_STEP_LABELS } from "@/lib/admin/traitement-types";
+import { traitementsHref } from "@/lib/admin/traitement-nav";
 
 export type StockTraitementLink = {
   traitementId: string;
@@ -37,13 +38,10 @@ export function isTraitementStockMovement(notes: string): boolean {
 }
 
 export function traitementStockHref(link: StockTraitementLink): string {
-  const base =
-    link.traitementType === "vente"
-      ? "/admin/traitements-vente"
-      : link.traitementType === "achat"
-        ? "/admin/traitements-achat"
-        : "/admin/traitements-achat";
-  return `${base}?id=${encodeURIComponent(link.traitementId)}`;
+  return traitementsHref({
+    type: link.traitementType ?? "achat",
+    id: link.traitementId,
+  });
 }
 
 export function traitementStockOriginLabel(link: StockTraitementLink): string {

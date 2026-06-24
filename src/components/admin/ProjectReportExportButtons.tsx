@@ -13,6 +13,7 @@ type Props = {
   module: ProjectReportModule;
   from: string;
   to: string;
+  materialId?: string;
   canExport: boolean;
   canFinancial: boolean;
   onError?: (message: string) => void;
@@ -23,6 +24,7 @@ export function ProjectReportExportButtons({
   module,
   from,
   to,
+  materialId,
   canExport,
   canFinancial,
   onError,
@@ -30,6 +32,7 @@ export function ProjectReportExportButtons({
   const [busy, setBusy] = useState<string | null>(null);
 
   const financialModule = isFinancialReportModule(module);
+  const situationEngins = module === "situation_engins";
   const exportBlocked = !canExport || !projectId.trim() || (financialModule && !canFinancial);
 
   async function run(format: "pdf" | "excel" | "csv" | "html") {
@@ -44,7 +47,9 @@ export function ProjectReportExportButtons({
       return;
     }
     setBusy(format);
-    const result = await downloadProjectReport(projectId, module, format, from, to);
+    const result = await downloadProjectReport(projectId, module, format, from, to, {
+      materialId: situationEngins ? materialId : undefined,
+    });
     setBusy(null);
     if (!result.ok) onError?.(result.error);
   }
@@ -62,14 +67,16 @@ export function ProjectReportExportButtons({
         >
           {busy === "pdf" ? "PDF…" : "PDF"}
         </button>
-        <button
-          type="button"
-          className={`${btnSecondary} ${disabledClass}`}
-          disabled={Boolean(busy)}
-          onClick={() => void run("excel")}
-        >
-          {busy === "excel" ? "Excel…" : "Excel"}
-        </button>
+        {!situationEngins ? (
+          <button
+            type="button"
+            className={`${btnSecondary} ${disabledClass}`}
+            disabled={Boolean(busy)}
+            onClick={() => void run("excel")}
+          >
+            {busy === "excel" ? "Excel…" : "Excel"}
+          </button>
+        ) : null}
         <button
           type="button"
           className={`${btnSecondary} ${disabledClass}`}
@@ -78,14 +85,16 @@ export function ProjectReportExportButtons({
         >
           {busy === "csv" ? "CSV…" : "CSV"}
         </button>
-        <button
-          type="button"
-          className={`${btnSecondary} ${disabledClass}`}
-          disabled={Boolean(busy)}
-          onClick={() => void run("html")}
-        >
-          {busy === "html" ? "Ouverture…" : "Imprimer"}
-        </button>
+        {!situationEngins ? (
+          <button
+            type="button"
+            className={`${btnSecondary} ${disabledClass}`}
+            disabled={Boolean(busy)}
+            onClick={() => void run("html")}
+          >
+            {busy === "html" ? "Ouverture…" : "Imprimer"}
+          </button>
+        ) : null}
       </div>
       {exportBlocked ? (
         <p className="text-xs text-[var(--graphite)]/70">

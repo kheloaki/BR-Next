@@ -8,9 +8,12 @@ export const SUPPLIER_SUPPLY_TYPES = [
   "divers",
 ] as const;
 
-export type SupplierSupplyType = (typeof SUPPLIER_SUPPLY_TYPES)[number];
+export type BuiltinSupplierSupplyType = (typeof SUPPLIER_SUPPLY_TYPES)[number];
 
-export const SUPPLIER_SUPPLY_TYPE_LABELS: Record<SupplierSupplyType, string> = {
+/** Slug stocké sur le fournisseur — types système ou personnalisés. */
+export type SupplierSupplyType = string;
+
+export const SUPPLIER_SUPPLY_TYPE_LABELS: Record<BuiltinSupplierSupplyType, string> = {
   gasoil: "Carburant / gasoil",
   pieces: "Pièces & usure",
   lubrifiant: "Lubrifiants",
@@ -21,9 +24,7 @@ export const SUPPLIER_SUPPLY_TYPE_LABELS: Record<SupplierSupplyType, string> = {
 
 export function normalizeSupplyTypes(raw: unknown): SupplierSupplyType[] {
   if (!Array.isArray(raw)) return [];
-  return raw.filter((t): t is SupplierSupplyType =>
-    SUPPLIER_SUPPLY_TYPES.includes(t as SupplierSupplyType),
-  );
+  return [...new Set(raw.map((t) => String(t).trim()).filter(Boolean))];
 }
 
 export function supplierMatchesSupplyType(
@@ -35,5 +36,7 @@ export function supplierMatchesSupplyType(
 
 export function formatSupplyTypesLabels(types: SupplierSupplyType[]) {
   if (types.length === 0) return "—";
-  return types.map((t) => SUPPLIER_SUPPLY_TYPE_LABELS[t]).join(", ");
+  return types
+    .map((t) => SUPPLIER_SUPPLY_TYPE_LABELS[t as BuiltinSupplierSupplyType] ?? t)
+    .join(", ");
 }

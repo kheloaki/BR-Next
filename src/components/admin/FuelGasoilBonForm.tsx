@@ -11,7 +11,7 @@ import type { Supplier } from "@/components/admin/devis-types";
 import { btnPrimary, btnSecondary } from "@/components/admin/admin-form-styles";
 import { FuelGasoilBonCommandeForm } from "@/components/admin/FuelGasoilBonCommandeForm";
 import { FuelGasoilBonSortieForm } from "@/components/admin/FuelGasoilBonSortieForm";
-import { GASOIL_BON_TYPE_LABELS, GASOIL_BON_TYPES } from "@/lib/admin/gasoil-bon";
+import { GASOIL_BON_TYPE_LABELS, GASOIL_BON_TYPES, DEFAULT_GASOIL_SUPERVISOR } from "@/lib/admin/gasoil-bon";
 import type { GasoilUnitPriceInfo } from "@/lib/admin/gasoil-unit-price";
 
 export type GasoilBonFormState = {
@@ -53,7 +53,7 @@ export const EMPTY_GASOIL_BON_FORM: GasoilBonFormState = {
   driverName: "",
   pompisteContactId: "",
   pumpAttendant: "",
-  supervisor: "",
+  supervisor: DEFAULT_GASOIL_SUPERVISOR,
   supplier: "",
   supplierId: "",
   deliveryNote: "",
@@ -132,7 +132,7 @@ export function gasoilBonRowToForm(row: {
     driverName: row.beneficiary,
     pompisteContactId: row.pompisteContactId ?? "",
     pumpAttendant: row.supplier,
-    supervisor: supervisorMatch?.[1]?.trim() ?? "",
+    supervisor: supervisorMatch?.[1]?.trim() || DEFAULT_GASOIL_SUPERVISOR,
     supplier: row.supplier,
     supplierId: "",
     deliveryNote: row.deliveryNote,
@@ -166,7 +166,7 @@ export function FuelGasoilBonForm({
       driverName: "",
       pompisteContactId: "",
       pumpAttendant: "",
-      supervisor: "",
+      supervisor: bonType === "sortie" ? DEFAULT_GASOIL_SUPERVISOR : "",
       fuelTime: "",
       supplier: "",
       supplierId: "",

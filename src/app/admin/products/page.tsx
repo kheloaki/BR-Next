@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { ProductsManager } from "@/components/admin/ProductsManager";
+import { ProductsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { requireAdminPage } from "@/lib/admin/admin-page-auth";
 
 export const metadata: Metadata = {
@@ -18,7 +19,7 @@ export default async function AdminProductsPage() {
 
   return (
     <AdminShell active="products">
-      <Suspense>
+      <Suspense fallback={<ProductsPageSkeleton />}>
         <ProductsManager />
       </Suspense>
     </AdminShell>

@@ -15,7 +15,7 @@ import {
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { EquipmentPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
@@ -118,7 +118,7 @@ export function EquipmentManager() {
         />
       ) : null}
 
-      {loading ? <AdminLoading /> : null}
+      {loading ? <EquipmentPageSkeleton partial /> : null}
 
       {!loading && showCreateForm ? (
         <div id="equipment-add-form" className="mb-4">

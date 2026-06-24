@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import { useOpsReferential } from "@/components/admin/useOpsReferential";
 import {
@@ -21,13 +22,15 @@ import {
   moduleWrap,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { SiteReportsPanelSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
@@ -84,6 +87,11 @@ export function SiteReportsManager({
         SITE_REPORT_TYPE_LABELS[r.reportType].toLowerCase().includes(q),
     );
   }, [rows, search]);
+
+  const reportTypeOptions = useMemo(
+    () => Object.fromEntries(SITE_REPORT_TYPES.map((t) => [t, SITE_REPORT_TYPE_LABELS[t]])),
+    [],
+  );
 
   function resetForm() {
     setEditId(null);
@@ -160,11 +168,7 @@ export function SiteReportsManager({
   }
 
   if (loading && tab === "list") {
-    return embedded ? <AdminLoading /> : (
-      <div className={moduleWrap}>
-        <AdminLoading />
-      </div>
-    );
+    return embedded ? <SiteReportsPanelSkeleton embedded /> : <SiteReportsPanelSkeleton />;
   }
 
   const wrapClass = embedded ? "space-y-4" : moduleWrap;
@@ -256,7 +260,12 @@ export function SiteReportsManager({
                       <td className={`${tdClass} font-mono text-xs`}>{row.number}</td>
                       <td className={tdClass}>{SITE_REPORT_TYPE_LABELS[row.reportType]}</td>
                       <td className={tdClass}>{row.reportDate}</td>
-                      <td className={tdClass}>{projects.find((p) => p.id === row.projectId)?.name ?? "—"}</td>
+                      <td className={tdClass}>
+                        <AdminTruncatedText
+                          text={projects.find((p) => p.id === row.projectId)?.name}
+                          lines={1}
+                        />
+                      </td>
                       <td className={tdClass}>{SITE_REPORT_STATUS_LABELS[row.status]}</td>
                       <td className={tdClass}>
                         <div className="flex flex-wrap gap-2">
@@ -307,17 +316,15 @@ export function SiteReportsManager({
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <p className={labelClass}>Type</p>
-              <select
-                className={`${inputClass} mt-1`}
-                value={reportType}
-                onChange={(e) => setReportType(e.target.value as SiteReportType)}
-              >
-                {SITE_REPORT_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {SITE_REPORT_TYPE_LABELS[t]}
-                  </option>
-                ))}
-              </select>
+              <div className="mt-1">
+                <SearchableEnumSelect
+                  options={reportTypeOptions}
+                  value={reportType}
+                  onChange={(v) => setReportType(v as SiteReportType)}
+                  inputClassName={inputClass}
+                  allowEmpty={false}
+                />
+              </div>
             </div>
             <div>
               <p className={labelClass}>Date du rapport</p>

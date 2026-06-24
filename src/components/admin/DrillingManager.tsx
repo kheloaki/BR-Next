@@ -14,13 +14,15 @@ import {
   moduleWrap,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { DrillingPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { OpsPerfBars } from "@/components/admin/ux/OpsPerfBars";
 import { ReferentialBanner } from "@/components/admin/ux/ReferentialBanner";
@@ -147,7 +149,7 @@ export function DrillingManager() {
         onChange={setTab}
       />
 
-      {loading ? <AdminLoading /> : null}
+      {loading ? <DrillingPageSkeleton partial /> : null}
 
       {!loading && tab === "perf" ? (
         <OpsPerfBars
@@ -185,8 +187,12 @@ export function DrillingManager() {
                 {filtered.map((r) => (
                   <tr key={r.id} className={rowHover}>
                     <td className={tdClass}>{r.reportDate}</td>
-                    <td className={tdClass}>{r.siteName || "—"}</td>
-                    <td className={tdClass}>{r.rigName}</td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={r.siteName} lines={1} />
+                    </td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={r.rigName} lines={1} />
+                    </td>
                     <td className={tdClass}>{r.metersDrilled}</td>
                     <td className={tdClass}>{r.targetMeters}</td>
                   </tr>

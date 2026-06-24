@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { StockMovementType } from "@/components/admin/operations-types";
-import { GASOIL_STOCK_CATEGORY } from "@/lib/admin/gasoil-stock";
+import { GASOIL_STOCK_CATEGORY, GASOIL_UNIT } from "@/lib/admin/gasoil-stock";
 import { resolveGasoilUnitPrice } from "@/lib/admin/gasoil-unit-price";
 import {
   getGasoilStockItem,
@@ -76,6 +76,7 @@ export async function POST(request: Request) {
       reference: body.reference?.trim() ?? item.reference,
       designation: body.designation?.trim() ?? item.designation,
       category: GASOIL_STOCK_CATEGORY,
+      unit: GASOIL_UNIT,
       min_qty: body.minQty != null ? Math.max(0, Number(body.minQty)) : item.minQty,
       unit_price: body.unitPrice != null ? Math.max(0, Number(body.unitPrice)) : item.unitPrice,
       updated_at: new Date().toISOString(),

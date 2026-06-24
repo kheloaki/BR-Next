@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type {
   AdminProject,
   GasoilContact,
@@ -18,6 +18,7 @@ import {
 import { materialLabel } from "@/lib/admin/map-rental-material-catalog";
 import { AdminDataSheet } from "@/components/admin/ux/AdminDataSheet";
 import { readApiError } from "@/components/admin/ux/useAdminToast";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/admin/SearchableSelect";
 
 export function MaterialSelectWithAdd({
   materials,
@@ -55,6 +56,14 @@ export function MaterialSelectWithAdd({
 
   const activeMaterials = materials.filter((m) => m.active);
 
+  const options = useMemo((): SearchableSelectOption[] => {
+    return activeMaterials.map((m) => ({
+      value: m.id,
+      label: `[${MATERIAL_CATEGORY_LABELS[m.materialCategory]}] ${materialLabel(m)}${m.ownerName ? ` · ${m.ownerName}` : ""}`,
+      keywords: `${materialLabel(m)} ${m.ownerName ?? ""} ${m.matricule ?? ""} ${m.reference ?? ""}`,
+    }));
+  }, [activeMaterials]);
+
   async function submitMaterial() {
     const err = validateRentalMaterialForm(form);
     if (err) {
@@ -90,19 +99,13 @@ export function MaterialSelectWithAdd({
     <>
       {label ? <p className={labelClass}>{label}</p> : null}
       <div className={`flex gap-2 ${label ? "mt-1" : ""}`}>
-        <select
-          className={`${inputClass} min-w-0 flex-1`}
+        <SearchableSelect
+          options={options}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
-        >
-          <option value="">{placeholder}</option>
-          {activeMaterials.map((m) => (
-            <option key={m.id} value={m.id}>
-              [{MATERIAL_CATEGORY_LABELS[m.materialCategory]}] {materialLabel(m)}
-              {m.ownerName ? ` · ${m.ownerName}` : ""}
-            </option>
-          ))}
-        </select>
+          onChange={onChange}
+          placeholder={placeholder}
+          className="flex-1"
+        />
         <button
           type="button"
           className={`${btnSecondary} shrink-0 px-3`}

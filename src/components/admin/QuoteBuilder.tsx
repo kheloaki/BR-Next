@@ -6,8 +6,9 @@ import Link from "next/link";
 import { DocumentPreview } from "@/components/admin/DocumentPreview";
 import { HtTtcPriceFields } from "@/components/admin/HtTtcPriceFields";
 import { ProductCategorySelect } from "@/components/admin/ProductCategorySelect";
-import { ProductUnitField } from "@/components/admin/ProductUnitField";
-import { DEFAULT_VAT_RATE, formatMoney, htToTtc } from "@/lib/admin/price-ht-ttc";
+import { ProductFormSheet } from "@/components/admin/ProductFormSheet";
+import { SearchableSelect } from "@/components/admin/SearchableSelect";
+import { DEFAULT_VAT_RATE, formatMoney, htToTtc, lineTotalTtc, computeDocumentTotals } from "@/lib/admin/price-ht-ttc";
 import { downloadDevisPdf } from "@/components/admin/devis-pdf";
 import {
   DOCUMENT_LABELS,
@@ -39,7 +40,17 @@ import {
   traitementReturnPath,
   traitementStepToDocumentType,
 } from "@/lib/admin/traitement-document";
+import { TraitementImmediatePaymentPrompt } from "@/components/admin/TraitementImmediatePaymentPrompt";
+import {
+  counterpartyFieldsFromSupplier,
+  counterpartyFieldsFromCustomer,
+  enrichQuoteCounterparty,
+  resolvePreviewCounterpartyIce,
+} from "@/lib/admin/quote-counterparty";
+import { supplierDocumentCompanyName } from "@/lib/admin/map-supplier";
+import { computeNextDocumentNumber, yearFromDate } from "@/lib/admin/document-number";
 import type { Traitement } from "@/lib/admin/traitement-types";
+
 import { TRAITEMENT_STEP_LABELS, type TraitementStepKey, type TraitementType } from "@/lib/admin/traitement-types";
 
 function money(value: number) {
@@ -51,33 +62,6 @@ function money(value: number) {
 
 function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function computeNextNumber(quotes: QuoteDraft[], type: DocumentType): string {
-  const sameType = quotes.filter((q) => (q.documentType ?? "devis") === type);
-  if (sameType.length === 0) {
-    return `001/${new Date().getFullYear()}`;
-  }
-  let maxNum = 0;
-  let templateStr = sameType[0].quoteNumber || "";
-  for (const q of sameType) {
-    const numberMatch = (q.quoteNumber || "").match(/\d+/);
-    if (numberMatch) {
-      const n = parseInt(numberMatch[0], 10);
-      if (n > maxNum) {
-        maxNum = n;
-        templateStr = q.quoteNumber || "";
-      }
-    }
-  }
-  const next = maxNum + 1;
-  const formatMatch = templateStr.match(/^(\D*)(\d+)(.*)$/);
-  if (!formatMatch) return String(next);
-  const [, prefix, digits, suffix] = formatMatch;
-  const padded = String(next).padStart(digits.length, "0");
-  const currentYear = String(new Date().getFullYear());
-  const updatedSuffix = suffix.replace(/(19|20)\d{2}/, currentYear);
-  return `${prefix}${padded}${updatedSuffix}`;
 }
 
 function NumberField({
@@ -126,12 +110,7 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
   const [template, setTemplate] = useState<DevisTemplate>(defaultTemplate);
   const [savedCount, setSavedCount] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [productModalOpen, setProductModalOpen] = useState(false);
-  const [newProductReference, setNewProductReference] = useState("");
-  const [newProductDesignation, setNewProductDesignation] = useState("");
-  const [newProductUnit, setNewProductUnit] = useState("u");
-  const [newProductPrice, setNewProductPrice] = useState(0);
-  const [newProductCategory, setNewProductCategory] = useState("");
+  const [productSheetOpen, setProductSheetOpen] = useState(false);
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -155,7 +134,6 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
   const [clientIce, setClientIce] = useState("");
   const [clientAddress, setClientAddress] = useState("");
   const [quoteNumber, setQuoteNumber] = useState("");
-  const [reference, setReference] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState("");
   const [vatRate, setVatRate] = useState(DEFAULT_VAT_RATE);
@@ -165,6 +143,7 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
   const [linkedFactureNumber, setLinkedFactureNumber] = useState<string | undefined>();
   const autoNumberInitRef = useRef(false);
   const prevDocTypeRef = useRef<DocumentType>("devis");
+  const prevYearRef = useRef(yearFromDate(new Date().toISOString().slice(0, 10)));
   const [items, setItems] = useState<LineItem[]>([]);
   const [allQuotes, setAllQuotes] = useState<QuoteDraft[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
@@ -174,6 +153,10 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
     step: TraitementStepKey;
     type: TraitementType;
     projectId?: string | null;
+  } | null>(null);
+  const [immediatePayment, setImmediatePayment] = useState<{
+    traitementId: string;
+    traitementType: TraitementType;
   } | null>(null);
   const traitementPrefillRef = useRef(false);
 
@@ -241,7 +224,6 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
       setClientIce(draft.clientIce ?? "");
       setClientAddress(draft.clientAddress ?? "");
       setQuoteNumber(draft.quoteNumber ?? "");
-      setReference(draft.reference ?? "");
       setDate(draft.date ?? new Date().toISOString().slice(0, 10));
       setDueDate(draft.dueDate ?? "");
       setVatRate(typeof draft.vatRate === "number" ? draft.vatRate : DEFAULT_VAT_RATE);
@@ -291,7 +273,6 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
     setClientIce(draft.clientIce ?? "");
     setClientAddress(draft.clientAddress ?? "");
     setQuoteNumber(draft.quoteNumber ?? "");
-    setReference(draft.reference ?? "");
     setDate(draft.date ?? new Date().toISOString().slice(0, 10));
     setDueDate("");
     setVatRate(draft.vatRate ?? DEFAULT_VAT_RATE);
@@ -332,23 +313,47 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
         return;
       }
 
+      const docDate = new Date().toISOString().slice(0, 10);
+      const nextNumber = computeNextDocumentNumber(
+        allQuotes,
+        expectedDocType,
+        yearFromDate(docDate),
+      );
       const draft = buildQuoteDraftFromTraitement(
         traitement,
         step,
         expectedDocType,
-        computeNextNumber(allQuotes, expectedDocType),
+        nextNumber,
+        { suppliers, customers },
       );
 
       setDocumentType(expectedDocType);
-      setClientName(draft.clientName ?? traitement.partnerName);
-      setReference(draft.reference ?? traitement.label);
-      setQuoteNumber(draft.quoteNumber ?? computeNextNumber(allQuotes, expectedDocType));
-      setDate(draft.date ?? new Date().toISOString().slice(0, 10));
+      const partnerName = draft.clientName ?? traitement.partnerName;
+      setClientName(partnerName);
+      setQuoteNumber(draft.quoteNumber ?? nextNumber);
+      setDate(draft.date ?? docDate);
       setItems(draft.items ?? []);
       setLinkedFactureId(draft.linkedFactureId);
       setLinkedFactureNumber(draft.linkedFactureNumber);
-      if (traitement.supplierId) setSelectedSupplierId(traitement.supplierId);
-      if (traitement.customerId) setSelectedCustomerId(traitement.customerId);
+      if (traitement.supplierId) {
+        setSelectedSupplierId(traitement.supplierId);
+        const s = suppliers.find((x) => x.id === traitement.supplierId);
+        if (s) {
+          const f = counterpartyFieldsFromSupplier(s);
+          setClientName(f.clientName);
+          setClientIce(f.clientIce);
+          setClientAddress(f.clientAddress);
+        }
+      } else if (traitement.customerId) {
+        setSelectedCustomerId(traitement.customerId);
+        const c = customers.find((x) => x.id === traitement.customerId);
+        if (c) {
+          const f = counterpartyFieldsFromCustomer(c);
+          setClientName(f.clientName);
+          setClientIce(f.clientIce);
+          setClientAddress(f.clientAddress);
+        }
+      }
       setTraitementLink({
         id: traitement.id,
         number: traitement.number,
@@ -373,7 +378,38 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
     allQuotes,
     fixedDocumentType,
     router,
+    suppliers,
+    customers,
   ]);
+
+  useEffect(() => {
+    if (!dataLoaded || clientIce.trim() || !clientName.trim()) return;
+    const enriched = enrichQuoteCounterparty(
+      {
+        id: "",
+        createdAt: "",
+        documentType,
+        clientName,
+        clientIce: "",
+        clientAddress,
+        quoteNumber: "",
+        reference: "",
+        date: "",
+        vatRate: 0,
+        discount: 0,
+        deposit: 0,
+        items: [],
+      },
+      suppliers,
+      customers,
+    );
+    if (enriched.clientIce?.trim()) {
+      setClientIce(enriched.clientIce);
+      if (!clientAddress.trim() && enriched.clientAddress?.trim()) {
+        setClientAddress(enriched.clientAddress);
+      }
+    }
+  }, [dataLoaded, clientIce, clientName, clientAddress, documentType, suppliers, customers]);
 
   useEffect(() => {
     if (loading) return;
@@ -395,26 +431,22 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
   useEffect(() => {
     if (editingId) return;
     if (!dataLoaded) return;
+    const year = yearFromDate(date);
     const isFirstInit = !autoNumberInitRef.current;
     const docTypeChanged = prevDocTypeRef.current !== documentType;
-    if (isFirstInit || docTypeChanged) {
-      setQuoteNumber(computeNextNumber(allQuotes, documentType));
+    const yearChanged = prevYearRef.current !== year;
+    if (isFirstInit || docTypeChanged || yearChanged) {
+      setQuoteNumber(computeNextDocumentNumber(allQuotes, documentType, year));
       autoNumberInitRef.current = true;
       prevDocTypeRef.current = documentType;
+      prevYearRef.current = year;
     }
-  }, [dataLoaded, documentType, editingId, allQuotes]);
+  }, [dataLoaded, documentType, date, editingId, allQuotes]);
 
-  const totals = useMemo(() => {
-    const totalHt = items.reduce(
-      (acc, item) => (item.isNote ? acc : acc + item.qty * item.unitPrice),
-      0,
-    );
-    const netHt = Math.max(0, totalHt - discount);
-    const vatAmount = (netHt * vatRate) / 100;
-    const totalTtc = netHt + vatAmount;
-    const netToPay = Math.max(0, totalTtc - deposit);
-    return { totalHt, netHt, vatAmount, totalTtc, netToPay };
-  }, [items, vatRate, discount, deposit]);
+  const totals = useMemo(
+    () => computeDocumentTotals(items, vatRate, discount, deposit),
+    [items, vatRate, discount, deposit],
+  );
 
   const pickerProducts = useMemo(() => {
     if (!pickerCategory) return products;
@@ -470,43 +502,11 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
     ]);
   }
 
-  async function createProductFromBuilder() {
-    if (!newProductDesignation.trim()) return;
-    if (!newProductUnit.trim()) return;
-    const res = await fetch("/api/admin/products", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        reference: newProductReference.trim() || "NN",
-        designation: newProductDesignation.trim(),
-        category: newProductCategory,
-        unit: newProductUnit.trim(),
-        unitPrice: newProductPrice,
-      }),
-    });
-    if (!res.ok) return;
-    const created = (await res.json()) as Product;
-    const refreshed = await fetch("/api/admin/products", { cache: "no-store" });
-    if (refreshed.ok) {
-      setProducts((await refreshed.json()) as Product[]);
-    }
-    setItems((prev) => [
-      ...prev,
-      {
-        productId: created.id,
-        reference: created.reference,
-        designation: created.designation,
-        unit: created.unit || "u",
-        qty: 1,
-        unitPrice: created.unitPrice,
-      },
-    ]);
-    setNewProductReference("");
-    setNewProductDesignation("");
-    setNewProductUnit("u");
-    setNewProductPrice(0);
-    setNewProductCategory("");
-    setProductModalOpen(false);
+  function handleProductSaved(created: Product) {
+    setProducts((prev) => (prev.some((p) => p.id === created.id) ? prev : [...prev, created]));
+    addItemFromProduct(created.id);
+    setProductSheetOpen(false);
+    setPickerOpen(false);
   }
 
   function addNoteItem() {
@@ -596,7 +596,11 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
         setSelectedCustomerId(created.id);
       }
     }
-    setClientName(created.name);
+    if (isPurchaseOrder) {
+      setClientName(supplierDocumentCompanyName(created as Supplier));
+    } else {
+      setClientName(created.name);
+    }
     setClientIce(created.ice);
     setClientAddress(newCustomerAddress.trim());
     setCounterpartyMode("saved");
@@ -611,31 +615,73 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
   }
 
   function currentDraft(): QuoteDraft {
-    return {
-      id: editingId ?? uid("qte"),
-      createdAt: new Date().toISOString(),
+    return enrichQuoteCounterparty(
+      {
+        id: editingId ?? uid("qte"),
+        createdAt: new Date().toISOString(),
+        documentType,
+        clientName,
+        clientIce,
+        clientAddress,
+        quoteNumber,
+        reference: "",
+        date,
+        dueDate: documentType === "facture" && dueDate ? dueDate : undefined,
+        linkedFactureId: documentType === "bon_livraison" ? linkedFactureId : undefined,
+        linkedFactureNumber: documentType === "bon_livraison" ? linkedFactureNumber : undefined,
+        vatRate,
+        discount: isDeliveryNote(documentType) ? 0 : discount,
+        deposit: isDeliveryNote(documentType) ? 0 : deposit,
+        items,
+        includeCachet,
+        traitementId: traitementLink?.id ?? traitementIdParam ?? undefined,
+        traitementStep: traitementLink?.step ?? traitementStepParam ?? undefined,
+        traitementType: traitementLink?.type ?? traitementTypeParam ?? undefined,
+        traitementNumber: traitementLink?.number,
+        projectId: traitementLink?.projectId ?? undefined,
+      },
+      suppliers,
+      customers,
+      { supplierId: selectedSupplierId || undefined, customerId: selectedCustomerId || undefined },
+    );
+  }
+
+  const previewClientIce = useMemo(
+    () =>
+      resolvePreviewCounterpartyIce(
+        documentType,
+        clientName,
+        clientIce,
+        suppliers,
+        customers,
+        selectedSupplierId,
+        selectedCustomerId,
+      ),
+    [
       documentType,
       clientName,
       clientIce,
-      clientAddress,
-      quoteNumber,
-      reference,
-      date,
-      dueDate: documentType === "facture" && dueDate ? dueDate : undefined,
-      linkedFactureId: documentType === "bon_livraison" ? linkedFactureId : undefined,
-      linkedFactureNumber: documentType === "bon_livraison" ? linkedFactureNumber : undefined,
-      vatRate,
-      discount: isDeliveryNote(documentType) ? 0 : discount,
-      deposit: isDeliveryNote(documentType) ? 0 : deposit,
-      items,
-      includeCachet,
-      traitementId: traitementLink?.id ?? traitementIdParam ?? undefined,
-      traitementStep: traitementLink?.step ?? traitementStepParam ?? undefined,
-      traitementType: traitementLink?.type ?? traitementTypeParam ?? undefined,
-      traitementNumber: traitementLink?.number,
-      projectId: traitementLink?.projectId ?? undefined,
-    };
-  }
+      suppliers,
+      customers,
+      selectedSupplierId,
+      selectedCustomerId,
+    ],
+  );
+
+  const counterpartyOptions = useMemo(() => {
+    const list = isPurchaseOrder ? suppliers : customers;
+    return [
+      {
+        value: "",
+        label: isPurchaseOrder ? "Sélectionner un fournisseur" : "Sélectionner un client",
+      },
+      ...list.map((c) => ({
+        value: c.id,
+        label: `${c.name} (${c.ice || "Sans ICE"})`,
+        keywords: `${c.name} ${c.ice ?? ""}`,
+      })),
+    ];
+  }, [isPurchaseOrder, suppliers, customers]);
 
   const documentLabel = DOCUMENT_LABELS[documentType];
 
@@ -661,13 +707,25 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
         setSavedCount(quotes.length);
       }
       const savedId = result.id ?? editingId;
+      const linkedTraitementId = traitementLink?.id ?? traitementIdParam;
+      const linkedTraitementType = traitementLink?.type ?? traitementTypeParam;
+      const linkedStep = traitementLink?.step ?? traitementStepParam;
       const returnPath =
         traitementLink || traitementIdParam
           ? traitementReturnPath(
-              traitementLink?.type ?? traitementTypeParam ?? "achat",
-              traitementLink?.id ?? traitementIdParam!,
+              linkedTraitementType ?? "achat",
+              linkedTraitementId!,
             )
           : null;
+
+      const isFactureStep = linkedStep === "f" && documentType === "facture";
+
+      if (isFactureStep && linkedTraitementId && linkedTraitementType) {
+        setImmediatePayment({ traitementId: linkedTraitementId, traitementType: linkedTraitementType });
+        setSaveStatus("saved");
+        setTimeout(() => setSaveStatus("idle"), 2500);
+        return;
+      }
 
       if (returnPath && result.created) {
         router.push(returnPath);
@@ -700,9 +758,9 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
           </Link>
         </div>
       ) : null}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-        <div>
-          <h2 className="text-3xl font-semibold text-[var(--navy)]">
+      <div className="mb-4 flex flex-col gap-3 border-b border-border pb-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-xl font-semibold text-[var(--navy)] sm:text-2xl lg:text-3xl">
             {editingId ? `Modifier ${documentLabel.toLowerCase()}` : `Creer un ${documentLabel.toLowerCase()}`}
           </h2>
           {editingId ? (
@@ -712,7 +770,8 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
           ) : null}
         </div>
         {!fixedDocumentType ? (
-          <div className="inline-flex rounded-md border border-border bg-white p-1 text-sm">
+          <div className="-mx-1 overflow-x-auto px-1 touch-pan-x">
+            <div className="inline-flex min-w-max rounded-md border border-border bg-white p-1 text-sm">
             <button
               type="button"
               onClick={() => setDocumentType("devis")}
@@ -757,6 +816,7 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
             >
               Bon de livraison
             </button>
+            </div>
           </div>
         ) : null}
       </div>
@@ -782,10 +842,25 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
       <div className="grid xl:grid-cols-12 gap-6 items-start">
         <section className="xl:col-span-8">
           <div className="rounded-md border border-border bg-white p-4 lg:p-5">
-            <h3 className="text-2xl font-semibold text-[var(--navy)]">Entete</h3>
+            <h3 className="text-lg font-semibold text-[var(--navy)] sm:text-2xl">Entete</h3>
             <div className="mt-4 grid md:grid-cols-2 gap-3">
-              <input className={inputClass} value={quoteNumber} onChange={(e) => setQuoteNumber(e.target.value)} placeholder={`Numero ${documentLabel.toLowerCase()} (ex: 001/2026)`} />
-              <input className={inputClass} value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Reference (ex: N38)" />
+              <div>
+                <label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[var(--graphite)]/70">
+                  Numéro {documentLabel.toLowerCase()}
+                </label>
+                <input
+                  className={`${inputClass} ${editingId ? "" : "bg-[var(--background)] font-mono"}`}
+                  value={quoteNumber}
+                  onChange={(e) => setQuoteNumber(e.target.value)}
+                  readOnly={!editingId}
+                  placeholder={`ex: 001/${yearFromDate(date)}`}
+                />
+                {!editingId ? (
+                  <p className="mt-1 text-[10px] text-[var(--graphite)]/55">
+                    Attribué automatiquement (001, 002, 003…) — indépendant du jour choisi.
+                  </p>
+                ) : null}
+              </div>
               <input type="date" className={inputClass} value={date} onChange={(e) => setDate(e.target.value)} />
               {documentType === "facture" ? (
                 <div className="flex flex-col gap-1">
@@ -878,20 +953,13 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
 
               {counterpartyMode === "saved" ? (
                 <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
-                  <select
-                    className={inputClass}
+                  <SearchableSelect
+                    options={counterpartyOptions}
                     value={isPurchaseOrder ? selectedSupplierId : selectedCustomerId}
-                    onChange={(e) => onSelectCounterparty(e.target.value)}
-                  >
-                    <option value="">
-                      {isPurchaseOrder ? "Sélectionner un fournisseur" : "Sélectionner un client"}
-                    </option>
-                    {(isPurchaseOrder ? suppliers : customers).map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.ice || "Sans ICE"})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={onSelectCounterparty}
+                    placeholder={isPurchaseOrder ? "Sélectionner un fournisseur" : "Sélectionner un client"}
+                    inputClassName={inputClass}
+                  />
                   <button
                     type="button"
                     onClick={() => setCustomerPickerOpen(true)}
@@ -901,7 +969,17 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
                   </button>
                 </div>
               ) : null}
-              <input className={`mt-3 w-full ${inputClass}`} value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder={`${counterpartyLabel.charAt(0).toUpperCase() + counterpartyLabel.slice(1)} / Société`} />
+              <input
+                className={`mt-3 w-full ${inputClass}`}
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                placeholder={isPurchaseOrder ? "Société (imprimée sur le document)" : "Nom du client / société"}
+              />
+              {isPurchaseOrder ? (
+                <p className="mt-1 text-[10px] text-[var(--graphite)]/60">
+                  Le nom du contact fournisseur dans la liste sert uniquement à l&apos;identification interne.
+                </p>
+              ) : null}
               <input className={`mt-3 w-full ${inputClass}`} value={clientIce} onChange={(e) => setClientIce(e.target.value)} placeholder={`ICE ${counterpartyLabel}`} />
               <textarea
                 className={`mt-3 w-full ${inputClass}`}
@@ -920,8 +998,8 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
                 <button type="button" onClick={() => setPickerOpen(true)} className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[#f7f7f7]">
                   Choisir un produit
                 </button>
-                <button type="button" onClick={() => setProductModalOpen(true)} className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[#f7f7f7]">
-                  + Nouveau produit
+                <button type="button" onClick={() => setProductSheetOpen(true)} className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[#f7f7f7]">
+                  + Nouvel article
                 </button>
                 <button type="button" onClick={addEmptyItem} className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[#f7f7f7]">
                   + Article passager
@@ -944,8 +1022,7 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
               </div>
             </div>
             <div className="mt-3 hidden lg:grid lg:grid-cols-12 gap-2 rounded-md border border-border bg-[#f6f8fb] p-2 text-xs uppercase tracking-[0.08em] text-[var(--graphite)]/70">
-              <span className="lg:col-span-2">Ref</span>
-              <span className="lg:col-span-4">Désignation</span>
+              <span className="lg:col-span-6">Désignation</span>
               <span className="lg:col-span-1">Unité</span>
               <span className="lg:col-span-1">Qté</span>
               <span className="lg:col-span-2">Prix HT / TTC</span>
@@ -976,15 +1053,14 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
                     </>
                   ) : (
                     <>
-                      <div className="lg:col-span-2 flex flex-col gap-1">
-                        <input className={inputClassDense} value={item.reference} onChange={(e) => updateItem(idx, { reference: e.target.value })} />
+                      <div className="lg:col-span-6 flex flex-col gap-1">
+                        <input className={inputClassDense} value={item.designation} onChange={(e) => updateItem(idx, { designation: e.target.value })} />
                         {item.productId.startsWith("manual-") ? (
                           <span className="rounded-md bg-[#fff4e8] px-2 py-0.5 text-[10px] uppercase tracking-[0.08em] text-[#b04a09] self-start">
                             Passager
                           </span>
                         ) : null}
                       </div>
-                      <input className={`${inputClassDense} lg:col-span-4`} value={item.designation} onChange={(e) => updateItem(idx, { designation: e.target.value })} />
                       <input
                         className={`${inputClassDense} lg:col-span-1 text-sm`}
                         value={item.unit ?? "u"}
@@ -1006,7 +1082,7 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
                           HT : <strong>{money(item.qty * item.unitPrice)}</strong>
                         </span>
                         <span className="text-[var(--graphite)]/75">
-                          TTC : {formatMoney(item.qty * htToTtc(item.unitPrice, vatRate))}
+                          TTC : {formatMoney(lineTotalTtc(item.qty, item.unitPrice, vatRate))}
                         </span>
                         <button type="button" className={`self-end ${btnDanger}`} onClick={() => void removeItem(idx)}>
                           Supprimer
@@ -1034,12 +1110,11 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
           <DocumentPreview
             documentType={documentType}
             quoteNumber={quoteNumber}
-            reference={reference}
             date={date}
             dueDate={dueDate}
             linkedFactureNumber={linkedFactureNumber}
             clientName={clientName}
-            clientIce={clientIce}
+            clientIce={previewClientIce}
             isPurchaseOrder={isPurchaseOrder}
             counterpartyMode={counterpartyMode}
             items={items}
@@ -1124,11 +1199,11 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
                   type="button"
                   onClick={() => {
                     setPickerOpen(false);
-                    setProductModalOpen(true);
+                    setProductSheetOpen(true);
                   }}
                   className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[#f7f7f7]"
                 >
-                  + Nouveau produit
+                  + Nouvel article
                 </button>
                 <button type="button" onClick={() => setPickerOpen(false)} className="rounded-md border border-border px-3 py-1.5 text-sm">
                   Fermer
@@ -1149,7 +1224,7 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
             <div className="mt-3 max-h-[380px] overflow-auto space-y-2">
               {pickerProducts.length === 0 ? (
                 <p className="rounded-md border border-border p-3 text-sm text-[var(--graphite)]/80">
-                  Aucun produit enregistré. Cliquez sur <strong>+ Nouveau produit</strong> pour en créer un, ou utilisez <strong>+ Article passager</strong> pour une saisie unique.
+                  Aucun produit enregistré. Cliquez sur <strong>+ Nouvel article</strong> pour en créer un, ou utilisez <strong>+ Article passager</strong> pour une saisie unique.
                 </p>
               ) : (
                 pickerProducts.map((p) => (
@@ -1184,51 +1259,14 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
         </div>
       ) : null}
 
-      {productModalOpen ? (
-        <div className="fixed inset-0 z-50 bg-black/30 p-4 flex items-center justify-center">
-          <div className="w-full max-w-xl rounded-md border border-border bg-white p-4">
-            <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
-              <h4 className="text-lg font-semibold text-[var(--navy)]">Créer un produit</h4>
-              <button type="button" onClick={() => setProductModalOpen(false)} className="rounded-md border border-border px-3 py-1.5 text-sm">
-                Fermer
-              </button>
-            </div>
-            <p className="mt-2 text-xs text-[var(--graphite)]/70">
-              Le produit sera enregistré dans votre catalogue et ajouté à la ligne courante. Pour une saisie unique, utilisez <strong>+ Article passager</strong>.
-            </p>
-            <div className="mt-3 grid gap-2">
-              <input
-                className={inputClass}
-                placeholder="Référence (ex: TVF, NN, …)"
-                value={newProductReference}
-                onChange={(e) => setNewProductReference(e.target.value)}
-              />
-              <input
-                className={inputClass}
-                placeholder="Désignation"
-                value={newProductDesignation}
-                onChange={(e) => setNewProductDesignation(e.target.value)}
-              />
-              <ProductCategorySelect
-                categories={productCategories}
-                value={newProductCategory}
-                onChange={setNewProductCategory}
-              />
-              <ProductUnitField value={newProductUnit} onChange={setNewProductUnit} required />
-              <HtTtcPriceFields vatRate={vatRate} valueHt={newProductPrice} onChangeHt={setNewProductPrice} />
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                void createProductFromBuilder();
-              }}
-              className="mt-3 rounded-md border border-[#de7a3a] bg-[#de7a3a] px-4 py-2 text-sm text-white hover:opacity-90"
-            >
-              Enregistrer et ajouter
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <ProductFormSheet
+        open={productSheetOpen}
+        onClose={() => setProductSheetOpen(false)}
+        onSaved={handleProductSaved}
+        vatRate={vatRate}
+        categories={productCategories}
+        description="Le produit sera enregistré dans votre catalogue et ajouté au document. Pour une saisie unique, utilisez + Article passager."
+      />
 
       {customerPickerOpen ? (
         <div className="fixed inset-0 z-50 bg-black/30 p-4 flex items-center justify-center">
@@ -1315,6 +1353,18 @@ export function QuoteBuilder({ fixedDocumentType }: { fixedDocumentType?: Docume
           <option key={u} value={u} />
         ))}
       </datalist>
+
+      <TraitementImmediatePaymentPrompt
+        open={Boolean(immediatePayment)}
+        traitementId={immediatePayment?.traitementId ?? ""}
+        traitementType={immediatePayment?.traitementType ?? "vente"}
+        onClose={() => {
+          setImmediatePayment(null);
+          const tid = traitementLink?.id ?? traitementIdParam;
+          const ttype = traitementLink?.type ?? traitementTypeParam ?? "vente";
+          if (tid) router.push(traitementReturnPath(ttype, tid));
+        }}
+      />
     </div>
   );
 }

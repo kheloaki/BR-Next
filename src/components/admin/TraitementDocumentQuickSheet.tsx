@@ -10,6 +10,8 @@ import {
   type DevisTemplate,
   type DocumentType,
   type QuoteDraft,
+  type Customer,
+  type Supplier,
 } from "@/components/admin/devis-types";
 import { downloadDevisPdf } from "@/components/admin/devis-pdf";
 import {
@@ -20,8 +22,9 @@ import {
   labelClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminDataSheet, AdminSheetField } from "@/components/admin/ux/AdminDataSheet";
+import { TraitementDocumentSheetSkeleton } from "@/components/admin/skeletons/pages";
 import { readApiError } from "@/components/admin/ux/useAdminToast";
-import { computeNextDocumentNumber } from "@/lib/admin/bon-livraison";
+import { computeNextDocumentNumber, yearFromDate } from "@/lib/admin/document-number";
 import {
   buildTraitementQuoteDraft,
   traitementDocumentHref,
@@ -34,6 +37,10 @@ import {
   type TraitementStepKey,
 } from "@/lib/admin/traitement-types";
 import { DEFAULT_VAT_RATE, formatMoney } from "@/lib/admin/price-ht-ttc";
+import {
+  enrichQuoteCounterparty,
+  resolveDocumentClientNameForTraitement,
+} from "@/lib/admin/quote-counterparty";
 
 type QuickSheetProps = {
   open: boolean;
@@ -43,6 +50,7 @@ type QuickSheetProps = {
   onSaved: () => void | Promise<void>;
   onError: (message: string) => void;
   onSuccess: (message: string) => void;
+  onFactureSaved?: (traitementId: string, traitementType: Traitement["traitementType"]) => void;
 };
 
 export function TraitementDocumentQuickSheet({
@@ -53,6 +61,7 @@ export function TraitementDocumentQuickSheet({
   onSaved,
   onError,
   onSuccess,
+  onFactureSaved,
 }: QuickSheetProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -60,12 +69,13 @@ export function TraitementDocumentQuickSheet({
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState("");
   const [clientName, setClientName] = useState("");
-  const [reference, setReference] = useState("");
   const [vatRate, setVatRate] = useState(DEFAULT_VAT_RATE);
   const [includeCachet, setIncludeCachet] = useState(false);
   const [existingQuoteId, setExistingQuoteId] = useState<string | undefined>();
   const [existingCreatedAt, setExistingCreatedAt] = useState<string | undefined>();
   const [template, setTemplate] = useState<DevisTemplate>(defaultTemplate);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
 
   const documentType: DocumentType | null = useMemo(() => {
     if (!traitement || !stepKey) return null;
@@ -83,7 +93,6 @@ export function TraitementDocumentQuickSheet({
     setDate(new Date().toISOString().slice(0, 10));
     setDueDate("");
     setClientName("");
-    setReference("");
     setVatRate(DEFAULT_VAT_RATE);
     setIncludeCachet(false);
     setExistingQuoteId(undefined);
@@ -99,19 +108,32 @@ export function TraitementDocumentQuickSheet({
 
     async function load() {
       try {
-        const [quotesRes, templateRes] = await Promise.all([
+        const [quotesRes, templateRes, suppliersRes, customersRes] = await Promise.all([
           fetch("/api/admin/quotes", { cache: "no-store" }),
           fetch("/api/admin/template", { cache: "no-store" }),
+          fetch("/api/admin/suppliers", { cache: "no-store" }),
+          fetch("/api/admin/customers", { cache: "no-store" }),
         ]);
 
         const quotes = quotesRes.ok ? ((await quotesRes.json()) as QuoteDraft[]) : [];
+        const loadedSuppliers = suppliersRes.ok ? ((await suppliersRes.json()) as Supplier[]) : [];
+        const loadedCustomers = customersRes.ok ? ((await customersRes.json()) as Customer[]) : [];
+
         if (templateRes.ok) {
           const tpl = (await templateRes.json()) as DevisTemplate;
           if (mounted) setTemplate({ ...defaultTemplate, ...tpl });
         }
+        if (mounted) {
+          setSuppliers(loadedSuppliers);
+          setCustomers(loadedCustomers);
+        }
 
         const step = traitement!.steps[stepKey!];
         const existingId = step?.quoteId?.trim();
+        const partnerIds = {
+          supplierId: traitement!.supplierId ?? undefined,
+          customerId: traitement!.customerId ?? undefined,
+        };
 
         if (existingId) {
           const quoteRes = await fetch(`/api/admin/quotes?id=${encodeURIComponent(existingId)}`, {
@@ -119,13 +141,13 @@ export function TraitementDocumentQuickSheet({
           });
           if (quoteRes.ok && mounted) {
             const quote = (await quoteRes.json()) as QuoteDraft;
+            const enriched = enrichQuoteCounterparty(quote, loadedSuppliers, loadedCustomers, partnerIds);
             setExistingQuoteId(quote.id);
             setExistingCreatedAt(quote.createdAt);
             setQuoteNumber(quote.quoteNumber || step?.docNumber || "");
             setDate(quote.date || step?.docDate || new Date().toISOString().slice(0, 10));
             setDueDate(quote.dueDate || "");
-            setClientName(quote.clientName || traitement!.partnerName || traitement!.label);
-            setReference(quote.reference || traitement!.label);
+            setClientName(enriched.clientName);
             setVatRate(quote.vatRate ?? DEFAULT_VAT_RATE);
             setIncludeCachet(Boolean(quote.includeCachet));
             return;
@@ -133,12 +155,15 @@ export function TraitementDocumentQuickSheet({
         }
 
         if (!mounted) return;
+        const docDate = step?.docDate || new Date().toISOString().slice(0, 10);
         setQuoteNumber(
-          step?.docNumber?.trim() || computeNextDocumentNumber(quotes, documentType!),
+          step?.docNumber?.trim() ||
+            computeNextDocumentNumber(quotes, documentType!, yearFromDate(docDate)),
         );
-        setDate(step?.docDate || new Date().toISOString().slice(0, 10));
-        setClientName(traitement!.partnerName.trim() || traitement!.label);
-        setReference(traitement!.label);
+        setDate(docDate);
+        setClientName(
+          resolveDocumentClientNameForTraitement(traitement!, loadedSuppliers, loadedCustomers),
+        );
       } finally {
         if (mounted) setLoading(false);
       }
@@ -150,6 +175,16 @@ export function TraitementDocumentQuickSheet({
     };
   }, [open, traitement, stepKey, documentType, resetFields]);
 
+  useEffect(() => {
+    if (!open || existingQuoteId || !documentType || loading) return;
+    void (async () => {
+      const res = await fetch("/api/admin/quotes", { cache: "no-store" });
+      if (!res.ok) return;
+      const quotes = (await res.json()) as QuoteDraft[];
+      setQuoteNumber(computeNextDocumentNumber(quotes, documentType, yearFromDate(date)));
+    })();
+  }, [open, date, documentType, existingQuoteId, loading]);
+
   function buildDraft(): QuoteDraft | null {
     if (!traitement || !stepKey || !documentType) return null;
     if (!quoteNumber.trim()) {
@@ -160,17 +195,26 @@ export function TraitementDocumentQuickSheet({
       onError("Indiquez la date du document.");
       return null;
     }
-    return buildTraitementQuoteDraft(traitement, stepKey, {
-      quoteNumber,
-      date,
-      dueDate: isFacture ? dueDate : undefined,
-      clientName,
-      reference,
-      vatRate,
-      includeCachet,
-      existingQuoteId,
-      existingCreatedAt,
-    });
+    return enrichQuoteCounterparty(
+      buildTraitementQuoteDraft(traitement, stepKey, {
+        quoteNumber,
+        date,
+        dueDate: isFacture ? dueDate : undefined,
+        clientName,
+        clientIce: "",
+        reference: "",
+        vatRate,
+        includeCachet,
+        existingQuoteId,
+        existingCreatedAt,
+      }),
+      suppliers,
+      customers,
+      {
+        supplierId: traitement.supplierId ?? undefined,
+        customerId: traitement.customerId ?? undefined,
+      },
+    );
   }
 
   async function persist(draft: QuoteDraft, downloadAfter: boolean) {
@@ -195,6 +239,13 @@ export function TraitementDocumentQuickSheet({
     }
 
     await onSaved();
+
+    if (stepKey === "f" && traitement && onFactureSaved) {
+      onFactureSaved(traitement.id, traitement.traitementType);
+      onClose();
+      return;
+    }
+
     onClose();
   }
 
@@ -216,7 +267,6 @@ export function TraitementDocumentQuickSheet({
       onClose={onClose}
       title={isEdit ? `Modifier ${docLabel.toLowerCase()}` : `Créer ${docLabel.toLowerCase()}`}
       description={`Traitement ${traitement.number} · étape ${stepLabel} · ${traitement.lines.length} article(s) · ${formatMoney(totalHt)} HT`}
-      width="max-w-xl"
       footer={
         <div className="flex w-full flex-wrap items-center gap-2">
           {advancedHref ? (
@@ -249,14 +299,19 @@ export function TraitementDocumentQuickSheet({
       }
     >
       {loading ? (
-        <p className="text-sm text-[var(--graphite)]/70">Chargement…</p>
+        <TraitementDocumentSheetSkeleton />
       ) : (
         <div className={formGridClass}>
-          <AdminSheetField label="Numéro" required>
+          <AdminSheetField
+            label="Numéro"
+            required
+            hint={existingQuoteId ? undefined : "Attribué automatiquement (001, 002, 003…)"}
+          >
             <input
-              className={inputClass}
+              className={`${inputClass} ${existingQuoteId ? "" : "bg-[var(--background)] font-mono"}`}
               value={quoteNumber}
               onChange={(e) => setQuoteNumber(e.target.value)}
+              readOnly={!existingQuoteId}
               placeholder={`N° ${docLabel.toLowerCase()}`}
             />
           </AdminSheetField>
@@ -269,13 +324,16 @@ export function TraitementDocumentQuickSheet({
             />
           </AdminSheetField>
           {isFacture ? (
-            <AdminSheetField label="Échéance" className="sm:col-span-2">
+            <AdminSheetField label="Échéance paiement (finance)" className="sm:col-span-2">
               <input
                 type="date"
                 className={inputClass}
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
               />
+              <p className="mt-1 text-xs text-[var(--graphite)]/65">
+                Enregistrée automatiquement en finance à la validation de la facture.
+              </p>
             </AdminSheetField>
           ) : null}
           <AdminSheetField label={partnerLabel} required className="sm:col-span-2">
@@ -283,13 +341,6 @@ export function TraitementDocumentQuickSheet({
               className={inputClass}
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
-            />
-          </AdminSheetField>
-          <AdminSheetField label="Référence / objet" className="sm:col-span-2">
-            <input
-              className={inputClass}
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
             />
           </AdminSheetField>
           {!isDeliveryNote(documentType) ? (

@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
-import { inputClass, sectionTitle } from "@/components/admin/admin-form-styles";
+import { inputClass, inventoryPanelTitle, sectionTitle } from "@/components/admin/admin-form-styles";
 
 export function AdminInventoryCard({
   title,
+  titleClassName,
   search,
   onSearchChange,
   searchPlaceholder = "Rechercher…",
@@ -10,6 +11,7 @@ export function AdminInventoryCard({
   children,
 }: {
   title: string;
+  titleClassName?: string;
   search?: string;
   onSearchChange?: (v: string) => void;
   searchPlaceholder?: string;
@@ -18,12 +20,12 @@ export function AdminInventoryCard({
 }) {
   return (
     <div className="rounded-xl border border-border bg-white overflow-hidden shadow-sm shadow-black/[0.03]">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
-        <h3 className={`${sectionTitle} text-base`}>{title}</h3>
-        <div className="flex flex-wrap items-center gap-2 ms-auto">
+      <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-5">
+        <h3 className={titleClassName ?? `${sectionTitle} text-base`}>{title}</h3>
+        <div className="flex w-full flex-col gap-2 sm:ms-auto sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
           {onSearchChange ? (
             <input
-              className={`${inputClass} w-full min-w-[200px] max-w-[260px] min-h-[38px] py-2 text-sm`}
+              className={`${inputClass} w-full min-h-[38px] py-2 text-sm sm:max-w-[260px]`}
               placeholder={searchPlaceholder}
               value={search ?? ""}
               onChange={(e) => onSearchChange(e.target.value)}
@@ -32,7 +34,7 @@ export function AdminInventoryCard({
           {actions}
         </div>
       </div>
-      <div className="overflow-x-auto">{children}</div>
+      <div className="overflow-x-auto touch-pan-x overscroll-x-contain">{children}</div>
     </div>
   );
 }

@@ -60,6 +60,13 @@ export function computeBonLinesTotal(lines: RentalBonLine[]) {
   return lines.reduce((s, l) => s + computeBonLineRental(l), 0);
 }
 
+export function computeTransportTotalMad(row: {
+  transport_mode?: string | null;
+  transport_price?: number | null;
+}) {
+  return row.transport_mode === "depart" ? Number(row.transport_price ?? 0) : 0;
+}
+
 export function computeRentalTotalMad(row: {
   daily_rate?: number | null;
   days_count?: number | null;
@@ -70,15 +77,14 @@ export function computeRentalTotalMad(row: {
   gasoil?: number | null;
   bon_lines?: unknown;
 }) {
+  const transport = computeTransportTotalMad(row);
   const lines = parseBonLines(row.bon_lines);
-  if (lines.length > 0) return computeBonLinesTotal(lines);
+  if (lines.length > 0) return computeBonLinesTotal(lines) + transport;
 
   const dailyRate = Number(row.daily_rate ?? 0);
   const daysCount = Number(row.days_count ?? 0);
   if (dailyRate > 0 && daysCount > 0) {
     const base = dailyRate * daysCount;
-    const transport =
-      row.transport_mode === "depart" ? Number(row.transport_price ?? 0) : 0;
     return base + transport;
   }
   return Number(row.hourly_rate ?? 0) * Number(row.hours_worked ?? 0);

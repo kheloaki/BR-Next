@@ -32,7 +32,7 @@ export function AdminQuickActionsFab() {
         />
       ) : null}
 
-      <div className="fixed bottom-6 right-4 z-[90] flex flex-col items-end gap-3 sm:right-6">
+      <div className="fixed bottom-6 right-4 z-[90] hidden flex-col items-end gap-3 sm:right-6 lg:flex">
         {open ? (
           <div
             role="dialog"

@@ -2,22 +2,32 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { FrenchDateInput } from "@/components/admin/FrenchDateTimeInput";
+import { ProjectSelect } from "@/components/admin/ProjectSelect";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
+import { SearchableSelect } from "@/components/admin/SearchableSelect";
+import { enumToOptions, stringOptions, withEmptyOption } from "@/components/admin/searchable-options";
 import { useOpsReferential } from "@/components/admin/useOpsReferential";
 import type { FuelEntry } from "@/components/admin/operations-types";
+import { formatDateFr, formatTimeFr24 } from "@/lib/admin/date-time-fr";
 import { GASOIL_VEHICLE_CATEGORIES, GASOIL_VEHICLE_CATEGORY_LABELS } from "@/lib/admin/gasoil-bon";
 import {
   btnPrimary,
   btnSecondary,
-  inputClass,
+  filterBarClass,
+  filterFieldWrap,
+  filterInputClass,
   labelClass,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { FuelJournalPanelSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 
 export function FuelJournalPanel({ gasoilStockQty }: { gasoilStockQty: number | null }) {
   const [rows, setRows] = useState<FuelEntry[]>([]);
@@ -106,7 +116,7 @@ export function FuelJournalPanel({ gasoilStockQty }: { gasoilStockQty: number | 
     filterDateTo,
   ]);
 
-  if (loading) return <AdminLoading />;
+  if (loading) return <FuelJournalPanelSkeleton />;
 
   return (
     <div className="space-y-4">
@@ -127,89 +137,70 @@ export function FuelJournalPanel({ gasoilStockQty }: { gasoilStockQty: number | 
         onSearchChange={setSearch}
         searchPlaceholder="N° bon, matériel, chantier, conducteur, date…"
       >
-        <div className="flex flex-wrap items-end gap-2 border-b border-border px-4 py-3">
-          <div>
+        <div className={filterBarClass}>
+          <div className={filterFieldWrap}>
             <p className={labelClass}>Chantier</p>
-            <select
-              className={`${inputClass} mt-1 min-w-[160px]`}
-              value={filterProjectId}
-              onChange={(e) => setFilterProjectId(e.target.value)}
-            >
-              <option value="">Tous chantiers</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            <div className="mt-1">
+              <ProjectSelect
+                projects={projects}
+                value={filterProjectId}
+                onChange={setFilterProjectId}
+                allowEmpty
+                placeholder="Tous chantiers"
+                activeOnly={false}
+              />
+            </div>
           </div>
-          <div>
+          <div className={filterFieldWrap}>
             <p className={labelClass}>Catégorie</p>
-            <select
-              className={`${inputClass} mt-1 min-w-[160px]`}
+            <SearchableEnumSelect
+              options={withEmptyOption(enumToOptions(GASOIL_VEHICLE_CATEGORY_LABELS), "Toutes catégories")}
               value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-            >
-              <option value="">Toutes catégories</option>
-              {GASOIL_VEHICLE_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {GASOIL_VEHICLE_CATEGORY_LABELS[c]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <p className={labelClass}>Matériel</p>
-            <select
-              className={`${inputClass} mt-1 min-w-[180px]`}
-              value={filterMaterial}
-              onChange={(e) => setFilterMaterial(e.target.value)}
-            >
-              <option value="">Tout matériel</option>
-              {materialOptions.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <p className={labelClass}>Conducteur</p>
-            <select
-              className={`${inputClass} mt-1 min-w-[160px]`}
-              value={filterDriver}
-              onChange={(e) => setFilterDriver(e.target.value)}
-            >
-              <option value="">Tous conducteurs</option>
-              {driverOptions.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <p className={labelClass}>Du</p>
-            <input
-              type="date"
-              className={`${inputClass} mt-1 min-w-[140px]`}
-              value={filterDateFrom}
-              onChange={(e) => setFilterDateFrom(e.target.value)}
+              onChange={setFilterCategory}
+              placeholder="Toutes catégories"
+              inputClassName={filterInputClass}
             />
           </div>
-          <div>
+          <div className={filterFieldWrap}>
+            <p className={labelClass}>Matériel</p>
+            <SearchableSelect
+              options={withEmptyOption(stringOptions(materialOptions), "Tout matériel")}
+              value={filterMaterial}
+              onChange={setFilterMaterial}
+              placeholder="Tout matériel"
+              inputClassName={filterInputClass}
+            />
+          </div>
+          <div className={filterFieldWrap}>
+            <p className={labelClass}>Conducteur</p>
+            <SearchableSelect
+              options={withEmptyOption(stringOptions(driverOptions), "Tous conducteurs")}
+              value={filterDriver}
+              onChange={setFilterDriver}
+              placeholder="Tous conducteurs"
+              inputClassName={filterInputClass}
+            />
+          </div>
+          <div className={filterFieldWrap}>
+            <p className={labelClass}>Du</p>
+            <FrenchDateInput
+              className={filterInputClass}
+              value={filterDateFrom}
+              onChange={setFilterDateFrom}
+            />
+          </div>
+          <div className={filterFieldWrap}>
             <p className={labelClass}>Au</p>
-            <input
-              type="date"
-              className={`${inputClass} mt-1 min-w-[140px]`}
+            <FrenchDateInput
+              className={filterInputClass}
               value={filterDateTo}
-              onChange={(e) => setFilterDateTo(e.target.value)}
+              onChange={setFilterDateTo}
             />
           </div>
           {hasActiveFilters ? (
             <button
               type="button"
-              className={`${btnSecondary} mt-5`}
+              className={`${btnSecondary} w-full xl:w-auto`}
               onClick={() => {
                 setFilterProjectId("");
                 setFilterCategory("");
@@ -253,19 +244,27 @@ export function FuelJournalPanel({ gasoilStockQty }: { gasoilStockQty: number | 
             <tbody>
               {filtered.map((r) => (
                 <tr key={r.id} className={rowHover}>
-                  <td className={tdClass}>{r.entryDate}</td>
-                  <td className={`${tdClass} font-mono text-xs`}>{r.ticketNo || "—"}</td>
+                  <td className={tdClass}>{formatDateFr(r.entryDate)}</td>
+                  <td className={tdClass}>
+                    <AdminTruncatedText text={r.ticketNo} lines={1} />
+                  </td>
                   <td className={tdClass}>
                     {r.vehicleCategory ? GASOIL_VEHICLE_CATEGORY_LABELS[r.vehicleCategory] : "—"}
                   </td>
-                  <td className={tdClass}>{r.equipmentName}</td>
+                  <td className={tdClass}>
+                    <AdminTruncatedText text={r.equipmentName} lines={1} />
+                  </td>
                   <td className={tdClass}>{r.litres.toLocaleString("fr-MA")} L</td>
-                  <td className={tdClass}>{r.siteName || projectName(r.projectId)}</td>
+                  <td className={tdClass}>
+                    <AdminTruncatedText text={r.siteName || projectName(r.projectId)} lines={1} />
+                  </td>
                   <td className={tdClass}>
                     {r.meterStart != null ? r.meterStart.toLocaleString("fr-MA") : "—"}
                   </td>
-                  <td className={tdClass}>{r.fuelTime || "—"}</td>
-                  <td className={tdClass}>{r.fueledBy || "—"}</td>
+                  <td className={tdClass}>{formatTimeFr24(r.fuelTime)}</td>
+                  <td className={tdClass}>
+                    <AdminTruncatedText text={r.fueledBy} lines={1} />
+                  </td>
                 </tr>
               ))}
             </tbody>

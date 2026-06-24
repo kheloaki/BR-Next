@@ -9,26 +9,37 @@ import {
   type AdminProject,
   type PurchaseCategory,
   type PurchaseRequest,
+  type PurchaseRequestLine,
   type PurchaseRequestStatus,
   type StockItem,
 } from "@/components/admin/operations-types";
 import {
+  btnDanger,
   btnLinkDanger,
   btnLinkSuccess,
   btnPrimary,
   btnSecondary,
   formGridClass,
   inputClass,
+  inputClassDense,
+  inventoryTableClass,
+  tdClass,
+  thClass,
 } from "@/components/admin/admin-form-styles";
-import { HtTtcPriceFields } from "@/components/admin/HtTtcPriceFields";
+import { ProductSelectWithAdd } from "@/components/admin/ProductSelectWithAdd";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
 import { PurchaseStatusBadge } from "@/components/admin/StatusBadge";
 import { downloadPurchaseRequestPdf } from "@/components/admin/purchase-request-pdf";
 import type { PurchaseRequestDaKind } from "@/components/admin/PurchaseRequestKindPickerSheet";
-import { AdminDataSheet, AdminSheetField } from "@/components/admin/ux/AdminDataSheet";
+import { AdminDataSheet, ADMIN_DATA_SHEET_WIDTH_WIDE, AdminSheetField } from "@/components/admin/ux/AdminDataSheet";
 import { confirmDelete, readApiError } from "@/components/admin/ux/useAdminToast";
 import { isGasoilPurchaseRequest } from "@/lib/admin/map-purchase-request";
-import { DEFAULT_VAT_RATE, formatMoney, htToTtc } from "@/lib/admin/price-ht-ttc";
+import { GASOIL_UNIT } from "@/lib/admin/gasoil-stock";
+import {
+  emptyPurchaseRequestLine,
+} from "@/lib/admin/map-purchase-request-lines";
+import { traitementsHref } from "@/lib/admin/traitement-nav";
 
 type CreateProps = {
   mode: "create";
@@ -89,27 +100,28 @@ function ArticlesCreateSheet({
   const [projectId, setProjectId] = useState(initial?.projectId ?? "");
   const [category, setCategory] = useState<PurchaseCategory>("parts");
   const [subject, setSubject] = useState("");
-  const [reference, setReference] = useState(initial?.reference ?? "");
-  const [designation, setDesignation] = useState(initial?.designation ?? "");
-  const [unit, setUnit] = useState("PIECE");
-  const [productId, setProductId] = useState(initial?.productId ?? "");
-  const [stockItemId, setStockItemId] = useState(initial?.stockItemId ?? "");
-  const [qty, setQty] = useState(1);
-  const [unitPrice, setUnitPrice] = useState(initial?.unitPrice ?? 0);
+  const [lines, setLines] = useState<PurchaseRequestLine[]>([emptyPurchaseRequestLine()]);
   const [supplier, setSupplier] = useState("");
   const [urgency, setUrgency] = useState("Normale");
   const [requester, setRequester] = useState("");
   const [justification, setJustification] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
+  const [catalogProducts, setCatalogProducts] = useState(products);
+
+  useEffect(() => {
+    setCatalogProducts(products);
+  }, [products]);
 
   useEffect(() => {
     if (!open) return;
     setProjectId(initial?.projectId ?? "");
-    setReference(initial?.reference ?? "");
-    setDesignation(initial?.designation ?? "");
-    setProductId(initial?.productId ?? "");
-    setStockItemId(initial?.stockItemId ?? "");
-    setUnitPrice(initial?.unitPrice ?? 0);
+    const prefill = emptyPurchaseRequestLine();
+    if (initial?.reference) prefill.reference = initial.reference;
+    if (initial?.designation) prefill.designation = initial.designation;
+    if (initial?.productId) prefill.productId = initial.productId;
+    if (initial?.stockItemId) prefill.stockItemId = initial.stockItemId;
+    if (initial?.unitPrice) prefill.unitPrice = initial.unitPrice;
+    setLines([prefill]);
     if (initial?.designation) {
       setSubject(`Réappro — ${initial.designation}`);
     } else if (initial?.reference) {
@@ -119,19 +131,40 @@ function ArticlesCreateSheet({
     }
   }, [open, initial]);
 
-  function pickProduct(id: string) {
-    setProductId(id);
-    const p = products.find((x) => x.id === id);
-    if (!p) return;
-    setReference(p.reference);
-    setDesignation(p.designation);
-    setUnit(p.unit || "PIECE");
-    setUnitPrice(p.unitPrice);
+  function patchLine(index: number, patch: Partial<PurchaseRequestLine>) {
+    setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)));
+  }
+
+  function pickProduct(index: number, id: string) {
+    const p = catalogProducts.find((x) => x.id === id);
+    if (!p) {
+      patchLine(index, { productId: null });
+      return;
+    }
+    patchLine(index, {
+      productId: p.id,
+      reference: p.reference,
+      designation: p.designation,
+      unit: p.unit || "PIECE",
+    });
     if (!subject.trim()) setSubject(`Réappro — ${p.designation}`);
   }
 
+  function addLine() {
+    setLines((prev) => [...prev, emptyPurchaseRequestLine()]);
+  }
+
+  function removeLine(index: number) {
+    setLines((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
+  }
+
   async function submit() {
-    if (!subject.trim() && !designation.trim()) {
+    const validLines = lines.filter((l) => (l.designation.trim() || l.reference.trim()) && l.qty > 0);
+    if (validLines.length === 0) {
+      onError("Ajoutez au moins un article avec désignation et quantité.");
+      return;
+    }
+    if (!subject.trim() && validLines.length === 1 && !validLines[0]!.designation.trim()) {
       onError("Indiquez l'objet ou la désignation.");
       return;
     }
@@ -141,14 +174,20 @@ function ArticlesCreateSheet({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         category,
-        subject: subject.trim() || `Réappro — ${designation.trim()}`,
-        reference,
-        designation,
-        unit,
-        productId: productId || undefined,
-        stockItemId: stockItemId || undefined,
-        qty,
-        unitPrice,
+        subject:
+          subject.trim() ||
+          (validLines.length > 1
+            ? `Réappro — ${validLines.length} articles`
+            : `Réappro — ${validLines[0]!.designation.trim() || validLines[0]!.reference.trim()}`),
+        lines: validLines.map((l) => ({
+          reference: l.reference,
+          designation: l.designation,
+          unit: l.unit,
+          productId: l.productId || undefined,
+          stockItemId: l.stockItemId || undefined,
+          qty: l.qty,
+          unitPrice: 0,
+        })),
         supplier,
         urgency,
         requester,
@@ -167,15 +206,13 @@ function ArticlesCreateSheet({
     onClose();
   }
 
-  const totalHt = qty * unitPrice;
-
   return (
     <AdminDataSheet
       open={open}
       onClose={onClose}
       title="Nouvelle DA — Articles"
-      description="Pièces, consommables, matériaux — validation puis traitement achat."
-      width="max-w-xl"
+      description="Pièces, consommables, matériaux — plusieurs lignes possibles."
+      width={ADMIN_DATA_SHEET_WIDTH_WIDE}
       footer={
         <>
           <button type="button" className={btnSecondary} onClick={onClose} disabled={saving}>
@@ -187,90 +224,141 @@ function ArticlesCreateSheet({
         </>
       }
     >
-      <div className={formGridClass}>
-        <AdminSheetField label="Projet / chantier" className="sm:col-span-2">
-          <ProjectSelect projects={projects} value={projectId} onChange={setProjectId} allowEmpty />
-        </AdminSheetField>
-        <AdminSheetField label="Catégorie">
-          <select
-            className={inputClass}
-            value={category}
-            onChange={(e) => setCategory(e.target.value as PurchaseCategory)}
-          >
-            {(Object.keys(PURCHASE_CATEGORY_LABELS) as PurchaseCategory[]).map((k) => (
-              <option key={k} value={k}>
-                {PURCHASE_CATEGORY_LABELS[k]}
-              </option>
-            ))}
-          </select>
-        </AdminSheetField>
-        <AdminSheetField label="Article catalogue">
-          <select
-            className={inputClass}
-            value={productId}
-            onChange={(e) => pickProduct(e.target.value)}
-          >
-            <option value="">— Optionnel —</option>
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.reference ? `${p.reference} — ` : ""}
-                {p.designation}
-              </option>
-            ))}
-          </select>
-        </AdminSheetField>
-        <AdminSheetField label="Objet" required className="sm:col-span-2">
-          <input className={inputClass} value={subject} onChange={(e) => setSubject(e.target.value)} />
-        </AdminSheetField>
-        <AdminSheetField label="Référence">
-          <input className={inputClass} value={reference} onChange={(e) => setReference(e.target.value)} />
-        </AdminSheetField>
-        <AdminSheetField label="Désignation" required>
-          <input className={inputClass} value={designation} onChange={(e) => setDesignation(e.target.value)} />
-        </AdminSheetField>
-        <AdminSheetField label="Unité">
-          <input className={inputClass} value={unit} onChange={(e) => setUnit(e.target.value)} />
-        </AdminSheetField>
-        <AdminSheetField label="Quantité" required>
-          <input
-            type="number"
-            min={0}
-            className={inputClass}
-            value={qty}
-            onChange={(e) => setQty(Number(e.target.value) || 0)}
-          />
-        </AdminSheetField>
-        <AdminSheetField label="Prix unitaire HT / TTC" className="sm:col-span-2">
-          <HtTtcPriceFields vatRate={DEFAULT_VAT_RATE} valueHt={unitPrice} onChangeHt={setUnitPrice} />
-        </AdminSheetField>
-        <AdminSheetField label="Fournisseur suggéré">
-          <input className={inputClass} value={supplier} onChange={(e) => setSupplier(e.target.value)} />
-        </AdminSheetField>
-        <AdminSheetField label="Urgence">
-          <input className={inputClass} value={urgency} onChange={(e) => setUrgency(e.target.value)} />
-        </AdminSheetField>
-        <AdminSheetField label="Demandeur">
-          <input className={inputClass} value={requester} onChange={(e) => setRequester(e.target.value)} />
-        </AdminSheetField>
-        <AdminSheetField label="Livraison souhaitée">
-          <input
-            type="date"
-            className={inputClass}
-            value={deliveryDate}
-            onChange={(e) => setDeliveryDate(e.target.value)}
-          />
-        </AdminSheetField>
-        <AdminSheetField label="Justification" className="sm:col-span-2">
-          <textarea
-            className={inputClass}
-            rows={3}
-            value={justification}
-            onChange={(e) => setJustification(e.target.value)}
-          />
-        </AdminSheetField>
-        <p className="sm:col-span-2 text-sm font-medium text-[var(--navy)]">
-          Total HT : {formatMoney(totalHt)} · TTC : {formatMoney(htToTtc(totalHt, DEFAULT_VAT_RATE))}
-        </p>
+      <div className="space-y-4">
+        <div className={formGridClass}>
+          <AdminSheetField label="Projet / chantier" className="sm:col-span-2">
+            <ProjectSelect projects={projects} value={projectId} onChange={setProjectId} allowEmpty />
+          </AdminSheetField>
+          <AdminSheetField label="Catégorie">
+            <SearchableEnumSelect
+              options={PURCHASE_CATEGORY_LABELS}
+              value={category}
+              onChange={(v) => setCategory(v as PurchaseCategory)}
+              inputClassName={inputClass}
+              allowEmpty={false}
+            />
+          </AdminSheetField>
+          <AdminSheetField label="Objet" className="sm:col-span-2">
+            <input className={inputClass} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Ex. Réappro chantier EL WATIA" />
+          </AdminSheetField>
+          <AdminSheetField label="Fournisseur suggéré">
+            <input className={inputClass} value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+          </AdminSheetField>
+          <AdminSheetField label="Urgence">
+            <input className={inputClass} value={urgency} onChange={(e) => setUrgency(e.target.value)} />
+          </AdminSheetField>
+          <AdminSheetField label="Demandeur">
+            <input className={inputClass} value={requester} onChange={(e) => setRequester(e.target.value)} />
+          </AdminSheetField>
+          <AdminSheetField label="Livraison souhaitée">
+            <input
+              type="date"
+              className={inputClass}
+              value={deliveryDate}
+              onChange={(e) => setDeliveryDate(e.target.value)}
+            />
+          </AdminSheetField>
+          <AdminSheetField label="Justification" className="sm:col-span-2">
+            <textarea
+              className={inputClass}
+              rows={2}
+              value={justification}
+              onChange={(e) => setJustification(e.target.value)}
+            />
+          </AdminSheetField>
+        </div>
+
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--graphite)]/70">Articles</p>
+            <button type="button" className={btnSecondary} onClick={addLine}>
+              + Ligne
+            </button>
+          </div>
+          <div className="overflow-x-auto touch-pan-x overscroll-x-contain rounded-lg border border-border">
+            <table className={`${inventoryTableClass} table-fixed min-w-[720px]`}>
+              <colgroup>
+                <col className="w-[30%]" />
+                <col className="w-[12%]" />
+                <col className="w-[36%]" />
+                <col className="w-[10%]" />
+                <col className="w-[9%]" />
+                <col className="w-[3%]" />
+              </colgroup>
+              <thead className="bg-[var(--background)]">
+                <tr>
+                  <th className={thClass}>Catalogue</th>
+                  <th className={thClass}>Réf.</th>
+                  <th className={thClass}>Désignation</th>
+                  <th className={thClass}>Unité</th>
+                  <th className={`${thClass} text-right`}>Qté</th>
+                  <th className={thClass} aria-label="Actions" />
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((line, index) => (
+                  <tr key={index}>
+                      <td className={`${tdClass} min-w-0`}>
+                        <ProductSelectWithAdd
+                          products={catalogProducts}
+                          value={line.productId ?? ""}
+                          onChange={(id) => pickProduct(index, id)}
+                          onProductAdded={(p) => {
+                            setCatalogProducts((prev) =>
+                              prev.some((x) => x.id === p.id) ? prev : [...prev, p],
+                            );
+                          }}
+                          placeholder="— Optionnel —"
+                          compact
+                        />
+                      </td>
+                      <td className={`${tdClass} min-w-0`}>
+                        <input
+                          className={inputClassDense}
+                          value={line.reference}
+                          onChange={(e) => patchLine(index, { reference: e.target.value })}
+                        />
+                      </td>
+                      <td className={`${tdClass} min-w-0`}>
+                        <input
+                          className={inputClassDense}
+                          value={line.designation}
+                          onChange={(e) => patchLine(index, { designation: e.target.value })}
+                        />
+                      </td>
+                      <td className={tdClass}>
+                        <input
+                          className={inputClassDense}
+                          value={line.unit}
+                          onChange={(e) => patchLine(index, { unit: e.target.value })}
+                        />
+                      </td>
+                      <td className={tdClass}>
+                        <input
+                          type="number"
+                          min={0}
+                          className={`${inputClassDense} text-right tabular-nums`}
+                          value={line.qty}
+                          onChange={(e) => patchLine(index, { qty: Number(e.target.value) || 0 })}
+                        />
+                      </td>
+                      <td className={`${tdClass} text-center`}>
+                        <button
+                          type="button"
+                          className={btnDanger}
+                          disabled={lines.length <= 1}
+                          onClick={() => removeLine(index)}
+                          aria-label="Supprimer la ligne"
+                        >
+                          ×
+                        </button>
+                      </td>
+                    </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </AdminDataSheet>
   );
@@ -334,6 +422,7 @@ function GasoilCreateSheet({
         kind: "gasoil",
         projectId,
         qty: litres,
+        unit: GASOIL_UNIT,
         deliveryDate,
         requester,
         supplier,
@@ -357,7 +446,6 @@ function GasoilCreateSheet({
       onClose={onClose}
       title="Nouvelle DA — Gasoil"
       description="Réapprovisionnement carburant — validation puis traitement BC → réception → facture."
-      width="max-w-xl"
       footer={
         <>
           <button type="button" className={btnSecondary} onClick={onClose} disabled={saving}>
@@ -490,7 +578,7 @@ function ViewSheet({
     onSuccess("Traitement achat créé — vous pouvez générer BC, BL, facture.");
     await onChanged();
     onClose();
-    router.push(`/admin/traitements-achat?id=${encodeURIComponent(traitementId)}`);
+    router.push(traitementsHref({ type: "achat", id: traitementId }));
   }
 
   return (
@@ -499,7 +587,6 @@ function ViewSheet({
       onClose={onClose}
       title={`DA ${request.number}`}
       description={request.subject}
-      width="max-w-xl"
       footer={
         <div className="flex w-full flex-wrap items-center gap-2">
           <button
@@ -541,7 +628,7 @@ function ViewSheet({
             ) : null}
             {request.traitementId ? (
               <Link
-                href={`/admin/traitements-achat?id=${encodeURIComponent(request.traitementId)}`}
+                href={traitementsHref({ type: "achat", id: request.traitementId })}
                 className={btnPrimary}
                 onClick={onClose}
               >
@@ -582,21 +669,25 @@ function ViewSheet({
               <tr>
                 <th className="px-3 py-2 text-left font-semibold">Réf.</th>
                 <th className="px-3 py-2 text-left font-semibold">Désignation</th>
+                <th className="px-3 py-2 text-left font-semibold">Unité</th>
                 <th className="px-3 py-2 text-right font-semibold">Qté</th>
-                <th className="px-3 py-2 text-right font-semibold">P.U. HT</th>
-                <th className="px-3 py-2 text-right font-semibold">Total</th>
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td className="px-3 py-2">{request.reference || "—"}</td>
-                <td className="px-3 py-2">{request.designation || request.subject}</td>
-                <td className="px-3 py-2 text-right tabular-nums">
-                  {request.qty} {request.unit}
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums">{formatMoney(request.unitPrice)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{formatMoney(request.totalAmount)}</td>
-              </tr>
+              {(request.lines?.length ? request.lines : [{
+                reference: request.reference,
+                designation: request.designation || request.subject,
+                unit: request.unit,
+                qty: request.qty,
+                unitPrice: request.unitPrice,
+              }]).map((line, i) => (
+                <tr key={i}>
+                  <td className="px-3 py-2">{line.reference || "—"}</td>
+                  <td className="px-3 py-2">{line.designation || request.subject}</td>
+                  <td className="px-3 py-2">{isGasoil ? GASOIL_UNIT : line.unit || "—"}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{line.qty}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

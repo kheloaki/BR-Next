@@ -1,15 +1,18 @@
-import { Suspense } from "react";
-import { AdminShell } from "@/components/admin/AdminShell";
-import { TraitementManager } from "@/components/admin/TraitementManager";
+import { redirect } from "next/navigation";
 import { requireAdminPage } from "@/lib/admin/admin-page-auth";
 
-export default async function TraitementAchatPage() {
+type Props = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function TraitementAchatRedirectPage({ searchParams }: Props) {
   await requireAdminPage("/admin/traitements-achat");
-  return (
-    <AdminShell active="traitements-achat">
-      <Suspense>
-        <TraitementManager kind="achat" />
-      </Suspense>
-    </AdminShell>
-  );
+  const params = await searchParams;
+  const qs = new URLSearchParams();
+  qs.set("type", "achat");
+  for (const [key, value] of Object.entries(params)) {
+    if (key === "type" || value === undefined) continue;
+    qs.set(key, Array.isArray(value) ? value[0]! : value);
+  }
+  redirect(`/admin/traitements?${qs.toString()}`);
 }

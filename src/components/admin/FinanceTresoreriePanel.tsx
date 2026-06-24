@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import type { FinanceAccount } from "@/lib/admin/finance-types";
-import { moduleWrap, rowHover, tdClass, thClass } from "@/components/admin/admin-form-styles";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { moduleWrap, rowHover, tdClass, tdTextClass, thClass } from "@/components/admin/admin-form-styles";
+import { FinanceTresoreriePanelSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 
 export function FinanceTresoreriePanel() {
   const [report, setReport] = useState<{
@@ -27,7 +28,7 @@ export function FinanceTresoreriePanel() {
     })();
   }, []);
 
-  if (loading) return <AdminLoading />;
+  if (loading) return <FinanceTresoreriePanelSkeleton />;
 
   return (
     <div className={moduleWrap}>
@@ -58,7 +59,9 @@ export function FinanceTresoreriePanel() {
             <tbody>
               {[...report.cash, ...report.bank].map((a) => (
                 <tr key={a.id} className={rowHover}>
-                  <td className={tdClass}>{a.name}</td>
+                  <td className={tdClass}>
+                    <AdminTruncatedText text={a.name} lines={1} />
+                  </td>
                   <td className={tdClass}>{a.accountType === "cash" ? "Caisse" : "Banque"}</td>
                   <td className={tdClass}>{(a.balance ?? 0).toLocaleString("fr-MA")}</td>
                 </tr>

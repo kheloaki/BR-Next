@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import {
   btnDanger,
@@ -11,11 +12,13 @@ import {
   moduleWrap,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { OrganizationMembersSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import type { AssignableMemberRole } from "@/lib/admin/organization";
@@ -97,6 +100,11 @@ export function OrganizationMembersManager() {
 
   const canManage = ctx?.canManageMembers ?? false;
   const isOwner = ctx?.role === "owner";
+
+  const roleOptions = useMemo(
+    () => Object.fromEntries(ASSIGNABLE_ROLES.map((r) => [r, ROLE_LABELS[r] ?? r])),
+    [],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -291,17 +299,13 @@ export function OrganizationMembersManager() {
                   </label>
                   <label className="block">
                     <span className="mb-1 block text-xs font-medium text-[var(--graphite)]">Rôle</span>
-                    <select
-                      className={inputClass}
+                    <SearchableEnumSelect
+                      options={roleOptions}
                       value={memberRole}
-                      onChange={(e) => setMemberRole(e.target.value as AssignableMemberRole)}
-                    >
-                      {ASSIGNABLE_ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {ROLE_LABELS[r]}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(v) => setMemberRole(v as AssignableMemberRole)}
+                      inputClassName={inputClass}
+                      allowEmpty={false}
+                    />
                   </label>
                   <div className="flex gap-2 sm:col-span-2">
                     <button type="submit" className={btnPrimary} disabled={saving}>
@@ -330,7 +334,7 @@ export function OrganizationMembersManager() {
         )}
 
         {loading ? (
-          <AdminLoading label="Chargement des membres…" />
+          <OrganizationMembersSkeleton />
         ) : (
           <AdminTableWrap>
             <thead>
@@ -353,8 +357,8 @@ export function OrganizationMembersManager() {
 
                   return (
                     <tr key={m.id} className={rowHover}>
-                      <td className={tdClass}>
-                        {m.email}
+                      <td className={tdTextClass}>
+                        <AdminTruncatedText text={m.email} lines={1} />
                         {isSelf ? (
                           <span className="ml-2 rounded bg-[var(--gold)]/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[var(--navy)]">
                             Vous
@@ -378,25 +382,20 @@ export function OrganizationMembersManager() {
                             }}
                           />
                         ) : (
-                          m.displayName || "—"
+                          <AdminTruncatedText text={m.displayName} lines={1} />
                         )}
                       </td>
                       <td className={tdClass}>
                         {canEditRole ? (
-                          <select
-                            className={`${inputClass} min-h-[36px] py-1.5`}
+                          <SearchableEnumSelect
+                            options={roleOptions}
                             value={ASSIGNABLE_ROLES.includes(m.role as AssignableMemberRole) ? m.role : "member"}
+                            onChange={(v) => void handleRoleChange(m, v as AssignableMemberRole)}
+                            inputClassName={`${inputClass} min-h-[36px] py-1.5`}
                             disabled={isUpdating}
-                            onChange={(e) =>
-                              void handleRoleChange(m, e.target.value as AssignableMemberRole)
-                            }
-                          >
-                            {ASSIGNABLE_ROLES.map((r) => (
-                              <option key={r} value={r}>
-                                {ROLE_LABELS[r]}
-                              </option>
-                            ))}
-                          </select>
+                            allowEmpty={false}
+                            compact
+                          />
                         ) : (
                           ROLE_LABELS[m.role] ?? m.role
                         )}

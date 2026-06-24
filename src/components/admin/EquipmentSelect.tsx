@@ -1,6 +1,10 @@
+"use client";
+
+import { useMemo } from "react";
 import type { AdminEquipment } from "@/components/admin/operations-types";
 import { inputClass } from "@/components/admin/admin-form-styles";
 import { ReferentialEmptyHint } from "@/components/admin/ReferentialEmptyHint";
+import { SearchableSelect } from "@/components/admin/SearchableSelect";
 
 export function EquipmentSelect({
   equipment,
@@ -14,18 +18,28 @@ export function EquipmentSelect({
   activeOnly?: boolean;
 }) {
   const list = activeOnly ? equipment.filter((e) => e.active) : equipment;
+
+  const options = useMemo(
+    () =>
+      list.map((e) => ({
+        value: e.id,
+        label: `${e.name}${e.type ? ` (${e.type})` : ""}`,
+        keywords: `${e.name} ${e.type ?? ""}`,
+      })),
+    [list],
+  );
+
   if (list.length === 0) {
     return <ReferentialEmptyHint label="matériel" managePage="rental-materials" />;
   }
+
   return (
-    <select className={inputClass} value={value} onChange={(e) => onChange(e.target.value)}>
-      <option value="">Engin…</option>
-      {list.map((e) => (
-        <option key={e.id} value={e.id}>
-          {e.name}
-          {e.type ? ` (${e.type})` : ""}
-        </option>
-      ))}
-    </select>
+    <SearchableSelect
+      options={options}
+      value={value}
+      onChange={onChange}
+      placeholder="Engin…"
+      inputClassName={inputClass}
+    />
   );
 }

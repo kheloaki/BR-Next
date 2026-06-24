@@ -1,7 +1,11 @@
+"use client";
+
 import Link from "next/link";
+import { useMemo } from "react";
 import type { RentalMaterial } from "@/components/admin/operations-types";
 import { MATERIAL_CATEGORY_LABELS } from "@/components/admin/operations-types";
 import { inputClass, labelClass } from "@/components/admin/admin-form-styles";
+import { SearchableSelect } from "@/components/admin/SearchableSelect";
 import { materialLabel } from "@/lib/admin/map-rental-material-catalog";
 
 export function MaterialSelect({
@@ -25,13 +29,28 @@ export function MaterialSelect({
 }) {
   const list = activeOnly ? materials.filter((m) => m.active) : materials;
 
+  const options = useMemo(
+    () =>
+      list.map((m) => ({
+        value: m.id,
+        label: `[${MATERIAL_CATEGORY_LABELS[m.materialCategory]}] ${materialLabel(m)}${m.ownerName ? ` · ${m.ownerName}` : ""}`,
+        keywords: `${m.reference} ${m.matricule} ${m.designation} ${m.ownerName ?? ""}`,
+      })),
+    [list],
+  );
+
   if (requireProjectFirst && disabled) {
     return (
       <div>
         {label ? <p className={labelClass}>{label}</p> : null}
-        <select className={`${inputClass} ${label ? "mt-1" : ""} opacity-60`} disabled value="">
-          <option value="">— Sélectionnez d&apos;abord un chantier —</option>
-        </select>
+        <SearchableSelect
+          options={[]}
+          value=""
+          onChange={() => {}}
+          placeholder="— Sélectionnez d'abord un chantier —"
+          inputClassName={`${inputClass} ${label ? "mt-1" : ""} opacity-60`}
+          disabled
+        />
       </div>
     );
   }
@@ -56,20 +75,14 @@ export function MaterialSelect({
   return (
     <>
       {label ? <p className={labelClass}>{label}</p> : null}
-      <select
-        className={`${inputClass} ${label ? "mt-1" : ""}`}
+      <SearchableSelect
+        options={options}
         value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        inputClassName={`${inputClass} ${label ? "mt-1" : ""}`}
         disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        <option value="">{placeholder}</option>
-        {list.map((m) => (
-          <option key={m.id} value={m.id}>
-            [{MATERIAL_CATEGORY_LABELS[m.materialCategory]}] {materialLabel(m)}
-            {m.ownerName ? ` · ${m.ownerName}` : ""}
-          </option>
-        ))}
-      </select>
+      />
     </>
   );
 }

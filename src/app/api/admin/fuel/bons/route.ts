@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { GasoilBonType, GasoilVehicleCategory } from "@/components/admin/operations-types";
 import { nextBonCommandeDocumentNo, nextBonGasoilNumber, resolveBonGasoilNo } from "@/lib/admin/bon-gasoil-number";
+import { yearFromDate } from "@/lib/admin/document-number";
 import {
   deleteFuelEntryForBon,
 } from "@/lib/admin/fuel-bon-sync";
@@ -178,11 +179,16 @@ export async function POST(request: Request) {
     }
   }
 
-  const number = await resolveBonGasoilNo(organizationId, body.number, body.bonType);
+  const bonDate = body.bonDate || new Date().toISOString().slice(0, 10);
+  const number = await resolveBonGasoilNo(
+    organizationId,
+    body.number,
+    body.bonType,
+    yearFromDate(bonDate),
+  );
   const pumpMeter =
     body.pumpMeter != null && !Number.isNaN(Number(body.pumpMeter)) ? Number(body.pumpMeter) : null;
   const syncStock = body.syncStock !== false;
-  const bonDate = body.bonDate || new Date().toISOString().slice(0, 10);
   const bonId = opsId("bon");
 
   let supplierName: string;

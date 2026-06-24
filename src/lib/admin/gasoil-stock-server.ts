@@ -3,6 +3,8 @@ import type { StockItem } from "@/components/admin/operations-types";
 import {
   DEFAULT_GASOIL_STOCK,
   GASOIL_STOCK_CATEGORY,
+  GASOIL_UNIT,
+  GASOIL_STOCK_MODULE_MESSAGE,
   findGasoilStockItem,
   isGasoilStockItem,
 } from "@/lib/admin/gasoil-stock";
@@ -32,7 +34,7 @@ function mapStockRow(row: {
     designation: row.designation,
     category: row.category,
     articleCode: row.article_code?.trim() || "",
-    unit: row.unit?.trim() || "L",
+    unit: row.unit?.trim() || GASOIL_UNIT,
     qty,
     minQty,
     unitPrice: Number(row.unit_price ?? 0),
@@ -75,7 +77,7 @@ export async function getOrCreateGasoilStockItem(
       reference: DEFAULT_GASOIL_STOCK.reference,
       designation: DEFAULT_GASOIL_STOCK.designation,
       category: GASOIL_STOCK_CATEGORY,
-      unit: "L",
+      unit: GASOIL_UNIT,
       qty: 0,
       min_qty: 0,
       unit_price: 0,
@@ -127,6 +129,7 @@ export async function reverseGasoilStockForBon(
     reference: stock.reference,
     designation: stock.designation,
     category: GASOIL_STOCK_CATEGORY,
+    unit: GASOIL_UNIT,
     qty: litres,
     unit_price: stock.unitPrice,
     supplier: "",
@@ -215,6 +218,7 @@ export async function applyGasoilStockForBon(
     reference: stock.reference,
     designation: stock.designation,
     category: GASOIL_STOCK_CATEGORY,
+    unit: GASOIL_UNIT,
     qty: litres,
     unit_price: movementUnitPrice,
     supplier: params.supplier?.trim() || "",
@@ -249,6 +253,6 @@ export async function assertNotGasoilStockItem(
     .eq("organization_id", organizationId)
     .maybeSingle();
   if (data && isGasoilStockItem(data)) {
-    throw new Error("Le stock gasoil se gère dans le module Carburant.");
+    throw new Error(GASOIL_STOCK_MODULE_MESSAGE);
   }
 }

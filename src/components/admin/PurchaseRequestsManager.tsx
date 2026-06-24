@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminTabs } from "@/components/admin/AdminTabs";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
+import { withEmptyOption } from "@/components/admin/searchable-options";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import { PurchaseRequestSheet } from "@/components/admin/PurchaseRequestSheet";
 import {
@@ -26,16 +28,19 @@ import {
   moduleWrap,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { PurchaseRequestsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { useOpsReferential } from "@/components/admin/useOpsReferential";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import { isGasoilPurchaseRequest } from "@/lib/admin/map-purchase-request";
+import { traitementsHref } from "@/lib/admin/traitement-nav";
 
 export function PurchaseRequestsManager() {
   const toast = useAdminToast();
@@ -128,6 +133,19 @@ export function PurchaseRequestsManager() {
     );
   }, [rows, search]);
 
+  const statusFilterOptions = useMemo(
+    () =>
+      withEmptyOption(
+        [
+          { value: "pending", label: "En attente" },
+          { value: "approved", label: "Approuvée" },
+          { value: "rejected", label: "Rejetée" },
+        ],
+        "Tous statuts",
+      ),
+    [],
+  );
+
   async function setStatus(id: string, status: PurchaseRequestStatus) {
     const row = rows.find((r) => r.id === id);
     if (status === "rejected" && row) {
@@ -165,7 +183,7 @@ export function PurchaseRequestsManager() {
     const { traitementId } = (await res.json()) as { traitementId: string };
     toast.success("Traitement achat créé — BC, réception/BL, facture.");
     await load();
-    router.push(`/admin/traitements-achat?id=${encodeURIComponent(traitementId)}`);
+    router.push(traitementsHref({ type: "achat", id: traitementId }));
   }
 
   return (
@@ -200,7 +218,7 @@ export function PurchaseRequestsManager() {
         onChange={setTab}
       />
 
-      {loading ? <AdminLoading /> : null}
+      {loading ? <PurchaseRequestsPageSkeleton partial /> : null}
 
       {!loading && tab === "workflow" ? (
         <AdminInventoryCard title="Circuit DA → traitement">
@@ -229,16 +247,13 @@ export function PurchaseRequestsManager() {
           onSearchChange={setSearch}
           searchPlaceholder="N°, objet, fournisseur…"
           actions={
-            <select
-              className={`${inputClass} max-w-[200px] min-h-[38px] py-2`}
+            <SearchableEnumSelect
+              options={statusFilterOptions}
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="">Tous statuts</option>
-              <option value="pending">En attente</option>
-              <option value="approved">Approuvée</option>
-              <option value="rejected">Rejetée</option>
-            </select>
+              onChange={setStatusFilter}
+              inputClassName={`${inputClass} max-w-[200px] min-h-[38px] py-2`}
+              placeholder="Tous statuts"
+            />
           }
         >
           {filtered.length === 0 ? (
@@ -283,7 +298,9 @@ export function PurchaseRequestsManager() {
                         {gasoil ? "Gasoil" : "Articles"}
                       </span>
                     </td>
-                    <td className={tdClass}>{r.subject}</td>
+                    <td className={tdTextClass}>
+                      <AdminTruncatedText text={r.subject} />
+                    </td>
                     <td className={tdClass}>{PURCHASE_CATEGORY_LABELS[r.category]}</td>
                     <td className={tdClass}>{r.totalAmount.toLocaleString("fr-MA")} MAD</td>
                     <td className={tdClass}>
@@ -292,7 +309,7 @@ export function PurchaseRequestsManager() {
                     <td className={tdClass}>
                       {r.traitementId ? (
                         <Link
-                          href={`/admin/traitements-achat?id=${encodeURIComponent(r.traitementId)}`}
+                          href={traitementsHref({ type: "achat", id: r.traitementId })}
                           className="text-sm text-[var(--navy)] underline underline-offset-2"
                         >
                           Ouvrir

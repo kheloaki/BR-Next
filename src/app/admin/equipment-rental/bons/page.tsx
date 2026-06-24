@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { RentalManager } from "@/components/admin/RentalManager";
+import { RentalBonsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { requireAdminPage } from "@/lib/admin/admin-page-auth";
 
 export const metadata: Metadata = {
@@ -13,7 +14,7 @@ export default async function AdminRentalBonsPage() {
   await requireAdminPage("/admin/equipment-rental/bons");
   return (
     <AdminShell active="rental-bons">
-      <Suspense fallback={<p className="text-sm">Chargement…</p>}>
+      <Suspense fallback={<RentalBonsPageSkeleton />}>
         <RentalManager view="bons" />
       </Suspense>
     </AdminShell>

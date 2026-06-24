@@ -38,7 +38,6 @@ export function PurchaseRequestKindPickerSheet({ open, onClose, onPick }: Props)
       onClose={onClose}
       title="Nouvelle demande d'achat"
       description="Choisissez le type de DA à créer."
-      width="max-w-lg"
       footer={
         <button type="button" className={btnSecondary} onClick={onClose}>
           Annuler

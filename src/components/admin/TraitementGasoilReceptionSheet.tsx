@@ -91,7 +91,6 @@ export function TraitementGasoilReceptionSheet({
       onClose={onClose}
       title="Réception gasoil (BL)"
       description={`Traitement ${traitement.number} — entrée stock citerne après le BC gasoil.`}
-      width="max-w-lg"
       footer={
         <>
           <button type="button" className={btnSecondary} onClick={onClose} disabled={saving}>

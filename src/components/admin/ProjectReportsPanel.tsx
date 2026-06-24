@@ -5,8 +5,10 @@ import type { ProjectReportModule } from "@/lib/admin/project-report-types";
 import { REPORT_MODULE_LABELS } from "@/lib/admin/reports/report-labels";
 import { btnSecondary, inputClass } from "@/components/admin/admin-form-styles";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { ProjectReportsPanelSkeleton } from "@/components/admin/skeletons/pages";
 import { ProjectReportExportButtons } from "@/components/admin/ProjectReportExportButtons";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
+import { SituationEnginSelect } from "@/components/admin/SituationEnginSelect";
 
 type ReportPreview = {
   project: { name: string; code: string | null; startDate: string | null };
@@ -30,6 +32,7 @@ const MODULES: { id: ProjectReportModule; label: string }[] = [
   { id: "gasoil", label: REPORT_MODULE_LABELS.gasoil },
   { id: "stock", label: REPORT_MODULE_LABELS.stock },
   { id: "rentals", label: REPORT_MODULE_LABELS.rentals },
+  { id: "situation_engins", label: REPORT_MODULE_LABELS.situation_engins },
   { id: "personnel", label: REPORT_MODULE_LABELS.personnel },
   { id: "purchases", label: REPORT_MODULE_LABELS.purchases },
   { id: "facturation", label: REPORT_MODULE_LABELS.facturation },
@@ -56,6 +59,7 @@ export function ProjectReportsPanel({
   const [canExport, setCanExport] = useState(true);
   const [canFinancial, setCanFinancial] = useState(false);
   const [exportError, setExportError] = useState("");
+  const [enginMaterialId, setEnginMaterialId] = useState("");
 
   const query = useMemo(() => {
     const p = new URLSearchParams();
@@ -100,7 +104,16 @@ export function ProjectReportsPanel({
     }
   }, [preview, from]);
 
-  if (loading && !preview) return <AdminLoading />;
+  useEffect(() => {
+    if (module !== "situation_engins") setEnginMaterialId("");
+  }, [module]);
+
+  const moduleSelectOptions = useMemo(
+    () => Object.fromEntries(MODULES.map((m) => [m.id, m.label])),
+    [],
+  );
+
+  if (loading && !preview) return <ProjectReportsPanelSkeleton />;
 
   return (
     <div className="space-y-4">
@@ -115,14 +128,24 @@ export function ProjectReportsPanel({
         </label>
         <label className="block text-sm sm:col-span-2">
           <span className="mb-1 block text-[var(--graphite)]/75">État</span>
-          <select className={inputClass} value={module} onChange={(e) => setModule(e.target.value as ProjectReportModule)}>
-            {MODULES.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label}
-              </option>
-            ))}
-          </select>
+          <SearchableEnumSelect
+            options={moduleSelectOptions}
+            value={module}
+            onChange={(v) => setModule(v as ProjectReportModule)}
+            inputClassName={inputClass}
+            allowEmpty={false}
+          />
         </label>
+        {module === "situation_engins" ? (
+          <label className="block text-sm sm:col-span-2">
+            <span className="mb-1 block text-[var(--graphite)]/75">Engin (optionnel)</span>
+            <SituationEnginSelect
+              projectId={projectId}
+              value={enginMaterialId}
+              onChange={setEnginMaterialId}
+            />
+          </label>
+        ) : null}
       </div>
 
       <ProjectReportExportButtons
@@ -130,6 +153,7 @@ export function ProjectReportsPanel({
         module={module}
         from={from}
         to={to}
+        materialId={enginMaterialId}
         canExport={canExport}
         canFinancial={canFinancial}
         onError={setExportError}

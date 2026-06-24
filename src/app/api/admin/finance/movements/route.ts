@@ -7,10 +7,12 @@ import {
 } from "@/lib/admin/finance-permissions";
 import {
   MOVEMENT_SELECT,
+  ensureFinanceCategories,
   mapFinanceMovement,
   newFinanceId,
+  recordFinancePaymentWithAllocation,
 } from "@/lib/admin/finance-server";
-import type { FinanceMovementType, FinancePaymentMethod } from "@/lib/admin/finance-types";
+import type { FinanceAllocationTargetType, FinanceMovementType, FinancePaymentMethod } from "@/lib/admin/finance-types";
 import { requireAdminContext } from "@/lib/admin/require-admin";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -94,6 +96,12 @@ export async function POST(request: Request) {
     receiptUrl?: string | null;
     amountHt?: number | null;
     vatAmount?: number | null;
+    allocateTo?: {
+      targetType?: FinanceAllocationTargetType;
+      targetId?: string;
+      amount?: number;
+      notes?: string | null;
+    };
   };
 
   const validationError = validateMovementInput(body);
@@ -101,6 +109,8 @@ export async function POST(request: Request) {
 
   const movementType = body.movementType ?? "expense";
   const supabase = getSupabaseAdminClient();
+
+  await ensureFinanceCategories(auth.organizationId);
 
   const { data: category } = await supabase
     .from("admin_finance_categories")
@@ -114,6 +124,54 @@ export async function POST(request: Request) {
   }
 
   const id = newFinanceId("fmov");
+  const movementPayload = {
+    accountId: body.accountId!,
+    categoryId: body.categoryId!,
+    movementType,
+    amount: body.amount!,
+    movementDate: body.movementDate!,
+    reference: body.reference!,
+    paymentMethod: body.paymentMethod ?? null,
+    projectId: body.projectId ?? null,
+    customerId: body.customerId ?? null,
+    supplierId: body.supplierId ?? null,
+    chequeNumber: body.chequeNumber ?? null,
+    virementRef: body.virementRef ?? null,
+    effectRef: body.effectRef ?? null,
+    notes: body.notes ?? null,
+    receiptUrl: body.receiptUrl ?? null,
+    amountHt: body.amountHt ?? null,
+    vatAmount: body.vatAmount ?? null,
+  };
+
+  const allocation =
+    body.allocateTo?.targetType && body.allocateTo.targetId && body.allocateTo.amount
+      ? {
+          targetType: body.allocateTo.targetType,
+          targetId: body.allocateTo.targetId,
+          allocatedAmount: body.allocateTo.amount,
+          notes: body.allocateTo.notes ?? null,
+        }
+      : undefined;
+
+  try {
+    if (allocation) {
+      const mapped = await recordFinancePaymentWithAllocation(
+        supabase,
+        auth.organizationId,
+        auth.userId,
+        movementPayload,
+        allocation,
+      );
+      return NextResponse.json(mapped);
+    }
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Enregistrement impossible" },
+      { status: 400 },
+    );
+  }
+
   const { data, error } = await supabase
     .from("admin_finance_movements")
     .insert({

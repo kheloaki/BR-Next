@@ -2,27 +2,27 @@
 
 import { useMemo, useState } from "react";
 import type { Supplier } from "@/components/admin/devis-types";
+import { SupplierSupplyTypesPicker } from "@/components/admin/SupplierSupplyTypesPicker";
 import {
-  categorySegmentBtnSelected,
-  categorySegmentBtnUnselected,
   btnPrimary,
   btnSecondary,
   formGridClass,
   inputClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminDataSheet, AdminSheetField } from "@/components/admin/ux/AdminDataSheet";
+import { formatSupplierDisplayName } from "@/lib/admin/map-supplier";
 import {
   SUPPLIER_SUPPLY_TYPE_LABELS,
-  SUPPLIER_SUPPLY_TYPES,
   supplierMatchesSupplyType,
   type SupplierSupplyType,
 } from "@/lib/admin/supplier-types";
-import { formatSupplierDisplayName } from "@/lib/admin/map-supplier";
 import { readApiError } from "@/components/admin/ux/useAdminToast";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/admin/SearchableSelect";
 
 type Props = {
   suppliers: Supplier[];
-  supplyType: SupplierSupplyType;
+  /** When set, only suppliers matching this type are listed. Omit to show all suppliers. */
+  supplyType?: SupplierSupplyType;
   value: string;
   onChange: (supplierId: string, name: string) => void;
   onSupplierAdded?: (supplier: Supplier) => void;
@@ -47,22 +47,37 @@ export function SupplierSelectWithAdd({
   const [newContact, setNewContact] = useState("");
   const [newBankName, setNewBankName] = useState("");
   const [newRib, setNewRib] = useState("");
-  const [newTypes, setNewTypes] = useState<SupplierSupplyType[]>([supplyType]);
+  const defaultNewTypes = (): SupplierSupplyType[] => (supplyType ? [supplyType] : ["divers"]);
+  const [newTypes, setNewTypes] = useState<SupplierSupplyType[]>(defaultNewTypes);
 
   const filtered = useMemo(
-    () => suppliers.filter((s) => supplierMatchesSupplyType(s.supplyTypes ?? [], supplyType)),
+    () =>
+      supplyType == null
+        ? suppliers
+        : suppliers.filter((s) => supplierMatchesSupplyType(s.supplyTypes ?? [], supplyType)),
     [suppliers, supplyType],
   );
 
-  function toggleType(t: SupplierSupplyType) {
-    setNewTypes((prev) =>
-      prev.includes(t) ? (prev.length > 1 ? prev.filter((x) => x !== t) : prev) : [...prev, t],
-    );
-  }
+  const options = useMemo((): SearchableSelectOption[] => {
+    return filtered.map((s) => ({
+      value: s.id,
+      label: `${formatSupplierDisplayName(s.supplierName, s.companyName, s.name)}${s.city ? ` · ${s.city}` : ""}`,
+      keywords: `${s.supplierName ?? ""} ${s.companyName ?? ""} ${s.name} ${s.ice ?? ""} ${s.city ?? ""}`,
+    }));
+  }, [filtered]);
+
+  const supplyTypeLabel =
+    supplyType && SUPPLIER_SUPPLY_TYPE_LABELS[supplyType as keyof typeof SUPPLIER_SUPPLY_TYPE_LABELS]
+      ? SUPPLIER_SUPPLY_TYPE_LABELS[supplyType as keyof typeof SUPPLIER_SUPPLY_TYPE_LABELS]
+      : supplyType;
 
   async function submitSupplier() {
     if (!newSupplierName.trim() && !newCompanyName.trim()) {
       setError("Indiquez le nom du fournisseur et/ou la société.");
+      return;
+    }
+    if (newTypes.length === 0) {
+      setError("Sélectionnez au moins un type d'approvisionnement.");
       return;
     }
     setSaving(true);
@@ -96,30 +111,23 @@ export function SupplierSelectWithAdd({
     setNewContact("");
     setNewBankName("");
     setNewRib("");
-    setNewTypes([supplyType]);
+    setNewTypes(defaultNewTypes());
     setOpen(false);
   }
 
   return (
     <>
       <div className="flex gap-2">
-        <select
-          className={`${inputClass} min-w-0 flex-1`}
+        <SearchableSelect
+          options={options}
           value={value}
-          onChange={(e) => {
-            const id = e.target.value;
+          onChange={(id) => {
             const supplier = filtered.find((s) => s.id === id);
             onChange(id, supplier?.name ?? "");
           }}
-        >
-          <option value="">{placeholder}</option>
-          {filtered.map((s) => (
-            <option key={s.id} value={s.id}>
-              {formatSupplierDisplayName(s.supplierName, s.companyName, s.name)}
-              {s.city ? ` · ${s.city}` : ""}
-            </option>
-          ))}
-        </select>
+          placeholder={placeholder}
+          className="flex-1"
+        />
         <button
           type="button"
           className={`${btnSecondary} shrink-0 px-3`}
@@ -129,7 +137,7 @@ export function SupplierSelectWithAdd({
             setNewCompanyName("");
             setNewBankName("");
             setNewRib("");
-            setNewTypes([supplyType]);
+            setNewTypes(defaultNewTypes());
             setOpen(true);
           }}
           title="Créer un fournisseur"
@@ -143,7 +151,11 @@ export function SupplierSelectWithAdd({
         open={open}
         onClose={() => setOpen(false)}
         title="Nouveau fournisseur"
-        description={`Enregistré dans le carnet — type ${SUPPLIER_SUPPLY_TYPE_LABELS[supplyType]}.`}
+        description={
+          supplyType
+            ? `Enregistré dans le carnet — type ${supplyTypeLabel}.`
+            : "Enregistré dans le carnet fournisseurs."
+        }
         footer={
           <>
             <button type="button" className={btnSecondary} onClick={() => setOpen(false)}>
@@ -200,20 +212,12 @@ export function SupplierSelectWithAdd({
               onChange={(e) => setNewRib(e.target.value)}
             />
           </AdminSheetField>
-          <AdminSheetField label="Types d'approvisionnement" required className="sm:col-span-2">
-            <div className="flex flex-wrap gap-1.5">
-              {SUPPLIER_SUPPLY_TYPES.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className={newTypes.includes(t) ? categorySegmentBtnSelected : categorySegmentBtnUnselected}
-                  onClick={() => toggleType(t)}
-                >
-                  {SUPPLIER_SUPPLY_TYPE_LABELS[t]}
-                </button>
-              ))}
-            </div>
-          </AdminSheetField>
+          <SupplierSupplyTypesPicker
+            className="sm:col-span-2"
+            value={newTypes}
+            onChange={setNewTypes}
+            label="Types d'approvisionnement"
+          />
         </div>
         {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
       </AdminDataSheet>

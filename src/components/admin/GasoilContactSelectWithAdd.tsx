@@ -15,6 +15,7 @@ import {
 import { AdminDataSheet, AdminSheetField } from "@/components/admin/ux/AdminDataSheet";
 import { contactMatchesProject, formatGasoilContactLabel } from "@/lib/admin/map-gasoil-contact";
 import { readApiError } from "@/components/admin/ux/useAdminToast";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/admin/SearchableSelect";
 
 const ROLE_LABELS: Record<GasoilContactRole, string> = {
   conducteur: "conducteur",
@@ -71,10 +72,18 @@ export function GasoilContactSelectWithAdd({
     [contacts, role, projectFilterId],
   );
 
+  const options = useMemo((): SearchableSelectOption[] => {
+    return filtered.map((c) => ({
+      value: c.id,
+      label: role === "conducteur" ? formatGasoilContactLabel(c, projectNameMap) : c.name,
+      keywords: `${c.name} ${c.cin ?? ""} ${c.jobTitle ?? ""}`,
+    }));
+  }, [filtered, role, projectNameMap]);
+
   const inputCls = compact ? inputClassDense : inputClass;
-  const selectCls = standardInput
-    ? `${inputCls} min-w-0 flex-1`
-    : `${inputCls} min-w-0 flex-1 border-0 border-b border-dotted border-[var(--navy)]/40 bg-transparent px-0`;
+  const selectInputCls = standardInput
+    ? `${inputCls} pr-8`
+    : `${inputCls} min-w-0 border-0 border-b border-dotted border-[var(--navy)]/40 bg-transparent px-0 pr-6`;
 
   function toggleProject(projectId: string) {
     setNewProjectIds((prev) =>
@@ -124,24 +133,18 @@ export function GasoilContactSelectWithAdd({
     <>
       {label ? <p className={labelClass}>{label}</p> : null}
       <div className={`flex gap-2 ${label ? "mt-1" : ""}`}>
-        <select
-          className={selectCls}
+        <SearchableSelect
+          options={options}
           value={value}
-          onChange={(e) => {
-            const id = e.target.value;
+          onChange={(id) => {
             const contact = filtered.find((c) => c.id === id);
             onChange(id, contact?.name ?? "");
           }}
-        >
-          <option value="">{placeholder}</option>
-          {filtered.map((c) => (
-            <option key={c.id} value={c.id}>
-              {role === "conducteur"
-                ? formatGasoilContactLabel(c, projectNameMap)
-                : c.name}
-            </option>
-          ))}
-        </select>
+          placeholder={placeholder}
+          compact={compact}
+          inputClassName={selectInputCls}
+          className="flex-1"
+        />
         <button
           type="button"
           className={`${btnSecondary} shrink-0 px-2.5 py-1 text-sm`}

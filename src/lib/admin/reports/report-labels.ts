@@ -8,6 +8,7 @@ export const REPORT_MODULE_LABELS = {
   purchases: "État achats",
   facturation: "État facturation",
   profitability: "État rentabilité",
+  situation_engins: "Situation chantier — Engins",
 } as const;
 
 export const REPORT_FOOTER_NOTE =

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { MaterialCategory, RentalLocationMode } from "@/components/admin/operations-types";
 import { mapRentalMaterialRow, type RentalMaterialBody } from "@/lib/admin/map-rental-material-catalog";
+import { isMatriculeComplete } from "@/lib/admin/moroccan-matricule";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
 import { opsId } from "@/lib/admin/ops-id";
 import { DEFAULT_VAT_RATE } from "@/lib/admin/price-ht-ttc";
@@ -62,8 +63,8 @@ export async function POST(request: Request) {
   if ((cat === "engin" || cat === "groupe_electrogen") && !designation && !body.reference?.trim()) {
     return NextResponse.json({ error: "Référence ou désignation requise" }, { status: 400 });
   }
-  if ((cat === "camion" || cat === "voiture") && !body.matricule?.trim()) {
-    return NextResponse.json({ error: "Matricule requis" }, { status: 400 });
+  if ((cat === "camion" || cat === "voiture") && !isMatriculeComplete(body.matricule ?? "")) {
+    return NextResponse.json({ error: "Matricule complet requis (numéro · lettre · wilaya)" }, { status: 400 });
   }
   if (cat === "voiture" && !body.driverContactId && !body.driverName?.trim() && !body.employeeId) {
     return NextResponse.json({ error: "Sélectionnez un conducteur." }, { status: 400 });

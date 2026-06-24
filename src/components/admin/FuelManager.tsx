@@ -8,7 +8,7 @@ import { useOpsReferential } from "@/components/admin/useOpsReferential";
 import type { FuelView } from "@/lib/admin/fuel-nav";
 import { FUEL_VIEW_META } from "@/lib/admin/fuel-nav";
 import { btnPrimary, btnSecondary, moduleWrap } from "@/components/admin/admin-form-styles";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { FuelManagerContentSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { ReferentialBanner } from "@/components/admin/ux/ReferentialBanner";
 import { FuelGasoilBonPanel } from "@/components/admin/FuelGasoilBonPanel";
@@ -41,7 +41,7 @@ export function FuelManager({ view }: { view: FuelView }) {
     return (
       <div className={moduleWrap}>
         <OpsModuleHeader title={meta.title} description={meta.description} exportHref={meta.exportHref} />
-        <AdminLoading />
+        <FuelManagerContentSkeleton />
       </div>
     );
   }

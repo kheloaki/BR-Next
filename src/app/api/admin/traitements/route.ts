@@ -10,13 +10,17 @@ import {
   type TraitementLineInput,
   type TraitementStatus,
   type TraitementSteps,
+  type TraitementSupplyKind,
   type TraitementType,
 } from "@/lib/admin/traitement-types";
+import { syncTraitementFinanceFromStoredQuote, attachTraitementFinanceSummaries } from "@/lib/admin/traitement-finance-sync";
 import { registerTraitementBrStep, registerTraitementGasoilBcStep, registerTraitementGasoilBlStep, syncTraitementAfterQuoteSave } from "@/lib/admin/traitement-sync-server";
 import { resolveTraitementLineLinks } from "@/lib/admin/article-inventory";
+import { inferTraitementSupplyKind } from "@/lib/admin/traitement-supply-kind";
+import { GASOIL_UNIT } from "@/lib/admin/gasoil-stock";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
 import { opsId } from "@/lib/admin/ops-id";
-import { resolveProjectFields } from "@/lib/admin/project-resolve";
+import { resolveDepotFields, resolveProjectFields } from "@/lib/admin/project-resolve";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 async function loadTraitementWithLines(supabase: ReturnType<typeof getSupabaseAdminClient>, id: string, organizationId: string) {
@@ -36,9 +40,10 @@ async function loadTraitementWithLines(supabase: ReturnType<typeof getSupabaseAd
     .order("sort_order");
   if (lineErr) throw new Error(lineErr.message);
 
+  const supplyKind = (row.supply_kind as TraitementSupplyKind) || "articles";
   return mapTraitementRow(
     row as Record<string, unknown>,
-    (lineRows ?? []).map((l) => mapTraitementLine(l as Record<string, unknown>)),
+    (lineRows ?? []).map((l) => mapTraitementLine(l as Record<string, unknown>, supplyKind)),
   );
 }
 
@@ -68,11 +73,15 @@ async function loadAllTraitements(
     .order("sort_order");
   if (lineErr) throw new Error(lineErr.message);
 
+  const supplyKindByTraitement = new Map(
+    (data ?? []).map((row) => [row.id as string, ((row.supply_kind as TraitementSupplyKind) || "articles")]),
+  );
+
   const linesByTraitement = new Map<string, ReturnType<typeof mapTraitementLine>[]>();
   for (const line of lineRows ?? []) {
     const tid = line.traitement_id as string;
     const list = linesByTraitement.get(tid) ?? [];
-    list.push(mapTraitementLine(line as Record<string, unknown>));
+    list.push(mapTraitementLine(line as Record<string, unknown>, supplyKindByTraitement.get(tid)));
     linesByTraitement.set(tid, list);
   }
 
@@ -125,6 +134,7 @@ async function resolveLinesWithStock(
   userId: string,
   traitementType: TraitementType,
   lines: TraitementLineInput[],
+  supplyKind: TraitementSupplyKind = "articles",
 ) {
   const resolved: TraitementLineInput[] = [];
   for (const line of lines) {
@@ -134,9 +144,11 @@ async function resolveLinesWithStock(
       userId,
       line,
       traitementType,
+      { supplyKind },
     );
     resolved.push({
       ...line,
+      unit: line.unit?.trim() || (supplyKind === "gasoil" ? GASOIL_UNIT : "PIECE"),
       productId: links.productId ?? line.productId,
       stockItemId: links.stockItemId ?? line.stockItemId,
     });
@@ -164,14 +176,21 @@ export async function GET(request: Request) {
     }
 
     const rows = await loadAllTraitements(supabase, organizationId, type);
+    const enriched = await attachTraitementFinanceSummaries(supabase, organizationId, rows, auth.userId);
 
     if (searchParams.get("format") === "csv") {
       const filename = type === "achat" ? "traitements-achat.csv" : type === "vente" ? "traitements-vente.csv" : "traitements.csv";
       return csvResponse(
         filename,
-        ["N°", "Objet", "Partenaire", "Statut", "Articles", "BC/Devis", "BL", "F", "BR"],
-        rows.map((r) => {
+        ["N°", "Objet", "Partenaire", "Statut", "Articles", "BC/Devis", "BL", "F", "BR", "TTC", "Reste", "Paiement"],
+        enriched.map((r) => {
           const firstStep = r.traitementType === "achat" ? r.steps.bc : r.steps.devis;
+          const fin = r.financeSummary;
+          const finTtc =
+            fin && "amountTtc" in fin ? String(fin.amountTtc) : fin?.pendingSync ? "Non sync" : "";
+          const finReste = fin && "remainingAmount" in fin ? String(fin.remainingAmount) : "";
+          const finStatut =
+            fin && "paymentStatus" in fin ? fin.paymentStatus : fin?.pendingSync ? "—" : "";
           return [
             r.number,
             r.label,
@@ -182,12 +201,15 @@ export async function GET(request: Request) {
             r.steps.bl?.docNumber || r.steps.bl?.status || "",
             r.steps.f?.docNumber || r.steps.f?.status || "",
             r.steps.br?.docNumber || r.steps.br?.status || "",
+            finTtc,
+            finReste,
+            finStatut,
           ];
         }),
       );
     }
 
-    return NextResponse.json(rows);
+    return NextResponse.json(enriched);
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Erreur chargement" },
@@ -204,6 +226,7 @@ export async function POST(request: Request) {
     traitementType?: TraitementType;
     label?: string;
     projectId?: string;
+    depotId?: string;
     supplierId?: string;
     customerId?: string;
     partnerName?: string;
@@ -224,7 +247,21 @@ export async function POST(request: Request) {
   }
 
   const supabase = getSupabaseAdminClient();
+  let supplyKind: TraitementSupplyKind;
+  try {
+    supplyKind = await inferTraitementSupplyKind(supabase, organizationId, lines);
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Lignes invalides" },
+      { status: 400 },
+    );
+  }
+
   const project = await resolveProjectFields(supabase, organizationId, body.projectId);
+  const depot =
+    supplyKind === "gasoil"
+      ? { depot_id: null }
+      : await resolveDepotFields(supabase, organizationId, body.depotId);
   const number = await nextTraitementNumber(organizationId, body.traitementType);
   const id = opsId("trt");
   const steps = defaultTraitementSteps(body.traitementType);
@@ -234,10 +271,11 @@ export async function POST(request: Request) {
     user_id: userId,
     organization_id: organizationId,
     traitement_type: body.traitementType,
-    supply_kind: "articles",
+    supply_kind: supplyKind,
     number,
     label: body.label.trim(),
     project_id: project.project_id,
+    depot_id: depot.depot_id,
     supplier_id: body.traitementType === "achat" ? body.supplierId?.trim() || null : null,
     customer_id: body.traitementType === "vente" ? body.customerId?.trim() || null : null,
     partner_name: body.partnerName?.trim() || "",
@@ -255,6 +293,7 @@ export async function POST(request: Request) {
       userId,
       body.traitementType,
       lines,
+      supplyKind,
     );
     await insertLines(supabase, id, linkedLines);
   } catch (e) {
@@ -277,6 +316,7 @@ export async function PATCH(request: Request) {
     id?: string;
     label?: string;
     projectId?: string;
+    depotId?: string;
     supplierId?: string;
     customerId?: string;
     partnerName?: string;
@@ -374,6 +414,9 @@ export async function PATCH(request: Request) {
   const project = body.projectId !== undefined
     ? await resolveProjectFields(supabase, organizationId, body.projectId)
     : null;
+  const depot = body.depotId !== undefined
+    ? await resolveDepotFields(supabase, organizationId, body.depotId)
+    : null;
 
   const payload: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
@@ -381,6 +424,7 @@ export async function PATCH(request: Request) {
 
   if (body.label !== undefined) payload.label = body.label.trim();
   if (project) payload.project_id = project.project_id;
+  if (depot) payload.depot_id = depot.depot_id;
   if (body.partnerName !== undefined) payload.partner_name = body.partnerName.trim();
   if (body.notes !== undefined) payload.notes = body.notes.trim();
   if (body.status !== undefined) payload.status = body.status;
@@ -394,6 +438,26 @@ export async function PATCH(request: Request) {
     payload.customer_id = body.customerId.trim() || null;
   }
 
+  let linesSupplyKind: TraitementSupplyKind | null = null;
+  if (body.lines !== undefined) {
+    const lines = parseLines(body.lines);
+    if (lines.length === 0) {
+      return NextResponse.json({ error: "Au moins un article requis" }, { status: 400 });
+    }
+    try {
+      linesSupplyKind = await inferTraitementSupplyKind(supabase, organizationId, lines);
+    } catch (e) {
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : "Lignes invalides" },
+        { status: 400 },
+      );
+    }
+    if (linesSupplyKind !== existing.supplyKind) {
+      payload.supply_kind = linesSupplyKind;
+      if (linesSupplyKind === "gasoil") payload.depot_id = null;
+    }
+  }
+
   const { error } = await supabase
     .from("admin_traitements")
     .update(payload)
@@ -402,11 +466,8 @@ export async function PATCH(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  if (body.lines !== undefined) {
+  if (body.lines !== undefined && linesSupplyKind) {
     const lines = parseLines(body.lines);
-    if (lines.length === 0) {
-      return NextResponse.json({ error: "Au moins un article requis" }, { status: 400 });
-    }
     await supabase.from("admin_traitement_lines").delete().eq("traitement_id", body.id);
     try {
       const linkedLines = await resolveLinesWithStock(
@@ -415,6 +476,7 @@ export async function PATCH(request: Request) {
         userId,
         existing.traitementType,
         lines,
+        linesSupplyKind,
       );
       await insertLines(supabase, body.id, linkedLines);
     } catch (e) {
@@ -426,6 +488,16 @@ export async function PATCH(request: Request) {
   }
 
   const updated = await loadTraitementWithLines(supabase, body.id, organizationId);
+  if (updated && updated.steps.f?.status === "done") {
+    try {
+      await syncTraitementFinanceFromStoredQuote(supabase, organizationId, auth.userId, updated);
+    } catch (e) {
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : "Synchronisation finance impossible" },
+        { status: 500 },
+      );
+    }
+  }
   return NextResponse.json(updated);
 }
 

@@ -2,12 +2,19 @@
 
 import { useMemo } from "react";
 import { GasoilContactSelectWithAdd } from "@/components/admin/GasoilContactSelectWithAdd";
+import { FrenchDateInput, FrenchTimeInput } from "@/components/admin/FrenchDateTimeInput";
+import { MatriculeInput } from "@/components/admin/MatriculeInput";
 import { MaterialSelect } from "@/components/admin/MaterialSelect";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
-import type { AdminProject, GasoilContact, RentalMaterial } from "@/components/admin/operations-types";
+import type {
+  AdminProject,
+  GasoilContact,
+  RentalMaterial,
+} from "@/components/admin/operations-types";
 import {
   GASOIL_VEHICLE_CATEGORIES,
   GASOIL_VEHICLE_CATEGORY_LABELS,
+  materialCategoryToGasoilCategory,
 } from "@/lib/admin/gasoil-bon";
 import { formatBonLocationNo } from "@/lib/admin/rental-bon-number-format";
 import type { GasoilBonFormState } from "@/components/admin/FuelGasoilBonForm";
@@ -41,10 +48,19 @@ export function FuelGasoilBonSortieForm({
   lockBonNumber,
   avgUnitPriceInfo,
 }: Props) {
-  const materialsForBon = useMemo(
-    () => materials.filter((m) => m.active),
-    [materials],
-  );
+  const materialsForBon = useMemo(() => {
+    const list = materials.filter((m) => {
+      if (!m.active) return false;
+      if (form.projectId && m.projectId !== form.projectId) return false;
+      return true;
+    });
+    const tab = form.vehicleCategory;
+    return [...list].sort((a, b) => {
+      const score = (m: RentalMaterial) =>
+        materialCategoryToGasoilCategory(m.materialCategory) === tab ? 0 : 1;
+      return score(a) - score(b);
+    });
+  }, [materials, form.projectId, form.vehicleCategory]);
 
   const projectLabel = projects.find((p) => p.id === form.projectId);
   const litres = typeof form.litres === "number" ? form.litres : Number(form.litres) || 0;
@@ -84,7 +100,7 @@ export function FuelGasoilBonSortieForm({
                 ? "min-h-[36px] rounded-md bg-[var(--navy)] px-3 text-[10px] font-medium text-white"
                 : "min-h-[36px] rounded-md border border-border bg-white px-3 text-[10px] text-[var(--graphite)]"
             }
-            onClick={() => onChange({ vehicleCategory: c, materialId: "", vehicleLabel: "" })}
+            onClick={() => onChange({ vehicleCategory: c })}
           >
             {GASOIL_VEHICLE_CATEGORY_LABELS[c]}
           </button>
@@ -98,7 +114,19 @@ export function FuelGasoilBonSortieForm({
             <ProjectSelect
               projects={projects}
               value={form.projectId}
-              onChange={(id) => onChange({ projectId: id })}
+              onChange={(id) => {
+                const patch: Partial<GasoilBonFormState> = { projectId: id };
+                if (form.materialId) {
+                  const stillValid = materials.some(
+                    (m) => m.id === form.materialId && m.active && (!id || m.projectId === id),
+                  );
+                  if (!stillValid) {
+                    patch.materialId = "";
+                    patch.vehicleLabel = "";
+                  }
+                }
+                onChange(patch);
+              }}
               allowEmpty
               placeholder="— Chantier —"
             />
@@ -112,7 +140,7 @@ export function FuelGasoilBonSortieForm({
         </p>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto touch-pan-x overscroll-x-contain">
         <table className="w-full min-w-[520px] border-collapse text-left">
           <thead>
             <tr>
@@ -146,35 +174,37 @@ export function FuelGasoilBonSortieForm({
           <tbody>
             <tr>
               <td className={tdCell}>
-                <input
-                  type="date"
+                <FrenchDateInput
+                  variant="inline"
                   className={cellInput}
                   value={form.bonDate}
-                  onChange={(e) => onChange({ bonDate: e.target.value })}
+                  onChange={(bonDate) => onChange({ bonDate })}
                 />
               </td>
               <td className={tdCell}>
                 <div className="space-y-1">
-                  {materialsForBon.length > 0 ? (
-                    <MaterialSelect
-                      materials={materialsForBon}
-                      value={form.materialId}
-                      onChange={(id) => {
-                        const m = materials.find((x) => x.id === id);
-                        onChange({
-                          materialId: id,
-                          vehicleLabel: m?.matricule?.trim() || m?.reference?.trim() || form.vehicleLabel,
-                        });
-                      }}
-                      label=""
-                      placeholder="— Matériel —"
-                    />
-                  ) : null}
-                  <input
-                    className={cellInput}
-                    placeholder="Matricule / identification"
+                  <MaterialSelect
+                    materials={materialsForBon}
+                    value={form.materialId}
+                    onChange={(id) => {
+                      const m = materialsForBon.find((x) => x.id === id);
+                      onChange({
+                        materialId: id,
+                        vehicleLabel: m?.matricule?.trim() || m?.reference?.trim() || form.vehicleLabel,
+                        vehicleCategory: m
+                          ? materialCategoryToGasoilCategory(m.materialCategory)
+                          : form.vehicleCategory,
+                      });
+                    }}
+                    label=""
+                    placeholder={form.projectId ? "— Matériel —" : "— Chantier d'abord —"}
+                    requireProjectFirst={!form.projectId}
+                    disabled={!form.projectId}
+                  />
+                  <MatriculeInput
+                    compact
                     value={form.vehicleLabel}
-                    onChange={(e) => onChange({ vehicleLabel: e.target.value })}
+                    onChange={(vehicleLabel) => onChange({ vehicleLabel })}
                   />
                 </div>
               </td>
@@ -188,11 +218,10 @@ export function FuelGasoilBonSortieForm({
                 />
               </td>
               <td className={tdCell}>
-                <input
-                  type="time"
+                <FrenchTimeInput
                   className={cellInput}
                   value={form.fuelTime}
-                  onChange={(e) => onChange({ fuelTime: e.target.value })}
+                  onChange={(fuelTime) => onChange({ fuelTime })}
                 />
               </td>
               <td className={tdCell}>

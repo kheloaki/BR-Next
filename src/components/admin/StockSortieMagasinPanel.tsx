@@ -5,6 +5,9 @@ import { useMemo, useState } from "react";
 import { traitementStockHref } from "@/lib/admin/stock-traitement-link";
 import { HtTtcPriceFields } from "@/components/admin/HtTtcPriceFields";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
+import { StockItemSelect } from "@/components/admin/StockItemSelect";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
+import { stringOptions } from "@/components/admin/searchable-options";
 import type { AdminProject, StockItem, StockMovement } from "@/components/admin/operations-types";
 import { STOCK_UNITS } from "@/components/admin/operations-types";
 import {
@@ -16,11 +19,13 @@ import {
   labelClass,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { DEFAULT_VAT_RATE, formatMoney } from "@/lib/admin/price-ht-ttc";
 import { confirmDelete, readApiError } from "@/components/admin/ux/useAdminToast";
 
@@ -278,9 +283,15 @@ export function StockSortieMagasinPanel({
               {filtered.map((m) => (
                 <tr key={m.id} className={rowHover}>
                   <td className={tdClass}>{m.movementDate}</td>
-                  <td className={`${tdClass} font-mono text-xs`}>{m.reference}</td>
-                  <td className={tdClass}>{m.designation}</td>
-                  <td className={tdClass}>{m.articleCode || "—"}</td>
+                  <td className={tdClass}>
+                    <AdminTruncatedText text={m.reference} lines={1} />
+                  </td>
+                  <td className={tdTextClass}>
+                    <AdminTruncatedText text={m.designation} />
+                  </td>
+                  <td className={tdClass}>
+                    <AdminTruncatedText text={m.articleCode} lines={1} />
+                  </td>
                   <td className={`${tdClass} text-right tabular-nums`}>{fmtQty(m.qty)}</td>
                   <td className={tdClass}>{m.unit}</td>
                   <td className={`${tdClass} text-right tabular-nums`}>{fmtQty(m.unitPrice)}</td>
@@ -292,12 +303,18 @@ export function StockSortieMagasinPanel({
                   >
                     {fmtQty(m.stockAfter)}
                   </td>
-                  <td className={tdClass}>{m.assignment || "—"}</td>
+                  <td className={tdTextClass}>
+                    <AdminTruncatedText text={m.assignment} />
+                  </td>
                   <td className={`${tdClass} font-mono text-xs`}>{m.exitVoucherNo || "—"}</td>
-                  <td className={tdClass}>{m.requester || "—"}</td>
-                  <td className={tdClass}>{m.storekeeper || "—"}</td>
-                  <td className={`${tdClass} max-w-[100px] truncate`} title={m.notes}>
-                    {m.notes || "—"}
+                  <td className={tdClass}>
+                    <AdminTruncatedText text={m.requester} lines={1} />
+                  </td>
+                  <td className={tdClass}>
+                    <AdminTruncatedText text={m.storekeeper} lines={1} />
+                  </td>
+                  <td className={tdTextClass}>
+                    <AdminTruncatedText text={m.notes} />
                   </td>
                   <td className={tdClass}>
                     <div className="flex flex-wrap gap-1">
@@ -345,14 +362,12 @@ export function StockSortieMagasinPanel({
           <div className={`${formGridClass} max-w-4xl`}>
             <div className="sm:col-span-2">
               <p className={labelClass}>Article *</p>
-              <select className={`${inputClass} mt-1`} value={itemId} onChange={(e) => onItemChange(e.target.value)}>
-                <option value="">— Sélectionner —</option>
-                {items.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.reference} — {i.designation} (stock: {i.qty} {i.unit})
-                  </option>
-                ))}
-              </select>
+              <StockItemSelect
+                items={items}
+                value={itemId}
+                onChange={onItemChange}
+                inputClassName={`${inputClass} mt-1`}
+              />
             </div>
             <div>
               <p className={labelClass}>Date *</p>
@@ -371,13 +386,13 @@ export function StockSortieMagasinPanel({
             </div>
             <div>
               <p className={labelClass}>Unité</p>
-              <select className={`${inputClass} mt-1`} value={unit} onChange={(e) => setUnit(e.target.value)}>
-                {STOCK_UNITS.map((u) => (
-                  <option key={u} value={u}>
-                    {u}
-                  </option>
-                ))}
-              </select>
+              <SearchableEnumSelect
+                options={stringOptions([...STOCK_UNITS])}
+                value={unit}
+                onChange={setUnit}
+                allowEmpty={false}
+                inputClassName={`${inputClass} mt-1`}
+              />
             </div>
             <div>
               <p className={labelClass}>Code article</p>

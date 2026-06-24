@@ -513,7 +513,10 @@ export function bundleToProjectSummary(bundle: ProjectReportBundle) {
       entryCount: bundle.rentals.totals.entryCount,
       recent: bundle.rentals.contracts.slice(0, recentLimit),
     },
-    stock: { movementCount: bundle.stock.totals.movementCount },
+    stock: {
+      movementCount: bundle.stock.totals.movementCount,
+      recent: bundle.stock.movements.slice(0, recentLimit),
+    },
     reportTotals: {
       facturationHt: bundle.facturation.totals.ht,
       profitability: bundle.profitability.totals,

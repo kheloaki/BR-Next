@@ -12,11 +12,13 @@ import {
   moduleWrap,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminEmptyState } from "@/components/admin/ux/AdminEmptyState";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminFilterBar } from "@/components/admin/ux/AdminFilterBar";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { SavedDevisListSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import {
@@ -224,7 +226,7 @@ export function SavedDevisList() {
       />
 
       {loading ? (
-        <AdminLoading />
+        <SavedDevisListSkeleton partial />
       ) : filteredQuotes.length === 0 ? (
         <AdminEmptyState
           title={search.trim() ? "Aucun résultat" : "Aucun document"}
@@ -242,17 +244,17 @@ export function SavedDevisList() {
           }
         />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border">
+        <div className="overflow-x-auto rounded-lg border border-border touch-pan-x">
           <AdminTableWrap>
             <thead>
               <tr>
                 <th className={thClass}>Type</th>
                 <th className={thClass}>N° document</th>
                 <th className={thClass}>Client / fournisseur</th>
-                <th className={thClass}>Référence</th>
+                <th className={`${thClass} max-w-[min(20rem,48vw)]`}>Référence</th>
                 <th className={thClass}>Date</th>
                 <th className={`${thClass} text-right w-16`}>Lignes</th>
-                <th className={`${thClass} text-right min-w-[17rem]`}>Actions</th>
+                <th className={`${thClass} text-right min-w-[12rem] sm:min-w-[17rem]`}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -271,13 +273,19 @@ export function SavedDevisList() {
                     <td className={`${tdClass} font-medium text-[var(--navy)]`}>
                       {quote.quoteNumber || "—"}
                     </td>
-                    <td className={tdClass}>{quote.clientName || "—"}</td>
                     <td className={tdClass}>
-                      <p>{quote.reference || "—"}</p>
+                      <AdminTruncatedText text={quote.clientName} lines={1} />
+                    </td>
+                    <td className={tdTextClass}>
+                      <AdminTruncatedText text={quote.reference} />
                       {quote.linkedFactureNumber ? (
-                        <p className="mt-0.5 text-[11px] text-[var(--graphite)]/65">
-                          → Facture N° {quote.linkedFactureNumber}
-                        </p>
+                        <div className="mt-0.5">
+                          <AdminTruncatedText
+                            text={`→ Facture N° ${quote.linkedFactureNumber}`}
+                            lines={1}
+                            className="text-[11px] text-[var(--graphite)]/65"
+                          />
+                        </div>
                       ) : null}
                     </td>
                     <td className={`${tdClass} whitespace-nowrap text-[var(--graphite)]/80`}>
@@ -285,7 +293,7 @@ export function SavedDevisList() {
                     </td>
                     <td className={`${tdClass} text-right tabular-nums`}>{quote.items.length}</td>
                     <td className={`${tdClass} text-right`}>
-                      <div className="inline-flex flex-nowrap items-center justify-end gap-1.5">
+                      <div className="flex flex-wrap items-center justify-end gap-1.5">
                         <Link href={facturationEditPath(quote)} className={tableActionNeutral}>
                           Modifier
                         </Link>

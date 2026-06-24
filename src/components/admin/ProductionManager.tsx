@@ -14,13 +14,15 @@ import {
   moduleWrap,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { ProductionPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { ReferentialBanner } from "@/components/admin/ux/ReferentialBanner";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
@@ -129,7 +131,7 @@ export function ProductionManager() {
         onChange={setTab}
       />
 
-      {loading ? <AdminLoading /> : null}
+      {loading ? <ProductionPageSkeleton partial /> : null}
 
       {!loading && tab === "sites" ? (
         <div className="space-y-2">
@@ -185,10 +187,14 @@ export function ProductionManager() {
                 {filtered.map((r) => (
                   <tr key={r.id} className={rowHover}>
                     <td className={tdClass}>{r.entryDate}</td>
-                    <td className={tdClass}>{r.siteName || "—"}</td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={r.siteName} lines={1} />
+                    </td>
                     <td className={tdClass}>{r.tonnage}</td>
                     <td className={tdClass}>{r.targetTonnage}</td>
-                    <td className={tdClass}>{r.material || "—"}</td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={r.material} lines={1} />
+                    </td>
                   </tr>
                 ))}
               </tbody>

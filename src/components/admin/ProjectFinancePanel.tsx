@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { ProjectFinancePanelSkeleton } from "@/components/admin/skeletons/pages";
 
 type ProjectFinanceReport = {
   revenue: {
@@ -48,7 +48,7 @@ export function ProjectFinancePanel({ projectId }: { projectId: string }) {
     })();
   }, [projectId]);
 
-  if (loading) return <AdminLoading />;
+  if (loading) return <ProjectFinancePanelSkeleton />;
 
   if (!report) {
     return <p className="text-sm text-[var(--graphite)]/70">Données finance indisponibles.</p>;

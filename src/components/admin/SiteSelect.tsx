@@ -35,6 +35,8 @@ export function SiteSelect({
       chantierDocumentUrl: "",
       planUrl: "",
       notes: "",
+      budgetMad: 0,
+      ficheVisibleSections: null,
     }));
 
   const byName = list.find((p) => p.name === value);

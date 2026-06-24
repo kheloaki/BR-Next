@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
+import { ProjectSelect } from "@/components/admin/ProjectSelect";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
+import { SearchableSelect } from "@/components/admin/SearchableSelect";
+import { enumToOptions, stringOptions, withEmptyOption } from "@/components/admin/searchable-options";
 import { useOpsReferential } from "@/components/admin/useOpsReferential";
 import type { FuelEntry, RentalContract } from "@/components/admin/operations-types";
 import { GASOIL_VEHICLE_CATEGORIES, GASOIL_VEHICLE_CATEGORY_LABELS } from "@/lib/admin/gasoil-bon";
@@ -10,19 +14,24 @@ import { buildMaterialUsageSummary } from "@/lib/admin/material-fuel-usage";
 import { fuelEntriesEstimatedPriceLitres } from "@/lib/admin/fuel-bon-sync";
 import { materialLabel } from "@/lib/admin/map-rental-material-catalog";
 import { formatMoney } from "@/lib/admin/price-ht-ttc";
+import { traitementsHref } from "@/lib/admin/traitement-nav";
 import {
   btnSecondary,
-  inputClass,
+  filterBarClass,
+  filterFieldWrap,
+  filterInputClass,
   labelClass,
   moduleWrap,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { FuelConsumptionPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { ReferentialBanner } from "@/components/admin/ux/ReferentialBanner";
 
 function fmtHours(n: number) {
@@ -135,7 +144,7 @@ export function FuelMaterialConsumptionPanel() {
           title="Analyse consommation & location matériel"
           description="Heures location, gasoil consommé et coût par heure travaillée — par matériel."
         />
-        <AdminLoading />
+        <FuelConsumptionPageSkeleton partial />
       </div>
     );
   }
@@ -185,7 +194,7 @@ export function FuelMaterialConsumptionPanel() {
         <div className="mb-4 rounded-lg border border-amber-200/80 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           {fmtLitres(totalUnpricedLitres)} sans prix enregistré sur le bon ou le mouvement stock. Les coûts
           affichés concernent uniquement les bons avec prix connu ; complétez les{" "}
-            <Link href="/admin/traitements-achat" className="font-medium underline underline-offset-2">
+            <Link href={traitementsHref({ type: "achat" })} className="font-medium underline underline-offset-2">
               traitements achat gasoil
             </Link>{" "}
           et les sorties récentes pour un calcul complet.
@@ -219,81 +228,64 @@ export function FuelMaterialConsumptionPanel() {
         onSearchChange={setSearch}
         searchPlaceholder="Matériel…"
       >
-        <div className="flex flex-wrap items-end gap-2 border-b border-border px-4 py-3">
-          <div>
+        <div className={filterBarClass}>
+          <div className={filterFieldWrap}>
             <p className={labelClass}>Chantier</p>
-            <select
-              className={`${inputClass} mt-1 min-w-[160px]`}
-              value={filterProjectId}
-              onChange={(e) => setFilterProjectId(e.target.value)}
-            >
-              <option value="">Tous chantiers</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            <div className="mt-1">
+              <ProjectSelect
+                projects={projects}
+                value={filterProjectId}
+                onChange={setFilterProjectId}
+                allowEmpty
+                placeholder="Tous chantiers"
+                activeOnly={false}
+              />
+            </div>
           </div>
-          <div>
+          <div className={filterFieldWrap}>
             <p className={labelClass}>Catégorie</p>
-            <select
-              className={`${inputClass} mt-1 min-w-[160px]`}
+            <SearchableEnumSelect
+              options={withEmptyOption(enumToOptions(GASOIL_VEHICLE_CATEGORY_LABELS), "Toutes catégories")}
               value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-            >
-              <option value="">Toutes catégories</option>
-              {GASOIL_VEHICLE_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {GASOIL_VEHICLE_CATEGORY_LABELS[c]}
-                </option>
-              ))}
-            </select>
+              onChange={setFilterCategory}
+              placeholder="Toutes catégories"
+              inputClassName={filterInputClass}
+            />
           </div>
-          <div>
+          <div className={filterFieldWrap}>
             <p className={labelClass}>Matériel</p>
-            <select
-              className={`${inputClass} mt-1 min-w-[200px]`}
+            <SearchableSelect
+              options={withEmptyOption(stringOptions(materialFilterOptions), "Tout matériel")}
               value={filterMaterial}
-              onChange={(e) => setFilterMaterial(e.target.value)}
-            >
-              <option value="">Tout matériel</option>
-              {materialFilterOptions.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
+              onChange={setFilterMaterial}
+              placeholder="Tout matériel"
+              inputClassName={filterInputClass}
+            />
           </div>
-          <div>
+          <div className={filterFieldWrap}>
             <p className={labelClass}>Conducteur</p>
-            <select
-              className={`${inputClass} mt-1 min-w-[160px]`}
+            <SearchableSelect
+              options={withEmptyOption(stringOptions(driverOptions), "Tous conducteurs")}
               value={filterDriver}
-              onChange={(e) => setFilterDriver(e.target.value)}
-            >
-              <option value="">Tous conducteurs</option>
-              {driverOptions.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
+              onChange={setFilterDriver}
+              placeholder="Tous conducteurs"
+              inputClassName={filterInputClass}
+            />
           </div>
-          <div>
+          <div className={filterFieldWrap}>
             <p className={labelClass}>Du</p>
             <input
               type="date"
-              className={`${inputClass} mt-1 min-w-[140px]`}
+              className={filterInputClass}
               value={filterDateFrom}
               onChange={(e) => setFilterDateFrom(e.target.value)}
             />
           </div>
-          <div>
+          <div className={filterFieldWrap}>
             <p className={labelClass}>Au</p>
             <input
               type="date"
-              className={`${inputClass} mt-1 min-w-[140px]`}
+              className={filterInputClass}
               value={filterDateTo}
               onChange={(e) => setFilterDateTo(e.target.value)}
             />
@@ -301,7 +293,7 @@ export function FuelMaterialConsumptionPanel() {
           {hasActiveFilters ? (
             <button
               type="button"
-              className={`${btnSecondary} mt-5`}
+              className={`${btnSecondary} w-full xl:w-auto`}
               onClick={() => {
                 setFilterProjectId("");
                 setFilterCategory("");
@@ -338,7 +330,9 @@ export function FuelMaterialConsumptionPanel() {
             <tbody>
               {filteredUsage.map((row) => (
                 <tr key={row.key} className={rowHover}>
-                  <td className={tdClass}>{row.label}</td>
+                  <td className={tdTextClass}>
+                    <AdminTruncatedText text={row.label} />
+                  </td>
                   <td className={`${tdClass} tabular-nums`}>
                     {row.totalHours > 0 ? fmtHours(row.totalHours) : "—"}
                   </td>

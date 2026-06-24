@@ -8,8 +8,22 @@ export const moduleWrap = "w-full min-w-0";
 export const pageHeader =
   "border-b border-border pb-4 mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between";
 
+/** Module page title — scales down on small screens. */
+export const moduleTitle = "text-xl font-semibold sm:text-2xl text-[var(--navy)] tracking-tight";
+
+/** Filter rows above inventory tables — stacks on mobile, grid on tablet, inline on desktop. */
+export const filterBarClass =
+  "grid grid-cols-1 gap-3 border-b border-border px-4 py-3 sm:grid-cols-2 xl:flex xl:flex-wrap xl:items-end xl:gap-2";
+
+export const filterFieldWrap = "min-w-0 w-full xl:w-auto xl:min-w-[10rem]";
+
+/** Horizontal scroll for wide admin tables (use on wrapper or via AdminTableWrap). */
+export const tableScrollWrap = "overflow-x-auto touch-pan-x overscroll-x-contain";
+
 export const inputClass =
   "w-full min-h-[44px] rounded-lg border border-border bg-[var(--background)] px-3 py-2.5 text-sm outline-none transition placeholder:text-[var(--graphite)]/45 focus:border-[var(--gold)] focus:bg-white focus:ring-2 focus:ring-[var(--gold)]/20";
+
+export const filterInputClass = `${inputClass} mt-1 w-full`;
 
 /** Shared grid for AdminFormCard create forms */
 export const formGridClass = "grid sm:grid-cols-2 lg:grid-cols-3 gap-2";
@@ -25,6 +39,14 @@ export const btnPrimary =
 
 export const btnSecondary =
   "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-border bg-white px-4 py-2.5 text-sm font-medium text-[var(--navy)] transition hover:bg-[var(--background)] active:scale-[0.98] disabled:opacity-50";
+
+/** Compact secondary — card toolbar actions (inventory panels) */
+export const btnSecondarySm =
+  "inline-flex min-h-[36px] items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-medium text-[var(--navy)] transition hover:bg-[var(--background)] active:scale-[0.98] disabled:opacity-50";
+
+/** Compact primary — card toolbar highlight actions */
+export const btnPrimarySm =
+  "inline-flex min-h-[36px] items-center justify-center gap-1.5 rounded-lg border border-[var(--gold)] bg-[var(--gold)] px-3 py-1.5 text-xs font-medium text-[var(--navy-deep)] transition hover:brightness-95 active:scale-[0.98] disabled:opacity-50";
 
 export const btnGhost =
   "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-[var(--navy)] transition hover:bg-[var(--background)]";
@@ -61,7 +83,10 @@ export const inventoryThNumClass = `${inventoryThClass} text-right`;
 export const thClass = inventoryThClass;
 
 export const inventoryTdClass =
-  "border-b border-border/60 px-3 py-2.5 align-middle text-[var(--navy)]";
+  "border-b border-border/60 px-3 py-2.5 align-middle text-[var(--navy)] max-w-[min(18rem,42vw)]";
+
+/** Text-heavy columns — pair with AdminTruncatedText */
+export const tdTextClass = `${inventoryTdClass} max-w-[min(20rem,48vw)]`;
 
 export const inventoryTdNumClass = `${inventoryTdClass} text-right tabular-nums`;
 
@@ -73,3 +98,12 @@ export const card =
   "rounded-xl border border-border bg-white p-4 shadow-sm shadow-black/[0.02]";
 
 export const sectionTitle = "text-lg font-semibold text-[var(--navy)]";
+
+/** Uppercase panel title — inventory / fiche projet sections */
+export const inventoryPanelTitle =
+  "text-[11px] font-semibold uppercase tracking-wide text-[var(--graphite)]/70";
+
+/** Fiche projet — monetary amounts */
+export const ficheAmountClass = "font-semibold text-[var(--navy)] tabular-nums";
+
+export const ficheIncomeFooterRow = "border-t border-[var(--fiche-income-border)] bg-[var(--fiche-income-highlight)]";

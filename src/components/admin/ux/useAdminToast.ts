@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 export type ToastKind = "success" | "error" | "info";
 
@@ -14,13 +14,20 @@ export function useAdminToast() {
     window.setTimeout(() => setToast(null), 3200);
   }, []);
 
-  return {
-    toast,
-    dismiss,
-    success: (message: string) => show(message, "success"),
-    error: (message: string) => show(message, "error"),
-    info: (message: string) => show(message, "info"),
-  };
+  const success = useCallback((message: string) => show(message, "success"), [show]);
+  const error = useCallback((message: string) => show(message, "error"), [show]);
+  const info = useCallback((message: string) => show(message, "info"), [show]);
+
+  return useMemo(
+    () => ({
+      toast,
+      dismiss,
+      success,
+      error,
+      info,
+    }),
+    [toast, dismiss, success, error, info],
+  );
 }
 
 export async function readApiError(res: Response) {

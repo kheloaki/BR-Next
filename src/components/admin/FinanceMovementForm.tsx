@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { CustomerSelect } from "@/components/admin/CustomerSelect";
+import { FinanceAccountSelect } from "@/components/admin/FinanceAccountSelect";
+import { HtTtcPriceFields } from "@/components/admin/HtTtcPriceFields";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
+import { SearchableSelect } from "@/components/admin/SearchableSelect";
+import { VatRateSelect } from "@/components/admin/VatRateSelect";
+import { idNameOptions } from "@/components/admin/searchable-options";
 import type { AdminProject } from "@/components/admin/operations-types";
 import type {
   FinanceAccount,
@@ -10,7 +17,12 @@ import type {
   FinanceMovementType,
   FinancePaymentMethod,
 } from "@/lib/admin/finance-types";
-import { FINANCE_MOVEMENT_TYPE_LABELS } from "@/lib/admin/finance-types";
+import { FINANCE_MOVEMENT_TYPE_LABELS, FINANCE_PAYMENT_METHOD_LABELS } from "@/lib/admin/finance-types";
+import {
+  pickDefaultFinanceAccountId,
+  suggestFinanceMovementReference,
+  validateMovementInput,
+} from "@/lib/admin/finance-rules";
 import {
   btnPrimary,
   btnSecondary,
@@ -24,6 +36,18 @@ import {
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import {
+  DEFAULT_VAT_RATE,
+  formatMoney,
+  htToTtc,
+  roundMoney,
+  ttcToHt,
+} from "@/lib/admin/price-ht-ttc";
+
+function inferVatRate(amountHt: number, amountTtc: number) {
+  if (amountHt <= 0) return DEFAULT_VAT_RATE;
+  return roundMoney(((amountTtc / amountHt) - 1) * 100);
+}
 
 type Referential = {
   projects: AdminProject[];
@@ -39,6 +63,18 @@ export function FinanceMovementForm({
   referential,
   onSaved,
   title = "Nouveau mouvement",
+  lockProjectId,
+  fixedMovementType,
+  defaultCategorySlug,
+  hideTypeSelect = false,
+  lockFinanceDocumentId,
+  defaultAmount,
+  documentAmountHt,
+  documentAmountTtc,
+  fixedCustomerId,
+  fixedSupplierId,
+  movementDateLabel = "Date",
+  referencePrefix,
 }: {
   accounts: FinanceAccount[];
   categories: FinanceCategory[];
@@ -47,17 +83,32 @@ export function FinanceMovementForm({
   referential: Referential;
   onSaved: () => void;
   title?: string;
+  lockProjectId?: string;
+  fixedMovementType?: FinanceMovementType;
+  defaultCategorySlug?: string;
+  hideTypeSelect?: boolean;
+  lockFinanceDocumentId?: string;
+  defaultAmount?: number;
+  /** Facture liée — HT total (pour répartir le reste à payer). */
+  documentAmountHt?: number;
+  /** Facture liée — TTC total. */
+  documentAmountTtc?: number;
+  fixedCustomerId?: string | null;
+  fixedSupplierId?: string | null;
+  movementDateLabel?: string;
+  referencePrefix?: string;
 }) {
   const toast = useAdminToast();
   const [saving, setSaving] = useState(false);
   const [accountId, setAccountId] = useState(defaultAccountId ?? "");
   const [categoryId, setCategoryId] = useState("");
-  const [movementType, setMovementType] = useState<FinanceMovementType>(defaultType);
-  const [amount, setAmount] = useState(0);
+  const [movementType, setMovementType] = useState<FinanceMovementType>(fixedMovementType ?? defaultType);
+  const [vatRate, setVatRate] = useState(DEFAULT_VAT_RATE);
+  const [amountHt, setAmountHt] = useState(0);
   const [movementDate, setMovementDate] = useState(new Date().toISOString().slice(0, 10));
   const [reference, setReference] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<FinancePaymentMethod>("cash");
-  const [projectId, setProjectId] = useState("");
+  const [projectId, setProjectId] = useState(lockProjectId ?? "");
   const [customerId, setCustomerId] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [chequeNumber, setChequeNumber] = useState("");
@@ -65,12 +116,58 @@ export function FinanceMovementForm({
   const [effectRef, setEffectRef] = useState("");
   const [notes, setNotes] = useState("");
   const [receiptUrl, setReceiptUrl] = useState("");
-  const [amountHt, setAmountHt] = useState<number | "">("");
-  const [vatAmount, setVatAmount] = useState<number | "">("");
+
+  const amountTtc = useMemo(() => htToTtc(amountHt, vatRate), [amountHt, vatRate]);
+  const vatAmount = useMemo(() => roundMoney(Math.max(0, amountTtc - amountHt)), [amountTtc, amountHt]);
 
   useEffect(() => {
     if (defaultAccountId) setAccountId(defaultAccountId);
   }, [defaultAccountId]);
+
+  useEffect(() => {
+    if (accountId || accounts.length === 0) return;
+    const picked = pickDefaultFinanceAccountId(accounts);
+    if (picked) setAccountId(picked);
+  }, [accounts, accountId]);
+
+  useEffect(() => {
+    if (referencePrefix) {
+      setReference(suggestFinanceMovementReference(referencePrefix));
+    }
+  }, [referencePrefix, lockFinanceDocumentId]);
+
+  useEffect(() => {
+    if (lockProjectId) setProjectId(lockProjectId);
+  }, [lockProjectId]);
+
+  useEffect(() => {
+    if (fixedMovementType) setMovementType(fixedMovementType);
+  }, [fixedMovementType]);
+
+  useEffect(() => {
+    if (!defaultCategorySlug || categoryId) return;
+    const match = categories.find((c) => c.slug === defaultCategorySlug);
+    if (match) setCategoryId(match.id);
+  }, [categories, defaultCategorySlug, categoryId]);
+
+  useEffect(() => {
+    if (defaultAmount == null || defaultAmount <= 0) return;
+    if (documentAmountHt && documentAmountTtc && documentAmountTtc > 0) {
+      setVatRate(inferVatRate(documentAmountHt, documentAmountTtc));
+      setAmountHt(roundMoney(defaultAmount * (documentAmountHt / documentAmountTtc)));
+      return;
+    }
+    setVatRate(DEFAULT_VAT_RATE);
+    setAmountHt(ttcToHt(defaultAmount, DEFAULT_VAT_RATE));
+  }, [defaultAmount, documentAmountHt, documentAmountTtc]);
+
+  useEffect(() => {
+    if (fixedCustomerId) setCustomerId(fixedCustomerId);
+  }, [fixedCustomerId]);
+
+  useEffect(() => {
+    if (fixedSupplierId) setSupplierId(fixedSupplierId);
+  }, [fixedSupplierId]);
 
   const filteredCategories = categories.filter((c) => {
     if (c.direction === "both") return true;
@@ -79,18 +176,43 @@ export function FinanceMovementForm({
     return true;
   });
 
+  const movementTypeOptions = useMemo(
+    () =>
+      Object.fromEntries(
+        (["income", "expense"] as FinanceMovementType[]).map((t) => [t, FINANCE_MOVEMENT_TYPE_LABELS[t]]),
+      ) as Record<string, string>,
+    [],
+  );
+
+  const categoryOptions = useMemo(
+    () => filteredCategories.map((c) => ({ value: c.id, label: c.name, keywords: c.name })),
+    [filteredCategories],
+  );
+
+  const supplierOptions = useMemo(() => idNameOptions(referential.suppliers), [referential.suppliers]);
+
   async function submit() {
+    const resolvedReference = reference.trim() || suggestFinanceMovementReference(referencePrefix ?? "MOV");
+    const validationError = validateMovementInput({
+      movementDate,
+      amount: amountTtc,
+      accountId,
+      categoryId,
+      reference: resolvedReference,
+    });
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
     setSaving(true);
-    const res = await fetch("/api/admin/finance/movements", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const payload: Record<string, unknown> = {
         accountId,
         categoryId,
         movementType,
-        amount,
+        amount: amountTtc,
         movementDate,
-        reference,
+        reference: resolvedReference,
         paymentMethod,
         projectId: projectId || null,
         customerId: customerId || null,
@@ -100,9 +222,22 @@ export function FinanceMovementForm({
         effectRef: effectRef || null,
         notes: notes || null,
         receiptUrl: receiptUrl || null,
-        amountHt: amountHt === "" ? null : amountHt,
-        vatAmount: vatAmount === "" ? null : vatAmount,
-      }),
+        amountHt: amountHt > 0 ? amountHt : null,
+        vatAmount: vatAmount > 0 ? vatAmount : null,
+      };
+
+    if (lockFinanceDocumentId && amountTtc > 0) {
+      payload.allocateTo = {
+        targetType: "finance_document",
+        targetId: lockFinanceDocumentId,
+        amount: amountTtc,
+      };
+    }
+
+    const res = await fetch("/api/admin/finance/movements", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
     setSaving(false);
     if (!res.ok) {
@@ -110,7 +245,7 @@ export function FinanceMovementForm({
       return;
     }
     toast.success("Mouvement enregistré.");
-    setAmount(0);
+    setAmountHt(0);
     setReference("");
     setNotes("");
     onSaved();
@@ -130,53 +265,63 @@ export function FinanceMovementForm({
       <div className={formGridClass}>
         <div>
           <p className={labelClass}>Compte</p>
-          <select className={`${inputClass} mt-1`} value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-            <option value="">Sélectionner…</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name} ({a.balance?.toLocaleString("fr-MA") ?? 0} MAD)
-              </option>
-            ))}
-          </select>
+          <div className="mt-1">
+            <FinanceAccountSelect
+              accounts={accounts}
+              value={accountId}
+              onChange={setAccountId}
+              inputClassName={inputClass}
+            />
+          </div>
         </div>
         <div>
           <p className={labelClass}>Type</p>
-          <select
-            className={`${inputClass} mt-1`}
-            value={movementType}
-            onChange={(e) => setMovementType(e.target.value as FinanceMovementType)}
-          >
-            {(["income", "expense"] as FinanceMovementType[]).map((t) => (
-              <option key={t} value={t}>
-                {FINANCE_MOVEMENT_TYPE_LABELS[t]}
-              </option>
-            ))}
-          </select>
+          {hideTypeSelect || fixedMovementType ? (
+            <p className={`${inputClass} mt-1 bg-[var(--background)]/80`}>
+              {FINANCE_MOVEMENT_TYPE_LABELS[movementType]}
+            </p>
+          ) : (
+            <div className="mt-1">
+              <SearchableEnumSelect
+                options={movementTypeOptions}
+                value={movementType}
+                onChange={(v) => setMovementType(v as FinanceMovementType)}
+                inputClassName={inputClass}
+                allowEmpty={false}
+              />
+            </div>
+          )}
         </div>
         <div>
           <p className={labelClass}>Catégorie</p>
-          <select className={`${inputClass} mt-1`} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-            <option value="">Sélectionner…</option>
-            {filteredCategories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <div className="mt-1">
+            <SearchableSelect
+              options={categoryOptions}
+              value={categoryId}
+              onChange={setCategoryId}
+              placeholder="Sélectionner…"
+              inputClassName={inputClass}
+            />
+          </div>
+        </div>
+        <div className="sm:col-span-2">
+          <p className={labelClass}>Montant</p>
+          <div className="mt-1 grid gap-3 sm:grid-cols-[minmax(0,9rem)_1fr] sm:items-end">
+            <VatRateSelect value={vatRate} onChange={setVatRate} compact label="TVA" />
+            <HtTtcPriceFields vatRate={vatRate} valueHt={amountHt} onChangeHt={setAmountHt} />
+          </div>
+          {amountTtc > 0 ? (
+            <p className="mt-2 text-sm text-[var(--graphite)]/75">
+              Total mouvement :{" "}
+              <strong className="text-[var(--navy)]">{formatMoney(amountTtc)} MAD TTC</strong>
+              {vatAmount > 0 ? (
+                <span className="text-[var(--graphite)]/60"> · TVA {formatMoney(vatAmount)}</span>
+              ) : null}
+            </p>
+          ) : null}
         </div>
         <div>
-          <p className={labelClass}>Montant (MAD)</p>
-          <input
-            type="number"
-            min={0}
-            step={0.01}
-            className={`${inputClass} mt-1`}
-            value={amount || ""}
-            onChange={(e) => setAmount(Number(e.target.value) || 0)}
-          />
-        </div>
-        <div>
-          <p className={labelClass}>Date</p>
+          <p className={labelClass}>{movementDateLabel}</p>
           <input
             type="date"
             className={`${inputClass} mt-1`}
@@ -190,48 +335,61 @@ export function FinanceMovementForm({
         </div>
         <div>
           <p className={labelClass}>Mode de paiement</p>
-          <select
-            className={`${inputClass} mt-1`}
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value as FinancePaymentMethod)}
-          >
-            <option value="cash">Espèces</option>
-            <option value="bank">Banque</option>
-            <option value="cheque">Chèque</option>
-            <option value="transfer">Virement</option>
-            <option value="effect">Effet / traite</option>
-          </select>
+          <div className="mt-1">
+            <SearchableEnumSelect
+              options={FINANCE_PAYMENT_METHOD_LABELS}
+              value={paymentMethod}
+              onChange={(v) => setPaymentMethod(v as FinancePaymentMethod)}
+              inputClassName={inputClass}
+              allowEmpty={false}
+            />
+          </div>
         </div>
-        <div className="sm:col-span-2">
-          <p className={labelClass}>Chantier (optionnel)</p>
-          <ProjectSelect
-            projects={referential.projects}
-            value={projectId}
-            onChange={setProjectId}
-            placeholder="Aucun chantier"
-          />
-        </div>
+        {lockProjectId ? null : (
+          <div className="sm:col-span-2">
+            <p className={labelClass}>Chantier (optionnel)</p>
+            <ProjectSelect
+              projects={referential.projects}
+              value={projectId}
+              onChange={setProjectId}
+              placeholder="Aucun chantier"
+            />
+          </div>
+        )}
         <div>
           <p className={labelClass}>Client (optionnel)</p>
-          <select className={`${inputClass} mt-1`} value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-            <option value="">—</option>
-            {referential.customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          {fixedCustomerId ? (
+            <p className={`${inputClass} mt-1 bg-[var(--background)]/80`}>
+              {referential.customers.find((c) => c.id === fixedCustomerId)?.name ?? "—"}
+            </p>
+          ) : (
+            <div className="mt-1">
+              <CustomerSelect
+                customers={referential.customers}
+                value={customerId}
+                onChange={setCustomerId}
+                inputClassName={inputClass}
+              />
+            </div>
+          )}
         </div>
         <div>
           <p className={labelClass}>Fournisseur (optionnel)</p>
-          <select className={`${inputClass} mt-1`} value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
-            <option value="">—</option>
-            {referential.suppliers.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+          {fixedSupplierId ? (
+            <p className={`${inputClass} mt-1 bg-[var(--background)]/80`}>
+              {referential.suppliers.find((s) => s.id === fixedSupplierId)?.name ?? "—"}
+            </p>
+          ) : (
+            <div className="mt-1">
+              <SearchableSelect
+                options={supplierOptions}
+                value={supplierId}
+                onChange={setSupplierId}
+                placeholder="—"
+                inputClassName={inputClass}
+              />
+            </div>
+          )}
         </div>
         {paymentMethod === "cheque" ? (
           <div>
@@ -251,26 +409,6 @@ export function FinanceMovementForm({
             <input className={`${inputClass} mt-1`} value={effectRef} onChange={(e) => setEffectRef(e.target.value)} />
           </div>
         ) : null}
-        <div>
-          <p className={labelClass}>Montant HT (optionnel)</p>
-          <input
-            type="number"
-            min={0}
-            className={`${inputClass} mt-1`}
-            value={amountHt}
-            onChange={(e) => setAmountHt(e.target.value === "" ? "" : Number(e.target.value))}
-          />
-        </div>
-        <div>
-          <p className={labelClass}>TVA (optionnel)</p>
-          <input
-            type="number"
-            min={0}
-            className={`${inputClass} mt-1`}
-            value={vatAmount}
-            onChange={(e) => setVatAmount(e.target.value === "" ? "" : Number(e.target.value))}
-          />
-        </div>
         <div className="sm:col-span-2">
           <p className={labelClass}>Notes</p>
           <textarea className={`${inputClass} mt-1`} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />

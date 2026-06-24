@@ -16,7 +16,7 @@ export default async function AdminFinanceClientDetailPage({
   await requireFinancePage("/admin/finance/clients");
   const { id } = await params;
   return (
-    <AdminShell active="finance-clients">
+    <AdminShell active="finance-factures">
       <FinanceClientDetailPanel customerId={id} />
     </AdminShell>
   );

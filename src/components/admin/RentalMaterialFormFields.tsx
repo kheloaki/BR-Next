@@ -2,8 +2,10 @@
 
 import { GasoilContactSelectWithAdd } from "@/components/admin/GasoilContactSelectWithAdd";
 import { HtTtcPriceFields } from "@/components/admin/HtTtcPriceFields";
+import { MatriculeInput } from "@/components/admin/MatriculeInput";
 import { MaterialDetailCategorySelectWithAdd } from "@/components/admin/MaterialDetailCategorySelectWithAdd";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
 import { SupplierSelectWithAdd } from "@/components/admin/SupplierSelectWithAdd";
 import type { Supplier } from "@/components/admin/devis-types";
 import type {
@@ -25,6 +27,7 @@ import {
   inputClass,
   labelClass,
 } from "@/components/admin/admin-form-styles";
+import { isMatriculeComplete } from "@/lib/admin/moroccan-matricule";
 import { DEFAULT_VAT_RATE, formatMoney, htToTtc } from "@/lib/admin/price-ht-ttc";
 
 const CATEGORIES = Object.keys(MATERIAL_CATEGORY_LABELS) as MaterialCategory[];
@@ -207,12 +210,12 @@ export function RentalMaterialFormFields({
       {showMatricule ? (
         <div>
           <p className={labelClass}>Matricule *</p>
-          <input
-            className={`${inputClass} mt-1`}
-            placeholder="Immatriculation"
-            value={values.matricule}
-            onChange={(e) => onChange({ matricule: e.target.value })}
-          />
+          <div className="mt-1">
+            <MatriculeInput
+              value={values.matricule}
+              onChange={(matricule) => onChange({ matricule })}
+            />
+          </div>
         </div>
       ) : null}
 
@@ -316,20 +319,21 @@ export function RentalMaterialFormFields({
         <>
           <div>
             <p className={labelClass}>Transport</p>
-            <select
-              className={`${inputClass} mt-1`}
+            <SearchableEnumSelect
+              options={{
+                rendre: "Rendre sur chantier",
+                depart: "Départ (frais transport)",
+              }}
               value={values.transportMode}
-              onChange={(e) =>
+              onChange={(transportMode) =>
                 onChange({
-                  transportMode: e.target.value as MaterialTransportMode,
-                  transportPrice: e.target.value === "depart" ? values.transportPrice : 0,
+                  transportMode: transportMode as MaterialTransportMode,
+                  transportPrice: transportMode === "depart" ? values.transportPrice : 0,
                 })
               }
-            >
-              <option value="">—</option>
-              <option value="rendre">Rendre sur chantier</option>
-              <option value="depart">Départ (frais transport)</option>
-            </select>
+              placeholder="—"
+              inputClassName={`${inputClass} mt-1`}
+            />
           </div>
           {values.transportMode === "depart" ? (
             <div className="sm:col-span-2">
@@ -372,8 +376,8 @@ export function validateRentalMaterialForm(values: RentalMaterialFormValues) {
   if (cat === "groupe_electrogen" && !values.reference.trim() && !values.designation.trim()) {
     return "Indiquez la référence ou la désignation.";
   }
-  if ((cat === "camion" || cat === "voiture") && !values.matricule.trim()) {
-    return "Indiquez le matricule.";
+  if ((cat === "camion" || cat === "voiture") && !isMatriculeComplete(values.matricule)) {
+    return "Indiquez le matricule complet (numéro · lettre · wilaya).";
   }
   if (!values.designation.trim() && cat !== "engin" && cat !== "groupe_electrogen") {
     return "Indiquez la désignation.";

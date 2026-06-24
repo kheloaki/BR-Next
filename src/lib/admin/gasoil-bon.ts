@@ -1,4 +1,8 @@
-import type { GasoilBonType, GasoilVehicleCategory } from "@/components/admin/operations-types";
+import type {
+  GasoilBonType,
+  GasoilVehicleCategory,
+  MaterialCategory,
+} from "@/components/admin/operations-types";
 import { roundMoney } from "@/lib/admin/price-ht-ttc";
 
 export const GASOIL_BON_TYPES: GasoilBonType[] = ["achat", "sortie"];
@@ -21,6 +25,20 @@ export const GASOIL_VEHICLE_CATEGORY_LABELS: Record<GasoilVehicleCategory, strin
   voiture: "Voiture",
   groupe_electrogene: "Groupe électrogène",
 };
+
+/** Responsable par défaut sur les bons de sortie gasoil. */
+export const DEFAULT_GASOIL_SUPERVISOR = "JAMAL BARANE";
+
+export function gasoilCategoryToMaterialCategory(category: GasoilVehicleCategory): MaterialCategory {
+  if (category === "groupe_electrogene") return "groupe_electrogen";
+  return category;
+}
+
+export function materialCategoryToGasoilCategory(category: MaterialCategory): GasoilVehicleCategory {
+  if (category === "groupe_electrogen") return "groupe_electrogene";
+  if (category === "engin" || category === "camion" || category === "voiture") return category;
+  return "engin";
+}
 
 /** Persisted on admin_gasoil_bons — each bon carries its own purchase / applied price. */
 export function gasoilBonPriceFields(litres: number, unitPricePerLitre: number) {

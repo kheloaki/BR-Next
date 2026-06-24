@@ -16,7 +16,7 @@ export function AdminFilterBar({
     <div className="flex flex-wrap items-center gap-2 mb-4">
       {onSearchChange ? (
         <input
-          className={`${inputClass} max-w-xs min-w-[180px]`}
+          className={`${inputClass} w-full sm:max-w-xs`}
           placeholder={searchPlaceholder}
           value={search ?? ""}
           onChange={(e) => onSearchChange(e.target.value)}

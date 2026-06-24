@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { DepotSelect } from "@/components/admin/DepotSelect";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
+import { SearchableEnumSelect } from "@/components/admin/SearchableEnumSelect";
 import { useOpsReferential } from "@/components/admin/useOpsReferential";
 import {
   DEPOT_TYPE_LABELS,
@@ -18,13 +19,15 @@ import {
   moduleWrap,
   rowHover,
   tdClass,
+  tdTextClass,
   thClass,
 } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { AdminInventoryCard } from "@/components/admin/ux/AdminInventoryCard";
-import { AdminLoading } from "@/components/admin/ux/AdminLoading";
+import { DepotsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
+import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 
@@ -65,6 +68,11 @@ export function DepotsManager() {
         (d.projectName || "").toLowerCase().includes(q),
     );
   }, [rows, search]);
+
+  const depotTypeOptions = useMemo(
+    () => Object.fromEntries(TYPES.map((t) => [t, DEPOT_TYPE_LABELS[t]])),
+    [],
+  );
 
   function resetForm() {
     setEditId(null);
@@ -142,7 +150,7 @@ export function DepotsManager() {
         />
       ) : null}
 
-      {loading ? <AdminLoading /> : null}
+      {loading ? <DepotsPageSkeleton partial /> : null}
 
       <div className="grid lg:grid-cols-[1fr_320px] gap-4 items-start">
         <div>
@@ -172,9 +180,13 @@ export function DepotsManager() {
               <tbody>
                 {filtered.map((d) => (
                   <tr key={d.id} className={rowHover}>
-                    <td className={tdClass}>{d.name}</td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={d.name} lines={1} />
+                    </td>
                     <td className={tdClass}>{DEPOT_TYPE_LABELS[d.depotType]}</td>
-                    <td className={tdClass}>{d.projectName || "—"}</td>
+                    <td className={tdClass}>
+                      <AdminTruncatedText text={d.projectName} lines={1} />
+                    </td>
                     <td className={tdClass}>
                       <div className="flex gap-2 justify-end">
                         <button type="button" className="text-xs hover:underline" onClick={() => openEdit(d)}>
@@ -216,17 +228,13 @@ export function DepotsManager() {
               value={address}
               onChange={(e) => setAddress(e.target.value)}
             />
-            <select
-              className={inputClass}
+            <SearchableEnumSelect
+              options={depotTypeOptions}
               value={depotType}
-              onChange={(e) => setDepotType(e.target.value as DepotType)}
-            >
-              {TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {DEPOT_TYPE_LABELS[t]}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => setDepotType(v as DepotType)}
+              inputClassName={inputClass}
+              allowEmpty={false}
+            />
             <ProjectSelect
               projects={projects}
               value={projectId}

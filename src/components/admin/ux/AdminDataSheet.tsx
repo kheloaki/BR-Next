@@ -3,6 +3,14 @@
 import type { ReactNode } from "react";
 import { btnSecondary, labelClass } from "@/components/admin/admin-form-styles";
 
+/** Full width on mobile; at least half the viewport on desktop. */
+export const ADMIN_DATA_SHEET_WIDTH_DEFAULT =
+  "w-full sm:w-1/2 sm:min-w-[50vw] sm:max-w-[min(90vw,56rem)]";
+
+/** Wide multi-section sheets (DA, long forms). */
+export const ADMIN_DATA_SHEET_WIDTH_WIDE =
+  "w-full sm:w-3/5 sm:min-w-[50vw] sm:max-w-[min(95vw,80rem)]";
+
 export function AdminSheetField({
   label,
   required,
@@ -35,7 +43,8 @@ export function AdminDataSheet({
   description,
   children,
   footer,
-  width = "max-w-lg",
+  width = ADMIN_DATA_SHEET_WIDTH_DEFAULT,
+  zIndex = 200,
 }: {
   open: boolean;
   onClose: () => void;
@@ -44,11 +53,12 @@ export function AdminDataSheet({
   children: ReactNode;
   footer?: ReactNode;
   width?: string;
+  zIndex?: number;
 }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[200]">
+    <div className="fixed inset-0" style={{ zIndex }}>
       <div
         className="absolute inset-0 bg-black/30 animate-in fade-in duration-200"
         onClick={onClose}

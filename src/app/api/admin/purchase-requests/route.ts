@@ -3,7 +3,14 @@ import type { PurchaseCategory, PurchaseRequestStatus } from "@/components/admin
 import { csvResponse } from "@/lib/admin/csv-response";
 import { nextDaNumber } from "@/lib/admin/da-number";
 import { getGasoilStockItem } from "@/lib/admin/gasoil-stock-server";
+import { GASOIL_UNIT } from "@/lib/admin/gasoil-stock";
 import { mapPurchaseRequestRow } from "@/lib/admin/map-purchase-request";
+import {
+  emptyPurchaseRequestLine,
+  purchaseRequestLinesTotal,
+  serializePurchaseRequestLines,
+  type PurchaseRequestLine,
+} from "@/lib/admin/map-purchase-request-lines";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
 import { opsId } from "@/lib/admin/ops-id";
 import { resolveProjectFields } from "@/lib/admin/project-resolve";
@@ -82,7 +89,49 @@ export async function POST(request: Request) {
     prefillReference?: string;
     prefillDesignation?: string;
     stockItemId?: string;
+    lines?: Array<{
+      reference?: string;
+      designation?: string;
+      unit?: string;
+      productId?: string;
+      stockItemId?: string;
+      qty?: number;
+      unitPrice?: number;
+    }>;
   };
+
+  function normalizeArticleLines(): PurchaseRequestLine[] {
+    if (body.lines && body.lines.length > 0) {
+      return body.lines
+        .map((l) => ({
+          reference: l.reference?.trim() || "",
+          designation: l.designation?.trim() || "",
+          unit: l.unit?.trim() || "PIECE",
+          productId: l.productId?.trim() || null,
+          stockItemId: l.stockItemId?.trim() || null,
+          qty: Math.max(0, Number(l.qty) || 0),
+          unitPrice: Math.max(0, Number(l.unitPrice) || 0),
+        }))
+        .filter((l) => l.designation || l.reference);
+    }
+    const designation =
+      body.designation?.trim() ||
+      body.prefillDesignation?.trim() ||
+      "";
+    const reference = body.reference?.trim() || body.prefillReference?.trim() || "";
+    if (!designation && !reference) return [];
+    return [
+      {
+        reference,
+        designation,
+        unit: body.unit?.trim() || "PIECE",
+        productId: body.productId?.trim() || null,
+        stockItemId: body.stockItemId?.trim() || null,
+        qty: Math.max(0, Number(body.qty) || 0),
+        unitPrice: Math.max(0, Number(body.unitPrice) || 0),
+      },
+    ];
+  }
 
   const isGasoil = body.kind === "gasoil";
   const supabase = getSupabaseAdminClient();
@@ -115,22 +164,38 @@ export async function POST(request: Request) {
     "";
   const reference = body.reference?.trim() || body.prefillReference?.trim() || "";
 
+  const articleLines = isGasoil ? [] : normalizeArticleLines();
+  if (!isGasoil && articleLines.length === 0) {
+    return NextResponse.json({ error: "Ajoutez au moins un article." }, { status: 400 });
+  }
+  if (!isGasoil && articleLines.some((l) => l.qty <= 0)) {
+    return NextResponse.json({ error: "Quantité requise pour chaque article." }, { status: 400 });
+  }
+
+  const primaryLine = articleLines[0] ?? emptyPurchaseRequestLine();
+
   const subject =
     body.subject?.trim() ||
     (isGasoil
       ? `Gasoil — ${project.site_name || "chantier"}`
-      : designation
-        ? `Réappro — ${designation}`
-        : reference
-          ? `Réappro — ${reference}`
-          : "");
+      : articleLines.length > 1
+        ? `Réappro — ${articleLines.length} articles`
+        : primaryLine.designation
+          ? `Réappro — ${primaryLine.designation}`
+          : primaryLine.reference
+            ? `Réappro — ${primaryLine.reference}`
+            : designation
+              ? `Réappro — ${designation}`
+              : reference
+                ? `Réappro — ${reference}`
+                : "");
 
   if (!subject) {
     return NextResponse.json({ error: "Objet requis" }, { status: 400 });
   }
 
-  const unitPrice = isGasoil ? 0 : Math.max(0, Number(body.unitPrice) || 0);
-  const totalAmount = qty * unitPrice;
+  const unitPrice = isGasoil ? 0 : primaryLine.unitPrice;
+  const totalAmount = isGasoil ? qty * unitPrice : purchaseRequestLinesTotal(articleLines);
   const number = await nextDaNumber(organizationId, isGasoil ? "gasoil" : "standard");
   const pumpMeter =
     body.pumpMeter != null && !Number.isNaN(Number(body.pumpMeter)) ? Number(body.pumpMeter) : null;
@@ -145,13 +210,14 @@ export async function POST(request: Request) {
       number,
       category: isGasoil ? "fuel" : body.category || "misc",
       subject,
-      reference,
-      designation: designation || subject,
-      unit: body.unit?.trim() || "PIECE",
-      product_id: body.productId?.trim() || null,
-      qty,
+      reference: isGasoil ? reference : primaryLine.reference,
+      designation: isGasoil ? designation || subject : primaryLine.designation || subject,
+      unit: isGasoil ? body.unit?.trim() || GASOIL_UNIT : primaryLine.unit,
+      product_id: isGasoil ? body.productId?.trim() || null : primaryLine.productId,
+      qty: isGasoil ? qty : primaryLine.qty,
       unit_price: unitPrice,
       total_amount: totalAmount,
+      lines: isGasoil ? [] : serializePurchaseRequestLines(articleLines),
       supplier: body.supplier?.trim() || "",
       urgency: body.urgency?.trim() || "Normale",
       delivery_date: body.deliveryDate || null,

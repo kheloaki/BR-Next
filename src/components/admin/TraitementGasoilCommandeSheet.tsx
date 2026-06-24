@@ -130,7 +130,6 @@ export function TraitementGasoilCommandeSheet({
       onClose={onClose}
       title="Bon de commande gasoil (BC)"
       description={`Traitement ${traitement.number} — mêmes champs que Carburant → Bon de commande gasoil. Stock mis à jour à la réception (BL).`}
-      width="max-w-xl"
       footer={
         <>
           <button type="button" className={btnSecondary} onClick={onClose} disabled={saving}>
