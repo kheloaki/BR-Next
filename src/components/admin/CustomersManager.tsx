@@ -21,18 +21,39 @@ import { CustomersPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
-import { confirmDelete, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+
+type CustomerFormState = {
+  name: string;
+  ice: string;
+  city: string;
+  address: string;
+};
+
+const EMPTY_FORM: CustomerFormState = {
+  name: "",
+  ice: "",
+  city: "",
+  address: "",
+};
+
+function customerToForm(customer: Customer): CustomerFormState {
+  return {
+    name: customer.name,
+    ice: customer.ice || "",
+    city: customer.city || "",
+    address: customer.address || "",
+  };
+}
 
 export function CustomersManager() {
   const toast = useAdminToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newIce, setNewIce] = useState("");
-  const [newCity, setNewCity] = useState("");
-  const [newAddress, setNewAddress] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [form, setForm] = useState<CustomerFormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
   async function refreshCustomers() {
@@ -58,15 +79,26 @@ export function CustomersManager() {
     );
   }, [customers, search]);
 
-  function resetCreateForm() {
-    setNewName("");
-    setNewIce("");
-    setNewCity("");
-    setNewAddress("");
+  function resetForm() {
+    setEditId(null);
+    setForm(EMPTY_FORM);
+    setShowForm(false);
   }
 
-  async function addCustomer() {
-    if (!newName.trim()) {
+  function openCreate() {
+    setEditId(null);
+    setForm(EMPTY_FORM);
+    setShowForm(true);
+  }
+
+  function openEdit(customer: Customer) {
+    setEditId(customer.id);
+    setForm(customerToForm(customer));
+    setShowForm(true);
+  }
+
+  async function saveCustomer() {
+    if (!form.name.trim()) {
       toast.error("Le nom du client est obligatoire.");
       return;
     }
@@ -75,20 +107,20 @@ export function CustomersManager() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: newName.trim(),
-        ice: newIce.trim(),
-        city: newCity.trim(),
-        address: newAddress.trim(),
+        id: editId || undefined,
+        name: form.name.trim(),
+        ice: form.ice.trim(),
+        city: form.city.trim(),
+        address: form.address.trim(),
       }),
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error("Impossible d'ajouter le client.");
+      toast.error(await readApiError(res));
       return;
     }
-    toast.success("Client ajouté.");
-    resetCreateForm();
-    setShowCreateForm(false);
+    toast.success(editId ? "Client mis à jour." : "Client ajouté.");
+    resetForm();
     await refreshCustomers();
   }
 
@@ -98,10 +130,11 @@ export function CustomersManager() {
       method: "DELETE",
     });
     if (!res.ok) {
-      toast.error("Impossible de supprimer.");
+      toast.error(await readApiError(res));
       return;
     }
     toast.success("Client supprimé.");
+    if (editId === customer.id) resetForm();
     await refreshCustomers();
   }
 
@@ -122,39 +155,28 @@ export function CustomersManager() {
               type="button"
               className={btnPrimary}
               onClick={() => {
-                if (showCreateForm) {
-                  resetCreateForm();
-                  setShowCreateForm(false);
-                } else {
-                  setShowCreateForm(true);
-                }
+                if (showForm) resetForm();
+                else openCreate();
               }}
             >
-              {showCreateForm ? "Annuler" : "Créer un client"}
+              {showForm ? "Annuler" : "Créer un client"}
             </button>
           </>
         }
       />
 
-      {showCreateForm ? (
+      {showForm ? (
         <div className="mb-4">
           <AdminFormCard
-            title="Nouveau client"
+            title={editId ? "Modifier le client" : "Nouveau client"}
             hint="ICE et adresse optionnels."
             footer={
               <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className={btnSecondary}
-                  onClick={() => {
-                    resetCreateForm();
-                    setShowCreateForm(false);
-                  }}
-                >
+                <button type="button" className={btnSecondary} onClick={resetForm}>
                   Annuler
                 </button>
-                <button type="button" onClick={() => void addCustomer()} disabled={saving} className={btnPrimary}>
-                  {saving ? "Enregistrement…" : "Ajouter le client"}
+                <button type="button" onClick={() => void saveCustomer()} disabled={saving} className={btnPrimary}>
+                  {saving ? "Enregistrement…" : editId ? "Enregistrer" : "Ajouter le client"}
                 </button>
               </div>
             }
@@ -163,16 +185,26 @@ export function CustomersManager() {
               <input
                 className={`${inputClass} sm:col-span-2`}
                 placeholder="Raison sociale *"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               />
-              <input className={inputClass} placeholder="ICE" value={newIce} onChange={(e) => setNewIce(e.target.value)} />
-              <input className={inputClass} placeholder="Ville" value={newCity} onChange={(e) => setNewCity(e.target.value)} />
+              <input
+                className={inputClass}
+                placeholder="ICE"
+                value={form.ice}
+                onChange={(e) => setForm((f) => ({ ...f, ice: e.target.value }))}
+              />
+              <input
+                className={inputClass}
+                placeholder="Ville"
+                value={form.city}
+                onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+              />
               <input
                 className={`${inputClass} sm:col-span-2`}
                 placeholder="Adresse"
-                value={newAddress}
-                onChange={(e) => setNewAddress(e.target.value)}
+                value={form.address}
+                onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
               />
             </div>
           </AdminFormCard>
@@ -191,8 +223,8 @@ export function CustomersManager() {
           {filtered.length === 0 ? (
             <div className="px-5 py-12 text-center text-sm text-[var(--graphite)]/70">
               {search ? "Aucun résultat pour ce filtre." : "Aucun client enregistré."}
-              {!showCreateForm ? (
-                <button type="button" className={`mt-4 ${btnPrimary}`} onClick={() => setShowCreateForm(true)}>
+              {!showForm ? (
+                <button type="button" className={`mt-4 ${btnPrimary}`} onClick={openCreate}>
                   Créer un client
                 </button>
               ) : null}
@@ -224,9 +256,14 @@ export function CustomersManager() {
                       <AdminTruncatedText text={customer.address} />
                     </td>
                     <td className={tdClass}>
-                      <button type="button" onClick={() => void deleteCustomer(customer)} className={btnDanger}>
-                        Supprimer
-                      </button>
+                      <div className="flex flex-wrap gap-1">
+                        <button type="button" onClick={() => openEdit(customer)} className={btnSecondary}>
+                          Modif.
+                        </button>
+                        <button type="button" onClick={() => void deleteCustomer(customer)} className={btnDanger}>
+                          Suppr.
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
