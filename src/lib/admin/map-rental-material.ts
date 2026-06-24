@@ -191,7 +191,7 @@ export function formatBonLocationUsageDays(r: {
   bonLines: RentalBonLine[];
   daysCount: number;
 }): string {
-  return formatUsageQty(bonLocationUsageDays(r), "j", 2);
+  return formatUsageDaysTotal(bonLocationUsageDays(r));
 }
 
 export function formatBonLocationUsageHours(r: {
@@ -200,7 +200,15 @@ export function formatBonLocationUsageHours(r: {
   hoursWorked: number;
   estimatedHours: number;
 }): string {
-  return formatUsageQty(bonLocationUsageHours(r), "h", 1);
+  return formatUsageHoursTotal(bonLocationUsageHours(r));
+}
+
+export function formatUsageDaysTotal(days: number): string {
+  return formatUsageQty(days, "j", 2);
+}
+
+export function formatUsageHoursTotal(hours: number): string {
+  return formatUsageQty(hours, "h", 1);
 }
 
 export function formatBonLocationUsageDetail(r: { bonLines: RentalBonLine[] }): string {

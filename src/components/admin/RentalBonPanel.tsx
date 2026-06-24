@@ -35,7 +35,7 @@ import { RentalBonsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import type { AdminProject } from "@/components/admin/operations-types";
-import { contractToBonForm, bonMatchesDateRange, bonMatchesMaterial, formatBonLocationDates, formatBonLocationMaterials, formatBonLocationUsageDays, formatBonLocationUsageDetail, formatBonLocationUsageHours } from "@/lib/admin/map-rental-material";
+import { contractToBonForm, bonMatchesDateRange, bonMatchesMaterial, bonLocationUsageDays, bonLocationUsageHours, formatBonLocationDates, formatBonLocationMaterials, formatBonLocationUsageDays, formatBonLocationUsageDetail, formatBonLocationUsageHours, formatUsageDaysTotal, formatUsageHoursTotal } from "@/lib/admin/map-rental-material";
 import { materialLabel } from "@/lib/admin/map-rental-material-catalog";
 import { pruneFilterValue, applyFacetScope, projectsForFacetScope, pruneProjectId, uniqueSortedLabels } from "@/lib/admin/filter-scope";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
@@ -240,6 +240,18 @@ export function RentalBonPanel({
     bonFacetChecks,
     materials,
   ]);
+
+  const filteredTotals = useMemo(() => {
+    let days = 0;
+    let hours = 0;
+    let mad = 0;
+    for (const row of filtered) {
+      days += bonLocationUsageDays(row);
+      hours += bonLocationUsageHours(row);
+      mad += row.totalMad || 0;
+    }
+    return { days, hours, mad, count: filtered.length };
+  }, [filtered]);
 
   function resetForm() {
     setEditId(null);
@@ -508,6 +520,21 @@ export function RentalBonPanel({
                     </td>
                   </tr>
                 ))}
+                <tr className="border-t-2 border-[var(--navy)]/20 bg-[var(--background)]/60 font-medium">
+                  <td className={tdClass} colSpan={6}>
+                    Total ({filteredTotals.count} bon{filteredTotals.count > 1 ? "s" : ""})
+                  </td>
+                  <td className={`${tdClass} tabular-nums whitespace-nowrap text-[var(--navy)]`}>
+                    {filteredTotals.days > 0 ? formatUsageDaysTotal(filteredTotals.days) : "—"}
+                  </td>
+                  <td className={`${tdClass} tabular-nums whitespace-nowrap text-[var(--navy)]`}>
+                    {filteredTotals.hours > 0 ? formatUsageHoursTotal(filteredTotals.hours) : "—"}
+                  </td>
+                  <td className={`${tdClass} tabular-nums text-[var(--navy)]`}>
+                    {filteredTotals.mad > 0 ? filteredTotals.mad.toLocaleString("fr-MA") : "—"}
+                  </td>
+                  <td className={tdClass} colSpan={2} />
+                </tr>
               </tbody>
             </AdminTableWrap>
           )}
