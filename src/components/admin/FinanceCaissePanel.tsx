@@ -153,7 +153,7 @@ export function FinanceCaissePanel({ embedded = false }: { embedded?: boolean })
 
   const exportHref =
     selectedAccountId &&
-    `/api/admin/finance/movements?accountId=${encodeURIComponent(selectedAccountId)}&from=${dateFrom}&to=${dateTo}&format=csv`;
+    `/api/admin/finance/movements?accountId=${encodeURIComponent(selectedAccountId)}&from=${dateFrom}&to=${dateTo}`;
 
   if (loading) return <FinanceCaissePanelSkeleton />;
 

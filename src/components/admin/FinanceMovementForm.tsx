@@ -39,6 +39,7 @@ import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import { useTableSort } from "@/components/admin/ux/useTableSort";
+import { formatDateFr } from "@/lib/admin/date-time-fr";
 import {
   DEFAULT_VAT_RATE,
   formatMoney,
@@ -478,7 +479,7 @@ export function FinanceJournalTable({
       <tbody>
         {sortedMovements.map((m) => (
           <tr key={m.id} className={rowHover}>
-            <td className={tdClass}>{m.movementDate}</td>
+            <td className={tdClass}>{formatDateFr(m.movementDate)}</td>
             <td className={tdClass}>{m.reference}</td>
             <td className={tdClass}>{FINANCE_MOVEMENT_TYPE_LABELS[m.movementType]}</td>
             <td className={tdClass}>{m.categoryName ?? "—"}</td>

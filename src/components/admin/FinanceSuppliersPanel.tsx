@@ -205,7 +205,7 @@ export function FinanceSuppliersPanel({ embedded = false }: { embedded?: boolean
       <OpsModuleHeader
         title="Factures fournisseurs"
         description="Dettes fournisseurs et décaissements."
-        exportHref="/api/admin/finance/reports?kind=balance_fournisseurs&format=csv"
+        exportHref="/api/admin/finance/reports?kind=balance_fournisseurs"
       />
       {content}
     </div>

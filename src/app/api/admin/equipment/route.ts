@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { equipmentCsv } from "@/lib/admin/referential-csv-export";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
 import { opsId } from "@/lib/admin/ops-id";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireAdminUserId();
   if ("error" in auth) return auth.error;
   const { userId, organizationId } = auth;
@@ -15,14 +17,17 @@ export async function GET() {
     .order("name");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(
-    (data ?? []).map((r) => ({
-      id: r.id,
-      name: r.name,
-      type: r.type,
-      active: Boolean(r.active),
-    })),
-  );
+  const rows = (data ?? []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    type: r.type,
+    active: Boolean(r.active),
+  }));
+  const exportFormat = new URL(request.url).searchParams.get("format");
+  if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+    return equipmentCsv(rows, parseExportFormat(exportFormat));
+  }
+  return NextResponse.json(rows);
 }
 
 export async function POST(request: Request) {

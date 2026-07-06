@@ -2,12 +2,7 @@ import { jsPDF } from "jspdf";
 import type { SitePv } from "@/lib/admin/site-pv-types";
 import { SITE_PV_STATUS_LABELS, SITE_PV_TYPE_LABELS } from "@/lib/admin/site-pv-types";
 import { getDefaultOrganizationName } from "@/lib/admin/organization";
-
-function formatDate(iso: string) {
-  if (!iso) return "—";
-  const [y, m, d] = iso.slice(0, 10).split("-");
-  return `${d}/${m}/${y}`;
-}
+import { formatDateFr } from "@/lib/admin/date-time-fr";
 
 export function sitePvPdfBytes(pv: SitePv, projectName?: string, orgName?: string) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -24,14 +19,14 @@ export function sitePvPdfBytes(pv: SitePv, projectName?: string, orgName?: strin
   y += 5;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.text(`N° ${pv.number} · ${formatDate(pv.pvDate)} · ${SITE_PV_STATUS_LABELS[pv.status]}`, margin, y);
+  doc.text(`N° ${pv.number} · ${formatDateFr(pv.pvDate)} · ${SITE_PV_STATUS_LABELS[pv.status]}`, margin, y);
   y += 8;
 
   const meta: [string, string][] = [
     ["Chantier", projectName || "—"],
     ["Objet", pv.object || "—"],
     ["Responsable", pv.responsiblePerson || "—"],
-    ["Échéance", pv.deadline ? formatDate(pv.deadline) : "—"],
+    ["Échéance", pv.deadline ? formatDateFr(pv.deadline) : "—"],
   ];
   meta.forEach(([label, value]) => {
     doc.setFont("helvetica", "bold");
@@ -73,7 +68,7 @@ export function sitePvPdfBytes(pv: SitePv, projectName?: string, orgName?: strin
     section(
       "Actions à mener",
       pv.actions
-        .map((a) => `${a.task} (${a.responsible}${a.deadline ? ` · ${formatDate(a.deadline)}` : ""})`)
+        .map((a) => `${a.task} (${a.responsible}${a.deadline ? ` · ${formatDateFr(a.deadline)}` : ""})`)
         .join("\n"),
     );
   }

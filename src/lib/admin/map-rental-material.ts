@@ -8,6 +8,7 @@ import type {
 } from "@/components/admin/operations-types";
 import { RENTAL_HOURS_PER_DAY } from "@/components/admin/operations-types";
 import { materialLabel } from "@/lib/admin/map-rental-material-catalog";
+import { formatDateFr } from "@/lib/admin/date-time-fr";
 
 export const RENTAL_LOCATAIRE_DEFAULT = "BARANE INVEST";
 
@@ -146,12 +147,7 @@ export function formatBonLocationDates(r: {
   bonLines: RentalBonLine[];
 }) {
   const dates = getBonLocationDates(r);
-  const fmt = (d: string) =>
-    new Date(`${d}T12:00:00`).toLocaleDateString("fr-MA", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
+  const fmt = (d: string) => formatDateFr(d);
   if (dates.length === 0) return r.lineDate ? fmt(r.lineDate) : "—";
   if (dates.length === 1) return fmt(dates[0]!);
   return `${fmt(dates[0]!)} → ${fmt(dates[dates.length - 1]!)}`;
@@ -217,12 +213,7 @@ export function formatBonLocationUsageDetail(r: { bonLines: RentalBonLine[] }): 
     .map((line) => {
       const qty = line.usageQty || 0;
       const unit = line.usageUnit === "heure" ? "h" : "j";
-      const date = line.lineDate
-        ? new Date(`${line.lineDate}T12:00:00`).toLocaleDateString("fr-MA", {
-            day: "2-digit",
-            month: "2-digit",
-          })
-        : "";
+      const date = line.lineDate ? formatDateFr(line.lineDate).slice(0, 5) : "";
       return [date, `${qty} ${unit}`].filter(Boolean).join(" · ");
     })
     .join(" | ");

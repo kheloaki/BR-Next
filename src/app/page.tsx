@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Hero } from "@/components/site/Hero";
 import { Philosophy } from "@/components/site/Philosophy";
 import { TrustStrip } from "@/components/site/TrustStrip";
+import { DigitalServices } from "@/components/site/DigitalServices";
 import { About } from "@/components/site/About";
 import { Activities } from "@/components/site/Activities";
 import { Catalogue } from "@/components/site/Catalogue";
@@ -12,23 +13,24 @@ import { Projects } from "@/components/site/Projects";
 import { ContactCTA } from "@/components/site/ContactCTA";
 import type { Locale } from "@/lib/i18n";
 
+const HOME_TITLE = "BARANE INVEST | Digital & Industrie au Maroc";
+const HOME_DESCRIPTION =
+  "BARANE INVEST, startup digitale à Agadir : logiciels métiers, applications web & mobiles, plateformes SaaS, cloud, IA et e-commerce — en complément de son pôle industriel B2B au Maroc et en Afrique.";
+
 export const metadata: Metadata = {
-  title: "BARANE INVEST | Groupe industriel marocain B2B",
-  description:
-    "BARANE INVEST accompagne les entreprises en construction, infrastructure, logistique et équipement industriel avec une exécution terrain orientée résultats au Maroc et en Afrique.",
+  title: HOME_TITLE,
+  description: HOME_DESCRIPTION,
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "BARANE INVEST | Groupe industriel marocain B2B",
-    description:
-      "BARANE INVEST accompagne les entreprises en construction, infrastructure, logistique et équipement industriel avec une exécution terrain orientée résultats au Maroc et en Afrique.",
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
   },
   twitter: {
     card: "summary",
-    title: "BARANE INVEST | Groupe industriel marocain B2B",
-    description:
-      "BARANE INVEST accompagne les entreprises en construction, infrastructure, logistique et équipement industriel avec une exécution terrain orientée résultats au Maroc et en Afrique.",
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
   },
 };
 
@@ -36,6 +38,7 @@ export default function HomePage({ locale = "fr" }: { locale?: Locale }) {
   return (
     <>
       <Hero locale={locale} />
+      <DigitalServices locale={locale} />
       <Philosophy locale={locale} />
       <TrustStrip locale={locale} />
       <About locale={locale} />

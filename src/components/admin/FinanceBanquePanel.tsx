@@ -247,11 +247,20 @@ export function FinanceBanquePanel({ embedded = false }: { embedded?: boolean })
     </>
   );
 
+  const bankExportHref =
+    selectedAccountId
+      ? `/api/admin/finance/movements?accountId=${encodeURIComponent(selectedAccountId)}&from=${dateFrom}&to=${dateTo}`
+      : undefined;
+
   if (embedded) return content;
 
   return (
     <div className={moduleWrap}>
-      <OpsModuleHeader title="Banque" description="Comptes bancaires, mouvements, chèques et virements." />
+      <OpsModuleHeader
+        title="Banque"
+        description="Comptes bancaires, mouvements, chèques et virements."
+        exportHref={bankExportHref}
+      />
       {content}
     </div>
   );

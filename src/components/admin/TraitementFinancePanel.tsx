@@ -13,6 +13,7 @@ import {
   btnSecondary,
   ficheAmountClass,
   inventoryPanelTitle,
+  panel,
 } from "@/components/admin/admin-form-styles";
 import { AdminDataSheet } from "@/components/admin/ux/AdminDataSheet";
 import { TraitementFinancePanelSkeleton } from "@/components/admin/skeletons/pages";
@@ -82,7 +83,7 @@ export function TraitementFinancePanel({
 
   return (
     <>
-      <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm shadow-black/[0.03]">
+      <div className={panel}>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
           <h3 className={inventoryPanelTitle}>Finance — facture</h3>
           {doc ? (

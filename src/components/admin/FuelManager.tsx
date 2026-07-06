@@ -37,10 +37,16 @@ export function FuelManager({ view }: { view: FuelView }) {
 
   const stockTab: FuelStockTab = searchParams.get("tab") === "journal" ? "journal" : "stock";
 
+  const showHeaderExport = view !== "bons" && view !== "commande";
+
   if (needsReferential && refLoading) {
     return (
       <div className={moduleWrap}>
-        <OpsModuleHeader title={meta.title} description={meta.description} exportHref={meta.exportHref} />
+        <OpsModuleHeader
+          title={meta.title}
+          description={meta.description}
+          exportHref={showHeaderExport ? meta.exportHref : undefined}
+        />
         <FuelManagerContentSkeleton />
       </div>
     );
@@ -51,7 +57,7 @@ export function FuelManager({ view }: { view: FuelView }) {
       <OpsModuleHeader
         title={meta.title}
         description={meta.description}
-        exportHref={meta.exportHref}
+        exportHref={showHeaderExport ? meta.exportHref : undefined}
         actions={
           view === "stock" ? (
             <>

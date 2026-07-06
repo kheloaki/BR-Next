@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { financeMovementsCsv } from "@/lib/admin/finance-csv-export";
 import { isValidMovementTypeForCategory, validateMovementInput } from "@/lib/admin/finance-rules";
 import {
   assertFinanceAccess,
@@ -53,19 +55,17 @@ export async function GET(request: Request) {
 
   const rows = (data ?? []).map((row) => mapFinanceMovement(row as Record<string, unknown>));
 
-  if (format === "csv") {
-    const header = "Date;Référence;Type;Montant;Compte;Catégorie;Chantier;Notes\n";
-    const lines = rows
-      .map(
-        (r) =>
-          `${r.movementDate};${r.reference};${r.movementType};${r.amount};${r.accountName ?? ""};${r.categoryName ?? ""};${r.projectName ?? ""};${(r.notes ?? "").replace(/;/g, ",")}`,
-      )
-      .join("\n");
-    return new NextResponse(header + lines, {
-      headers: {
-        "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": 'attachment; filename="journal-finance.csv"',
-      },
+  if (format === "csv" || format === "excel" || format === "xls") {
+    let title = "Journal des mouvements financiers";
+    if (accountId) {
+      const accountName = rows[0]?.accountName;
+      if (accountName) title = `Journal — ${accountName}`;
+    }
+    return financeMovementsCsv(rows, {
+      from: dateFrom ?? undefined,
+      to: dateTo ?? undefined,
+      title,
+      format: parseExportFormat(format),
     });
   }
 

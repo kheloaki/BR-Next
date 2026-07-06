@@ -191,9 +191,11 @@ export interface AdminEquipment {
 
 export interface AdminEmployee {
   id: string;
-  matricule: string;
+  cin: string;
   name: string;
   role: string;
+  address: string;
+  birthDate: string | null;
   defaultProjectId: string | null;
   defaultProjectName?: string;
 }

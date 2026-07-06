@@ -45,15 +45,9 @@ import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast
 import { formatMoney } from "@/lib/admin/price-ht-ttc";
 import { FINANCE_PAYMENT_STATUS_LABELS } from "@/lib/admin/finance-types";
 import { isProjectFicheSectionVisible } from "@/lib/admin/project-fiche-sections";
+import { formatDateFr } from "@/lib/admin/date-time-fr";
 
 type SheetKind = "material" | "labor" | "payment" | "expense" | null;
-
-function fmtDate(d: string) {
-  const x = d.slice(0, 10);
-  if (!x) return "—";
-  const [y, m, day] = x.split("-");
-  return `${day}/${m}/${y}`;
-}
 
 export function ProjectFicheDashboard({
   projectId,
@@ -367,7 +361,7 @@ export function ProjectFicheDashboard({
                 <tbody>
                   {sortedMaterials.map((m) => (
                     <tr key={`${m.source}-${m.id}`} className={rowHover}>
-                      <td className={tdClass}>{fmtDate(m.date)}</td>
+                      <td className={tdClass}>{formatDateFr(m.date)}</td>
                       <td className={tdTextClass}>
                         <AdminTruncatedText
                           text={`${m.designation}${m.reference ? ` (${m.reference})` : ""}`}
@@ -428,7 +422,7 @@ export function ProjectFicheDashboard({
                 <tbody>
                   {sortedLabor.map((l) => (
                     <tr key={l.id} className={rowHover}>
-                      <td className={tdClass}>{fmtDate(l.workDate)}</td>
+                      <td className={tdClass}>{formatDateFr(l.workDate)}</td>
                       <td className={tdClass}>
                         <AdminTruncatedText text={l.employeeName} lines={1} />
                       </td>
@@ -493,7 +487,7 @@ export function ProjectFicheDashboard({
               <tbody>
                 {sortedPayments.map((p) => (
                   <tr key={p.id} className={rowHover}>
-                    <td className={tdClass}>{fmtDate(p.date)}</td>
+                    <td className={tdClass}>{formatDateFr(p.date)}</td>
                     <td className={tdClass}>
                       <AdminTruncatedText text={p.paymentMethod} lines={1} />
                     </td>
@@ -540,7 +534,7 @@ export function ProjectFicheDashboard({
               <tbody>
                 {sortedExpenses.map((e) => (
                   <tr key={e.id} className={rowHover}>
-                    <td className={tdClass}>{fmtDate(e.date)}</td>
+                    <td className={tdClass}>{formatDateFr(e.date)}</td>
                     <td className={tdClass}>
                       <AdminTruncatedText text={e.category} lines={1} />
                     </td>

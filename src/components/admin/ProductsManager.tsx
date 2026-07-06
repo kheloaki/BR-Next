@@ -305,6 +305,7 @@ export function ProductsManager() {
       <OpsModuleHeader
         title="Catalogue articles"
         description="Référentiel unique — référence, désignation, prix. L'inventaire (qté) se met à jour automatiquement."
+        exportHref="/api/admin/products"
         actions={
           <button type="button" className={btnPrimary} onClick={openCreateForm}>
             Créer un article

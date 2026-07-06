@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import type { StockMovementType } from "@/components/admin/operations-types";
+import { STOCK_MOVEMENT_LABELS } from "@/components/admin/operations-types";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { stockMovementsCsv } from "@/lib/admin/ops-csv-export";
 import { assertNotGasoilStockItem, getGasoilStockItem } from "@/lib/admin/gasoil-stock-server";
 import { GASOIL_STOCK_CATEGORY } from "@/lib/admin/gasoil-stock";
 import { recordStockMovementWithDepot, reverseDepotMovementEffect, applyDepotMovementEffect } from "@/lib/admin/depot-stock-server";
@@ -64,6 +67,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const itemId = url.searchParams.get("itemId");
   const typeFilter = url.searchParams.get("type");
+  const exportFormat = url.searchParams.get("format");
 
   let query = getSupabaseAdminClient()
     .from("admin_stock_movements")
@@ -87,7 +91,36 @@ export async function GET(request: Request) {
     );
   }
 
-  return NextResponse.json(rows.map((r) => mapStockMovementRow(r as Record<string, unknown>)));
+  const mapped = rows.map((r) => mapStockMovementRow(r as Record<string, unknown>));
+
+  if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+    return stockMovementsCsv(
+      mapped.map((m) => ({
+        movementDate: m.movementDate,
+        movementType: STOCK_MOVEMENT_LABELS[m.movementType] ?? m.movementType,
+        reference: m.reference,
+        designation: m.designation,
+        category: m.category,
+        articleCode: m.articleCode,
+        unit: m.unit,
+        qty: m.qty,
+        unitPrice: m.unitPrice,
+        totalPriceHt: m.totalPriceHt,
+        stockAfter: m.stockAfter,
+        assignment: m.assignment,
+        exitVoucherNo: m.exitVoucherNo,
+        requester: m.requester,
+        storekeeper: m.storekeeper,
+        supplier: m.supplier,
+        deliveryNote: m.deliveryNote,
+        siteName: m.siteName,
+        notes: m.notes,
+      })),
+      { itemId: itemId ?? undefined, format: parseExportFormat(exportFormat) },
+    );
+  }
+
+  return NextResponse.json(mapped);
 }
 
 export async function POST(request: Request) {

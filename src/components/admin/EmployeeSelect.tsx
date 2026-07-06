@@ -19,8 +19,8 @@ export function EmployeeSelect({
     () =>
       employees.map((e) => ({
         value: e.id,
-        label: `${e.matricule ? `${e.matricule} — ` : ""}${e.name}${e.role ? ` (${e.role})` : ""}`,
-        keywords: `${e.matricule ?? ""} ${e.name} ${e.role ?? ""}`,
+        label: `${e.cin ? `${e.cin} — ` : ""}${e.name}${e.role ? ` (${e.role})` : ""}`,
+        keywords: `${e.cin ?? ""} ${e.name} ${e.role ?? ""}`,
       })),
     [employees],
   );

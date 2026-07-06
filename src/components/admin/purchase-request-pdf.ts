@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf";
 import logoStacked from "@/assets/barane-logo-stacked.png";
 import type { PurchaseRequest } from "@/components/admin/operations-types";
 import { PURCHASE_CATEGORY_LABELS, PURCHASE_STATUS_LABELS } from "@/components/admin/operations-types";
+import { formatDateFr } from "@/lib/admin/date-time-fr";
 
 const COLORS = {
   navy: [26, 39, 68] as [number, number, number],
@@ -12,9 +13,7 @@ const COLORS = {
 };
 
 function formatDate(value: string) {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value || "—";
-  return d.toLocaleDateString("fr-FR");
+  return formatDateFr(value);
 }
 
 async function loadImageDataUrl(src: string): Promise<string | null> {

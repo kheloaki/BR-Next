@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { financeDocumentsListCsv } from "@/lib/admin/referential-csv-export";
 import { computeQuoteTotals } from "@/lib/admin/project-report-calculations";
 import { assertFinanceManage } from "@/lib/admin/finance-permissions";
 import {
@@ -26,6 +28,8 @@ export async function GET(request: Request) {
   const projectId = searchParams.get("projectId");
   const status = searchParams.get("status");
 
+  const format = searchParams.get("format");
+
   let query = getSupabaseAdminClient()
     .from("admin_finance_documents")
     .select(DOCUMENT_SELECT)
@@ -43,6 +47,9 @@ export async function GET(request: Request) {
   const supabase = getSupabaseAdminClient();
   const documents = (data ?? []).map((row) => mapFinanceDocument(row as Record<string, unknown>));
   const enriched = await enrichFinanceDocumentsWithSource(supabase, auth.organizationId, documents);
+  if (format === "csv" || format === "excel" || format === "xls") {
+    return financeDocumentsListCsv(enriched, { format: parseExportFormat(format) });
+  }
   return NextResponse.json(enriched);
 }
 

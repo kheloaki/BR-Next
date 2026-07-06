@@ -4,31 +4,46 @@ export function WhyUs({ locale = "fr" }: { locale?: Locale }) {
   const kpis =
     locale === "en"
       ? [
-          { value: "24h", label: "B2B response time", desc: "Structured quotes and fast follow-up." },
-          { value: "MA·AF", label: "Logistics network", desc: "Morocco base with African reach." },
+          { value: "SaaS", label: "Business platforms", desc: "Centralized sales, clients, documents & data." },
+          { value: "Cloud", label: "Hosting & maintenance", desc: "Secure infrastructure, updates and support." },
           { value: "100+", label: "Multi-brand references", desc: "Industrial sourcing across categories." },
-          { value: "08+", label: "Business sectors", desc: "Construction, mining, infrastructure, industry." },
+          { value: "24h", label: "B2B response time", desc: "Digital projects & industrial quotes." },
         ]
       : locale === "es"
         ? [
-            { value: "24h", label: "Respuesta B2B", desc: "Cotizaciones estructuradas y seguimiento rapido." },
-            { value: "MA·AF", label: "Red logistica", desc: "Base en Marruecos con alcance en Africa." },
+            { value: "SaaS", label: "Plataformas de gestion", desc: "Ventas, clientes, documentos y datos centralizados." },
+            { value: "Cloud", label: "Alojamiento y mantenimiento", desc: "Infraestructura segura, actualizaciones y soporte." },
             { value: "100+", label: "Referencias multimarca", desc: "Sourcing industrial en todas las categorias." },
-            { value: "08+", label: "Sectores de actividad", desc: "Construccion, mineria, infraestructura, industria." },
+            { value: "24h", label: "Respuesta B2B", desc: "Proyectos digitales y cotizaciones industriales." },
           ]
         : [
-            { value: "24h", label: "Réactivité B2B", desc: "Devis structurés et suivi rapide." },
-            { value: "MA·AF", label: "Réseau logistique", desc: "Base Maroc avec couverture Afrique." },
+            { value: "SaaS", label: "Plateformes métiers", desc: "Ventes, clients, documents & données centralisés." },
+            { value: "Cloud", label: "Hébergement & maintenance", desc: "Infrastructure sécurisée, mises à jour & support." },
             { value: "100+", label: "Références multi-marques", desc: "Sourcing industriel toutes catégories." },
-            { value: "08+", label: "Secteurs d'activité", desc: "BTP, mines, infrastructure, industrie." },
+            { value: "24h", label: "Réactivité B2B", desc: "Projets digitaux & devis industriels." },
           ];
 
   const t =
     locale === "en"
-      ? { eyebrow: "Why BARANE INVEST", titleA: "Operational", titleB: "excellence", titleC: "in the field." }
+      ? {
+          eyebrow: "Why BARANE INVEST",
+          titleA: "Digital",
+          titleB: "innovation",
+          titleC: "and field execution.",
+        }
       : locale === "es"
-        ? { eyebrow: "Por que BARANE INVEST", titleA: "Excelencia", titleB: "operativa", titleC: "en terreno." }
-        : { eyebrow: "Pourquoi BARANE INVEST", titleA: "L'excellence", titleB: "opérationnelle", titleC: "sur le terrain." };
+        ? {
+            eyebrow: "Por que BARANE INVEST",
+            titleA: "Innovacion",
+            titleB: "digital",
+            titleC: "y ejecucion en terreno.",
+          }
+        : {
+            eyebrow: "Pourquoi BARANE INVEST",
+            titleA: "Innovation",
+            titleB: "digitale",
+            titleC: "et exécution terrain.",
+          };
 
   return (
     <section className="py-32 lg:py-40 bg-[var(--ivory)] border-y border-[var(--navy)]/10">

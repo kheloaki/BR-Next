@@ -1,19 +1,12 @@
-import { NextResponse } from "next/server";
+import { simpleCsvResponse } from "@/lib/admin/admin-csv-export";
+import type { AdminCsvMeta, AdminExportFormat } from "@/lib/admin/admin-csv-export";
 
-export function csvResponse(filename: string, headers: string[], rows: string[][]) {
-  const escape = (v: string) => {
-    const s = String(v ?? "");
-    if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-      return `"${s.replace(/"/g, '""')}"`;
-    }
-    return s;
-  };
-  const lines = [headers.map(escape).join(","), ...rows.map((r) => r.map(escape).join(","))];
-  const body = "\uFEFF" + lines.join("\n");
-  return new NextResponse(body, {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-    },
-  });
+/** @deprecated Prefer adminCsvResponse / simpleCsvResponse from admin-csv-export */
+export function csvResponse(
+  filename: string,
+  headers: string[],
+  rows: string[][],
+  options?: Partial<AdminCsvMeta> & { format?: AdminExportFormat },
+) {
+  return simpleCsvResponse(filename, headers, rows, options);
 }

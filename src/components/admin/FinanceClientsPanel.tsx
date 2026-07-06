@@ -149,7 +149,7 @@ export function FinanceClientsPanel({ embedded = false }: { embedded?: boolean }
       <OpsModuleHeader
         title="Factures clients"
         description="Factures enregistrées, encaissements et impayés."
-        exportHref="/api/admin/finance/reports?kind=balance_clients&format=csv"
+        exportHref="/api/admin/finance/reports?kind=balance_clients"
       />
       {content}
     </div>
@@ -199,7 +199,11 @@ export function FinanceClientDetailPanel({ customerId }: { customerId: string })
 
   return (
     <div className={moduleWrap}>
-      <OpsModuleHeader title={`Fiche finance — ${customerName || customerId}`} description="Solde et historique client." />
+      <OpsModuleHeader
+        title={`Fiche finance — ${customerName || customerId}`}
+        description="Solde et historique client."
+        exportHref={`/api/admin/finance/documents?customerId=${encodeURIComponent(customerId)}`}
+      />
       <p className="text-sm mb-4">Solde client : <strong>{remaining.toLocaleString("fr-MA")} MAD</strong></p>
       <AdminTableWrap>
         <thead>

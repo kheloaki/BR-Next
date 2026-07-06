@@ -14,6 +14,7 @@ import { AdminSortableTh } from "@/components/admin/ux/AdminSortableTh";
 import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { useTableSort } from "@/components/admin/ux/useTableSort";
+import { formatDateTimeFr } from "@/lib/admin/date-time-fr";
 
 function labelForExport(row: ReportExportRow) {
   if (row.reportKind === "etat" && row.reportModule) {
@@ -98,7 +99,7 @@ export function ProjectDocumentsPanel({ projectId }: { projectId: string }) {
                 const regen = regenerateHref(row, projectId);
                 return (
                   <tr key={row.id} className={rowHover}>
-                    <td className={tdClass}>{row.createdAt.slice(0, 16).replace("T", " ")}</td>
+                    <td className={tdClass}>{formatDateTimeFr(row.createdAt)}</td>
                     <td className={tdTextClass}>
                       <AdminTruncatedText text={labelForExport(row)} />
                     </td>
@@ -161,7 +162,7 @@ export function ProjectHistoryPanel({ projectId }: { projectId: string }) {
           {rows.map((row) => (
             <li key={row.id} className="text-sm">
               <span className="absolute -left-[5px] mt-1.5 h-2.5 w-2.5 rounded-full bg-[var(--gold)]" />
-              <p className="text-xs text-[var(--graphite)]/60">{row.createdAt.slice(0, 16).replace("T", " ")}</p>
+              <p className="text-xs text-[var(--graphite)]/60">{formatDateTimeFr(row.createdAt)}</p>
               <p className="font-medium text-[var(--navy)]">
                 {KIND_LABELS[row.reportKind]} — {labelForExport(row)} ({row.reportFormat.toUpperCase()})
               </p>

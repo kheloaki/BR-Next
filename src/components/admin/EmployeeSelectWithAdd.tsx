@@ -3,12 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AdminEmployee, AdminProject, PersonnelCategory } from "@/components/admin/operations-types";
 import { btnPrimary, btnSecondary, inputClass, labelClass } from "@/components/admin/admin-form-styles";
-import { MatriculeInput } from "@/components/admin/MatriculeInput";
 import { PersonnelCategorySelectWithAdd } from "@/components/admin/PersonnelCategorySelectWithAdd";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
-import { AdminDataSheet, AdminSheetField } from "@/components/admin/ux/AdminDataSheet";
 import { readApiError } from "@/components/admin/ux/useAdminToast";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/admin/SearchableSelect";
+import { AdminDataSheet } from "@/components/admin/ux/AdminDataSheet";
 
 export function EmployeeSelectWithAdd({
   employees,
@@ -34,9 +33,11 @@ export function EmployeeSelectWithAdd({
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [matricule, setMatricule] = useState("");
+  const [cin, setCin] = useState("");
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
+  const [address, setAddress] = useState("");
+  const [birthDate, setBirthDate] = useState("");
   const [projectId, setProjectId] = useState("");
   const [localCategories, setLocalCategories] = useState(categories);
 
@@ -49,8 +50,8 @@ export function EmployeeSelectWithAdd({
   const options = useMemo((): SearchableSelectOption[] => {
     return employees.map((e) => ({
       value: e.id,
-      label: `${e.matricule ? `${e.matricule} — ` : ""}${e.name}${e.role ? ` (${e.role})` : ""}`,
-      keywords: `${e.matricule ?? ""} ${e.name} ${e.role ?? ""}`,
+      label: `${e.cin ? `${e.cin} — ` : ""}${e.name}${e.role ? ` (${e.role})` : ""}`,
+      keywords: `${e.cin ?? ""} ${e.name} ${e.role ?? ""} ${e.address ?? ""}`,
     }));
   }, [employees]);
 
@@ -60,9 +61,11 @@ export function EmployeeSelectWithAdd({
   }
 
   function resetForm() {
-    setMatricule("");
+    setCin("");
     setName("");
     setRole("");
+    setAddress("");
+    setBirthDate("");
     setProjectId("");
     setError(null);
   }
@@ -78,9 +81,11 @@ export function EmployeeSelectWithAdd({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        matricule: matricule.trim(),
+        cin: cin.trim(),
         name: name.trim(),
         role: role.trim(),
+        address: address.trim(),
+        birthDate: birthDate || null,
         defaultProjectId: projectId || null,
       }),
     });
@@ -138,10 +143,13 @@ export function EmployeeSelectWithAdd({
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <p className={labelClass}>Matricule</p>
-            <div className="mt-1">
-              <MatriculeInput value={matricule} onChange={setMatricule} />
-            </div>
+            <p className={labelClass}>N° CIN</p>
+            <input
+              className={`${inputClass} mt-1`}
+              value={cin}
+              onChange={(e) => setCin(e.target.value)}
+              placeholder="Carte d'identité nationale"
+            />
           </div>
           <div>
             <p className={labelClass}>Nom & prénom *</p>
@@ -158,6 +166,23 @@ export function EmployeeSelectWithAdd({
               value={role}
               onChange={setRole}
               onCategoryAdded={(c) => updateCategories([...cats, c])}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <p className={labelClass}>Adresse</p>
+            <input
+              className={`${inputClass} mt-1`}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+          </div>
+          <div>
+            <p className={labelClass}>Date de naissance</p>
+            <input
+              type="date"
+              className={`${inputClass} mt-1`}
+              value={birthDate}
+              onChange={(e) => setBirthDate(e.target.value)}
             />
           </div>
           {projects.length > 0 ? (

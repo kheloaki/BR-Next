@@ -1,19 +1,9 @@
 import { formatMoney } from "@/lib/admin/price-ht-ttc";
 
+export { formatDateFr, formatDateTimeFr, isoToFrDate } from "@/lib/admin/date-time-fr";
+
 export function formatMad(value: number): string {
   return `${formatMoney(value)} MAD`;
-}
-
-export function formatDateFr(value: string | null | undefined): string {
-  if (!value) return "—";
-  const d = value.slice(0, 10);
-  const parsed = new Date(`${d}T12:00:00`);
-  if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleDateString("fr-MA", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
 }
 
 export function formatQty(value: number, unit = ""): string {

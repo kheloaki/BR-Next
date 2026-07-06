@@ -116,6 +116,7 @@ export function EquipmentManager() {
       <OpsModuleHeader
         title="Engins"
         description="Parc matériel partagé (carburant, pièces, location, etc.)."
+        exportHref="/api/admin/equipment"
         actions={
           <button
             type="button"

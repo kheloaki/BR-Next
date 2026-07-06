@@ -12,18 +12,18 @@ import { buildOrganizationSchema, buildWebsiteSchema } from "@/lib/schema";
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "BARANE INVEST — Groupe industriel marocain",
+    default: "BARANE INVEST — Digital & Industrie au Maroc",
     template: "%s · BARANE INVEST",
   },
   description:
-    "BARANE INVEST : partenaire B2B pour la construction, l'infrastructure, la logistique, l'équipement industriel et le support mines & carrières au Maroc et en Afrique.",
+    "BARANE INVEST : startup digitale à Agadir — logiciels métiers, applications web & mobiles, plateformes SaaS, cloud, IA, e-commerce et marketing digital, en complément d'un pôle industriel B2B au Maroc et en Afrique.",
   openGraph: {
     type: "website",
     locale: "fr_MA",
     siteName: "BARANE INVEST",
-    title: "BARANE INVEST — Groupe industriel marocain",
+    title: "BARANE INVEST — Digital & Industrie au Maroc",
     description:
-      "Construction, infrastructure, équipement industriel, mines & carrières.",
+      "Logiciels, SaaS, web & mobile, cloud, IA, e-commerce et marketing digital — et fourniture industrielle B2B.",
   },
   twitter: {
     card: "summary",

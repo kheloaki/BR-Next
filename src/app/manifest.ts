@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "BARANE INVEST",
     short_name: "BARANE",
     description:
-      "Groupe industriel marocain — construction, infrastructure, équipement industriel.",
+      "Startup digitale à Agadir — logiciels, SaaS, web & mobile, cloud, IA, e-commerce, et pôle industriel B2B.",
     start_url: "/admin",
     scope: "/",
     display: "standalone",

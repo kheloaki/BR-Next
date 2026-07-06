@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { TripStatus } from "@/components/admin/operations-types";
-import { csvResponse } from "@/lib/admin/csv-response";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { tripsCsv } from "@/lib/admin/ops-csv-export";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
 import { opsId } from "@/lib/admin/ops-id";
 import { resolveProjectFields } from "@/lib/admin/project-resolve";
@@ -38,20 +39,9 @@ export async function GET(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const rows = (data ?? []).map(mapRow);
 
-  if (new URL(request.url).searchParams.get("format") === "csv") {
-    return csvResponse(
-      "logistique-voyages.csv",
-      ["Date", "Véhicule", "Chauffeur", "Départ", "Destination", "Km", "Statut"],
-      rows.map((r) => [
-        r.tripDate,
-        r.vehicleCode,
-        r.driverName,
-        r.departure,
-        r.destination,
-        String(r.distanceKm),
-        r.status,
-      ]),
-    );
+  const exportFormat = new URL(request.url).searchParams.get("format");
+  if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+    return tripsCsv(rows, parseExportFormat(exportFormat));
   }
 
   return NextResponse.json(rows);

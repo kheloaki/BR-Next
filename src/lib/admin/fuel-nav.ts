@@ -29,12 +29,13 @@ export const FUEL_VIEW_META: Record<
     title: "Analyse consommation & location",
     description:
       "Heures location, coût HT location, gasoil consommé, L/h et MAD/h — par matériel du catalogue.",
+    exportHref: "/api/admin/fuel/consommation",
   },
   stock: {
     title: "Stock gasoil",
     description:
       "Inventaire gasoil, mouvements de stock et journal des bons de sortie — entrées via traitement achat, sorties via bon de sortie.",
-    exportHref: "/api/admin/fuel?format=csv",
+    exportHref: "/api/admin/fuel",
   },
   commande: {
     title: "Bon de commande gasoil",

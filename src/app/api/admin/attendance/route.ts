@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { AttendanceStatus } from "@/components/admin/operations-types";
-import { csvResponse } from "@/lib/admin/csv-response";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { attendanceCsv } from "@/lib/admin/ops-csv-export";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
 import { opsId } from "@/lib/admin/ops-id";
 import { resolveProjectFields } from "@/lib/admin/project-resolve";
@@ -29,8 +30,9 @@ export async function GET(request: Request) {
   const auth = await requireAdminUserId();
   if ("error" in auth) return auth.error;
   const { userId, organizationId } = auth;
-  const month = new URL(request.url).searchParams.get("month");
-  const date = new URL(request.url).searchParams.get("date");
+  const { searchParams } = new URL(request.url);
+  const month = searchParams.get("month");
+  const date = searchParams.get("date");
 
   let query = getSupabaseAdminClient()
     .from("admin_attendance")
@@ -50,20 +52,13 @@ export async function GET(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const rows = (data ?? []).map(mapRow);
 
-  if (new URL(request.url).searchParams.get("format") === "csv") {
-    return csvResponse(
-      "pointage.csv",
-      ["Date", "Matricule", "Nom", "Entrée", "Sortie", "Statut", "Chantier"],
-      rows.map((r) => [
-        r.recordDate,
-        r.matricule,
-        r.employeeName,
-        r.timeIn,
-        r.timeOut,
-        r.status,
-        r.siteName,
-      ]),
-    );
+  const exportFormat = searchParams.get("format");
+  if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+    return attendanceCsv(rows, {
+      month: month ?? undefined,
+      date: date ?? undefined,
+      format: parseExportFormat(exportFormat),
+    });
   }
 
   return NextResponse.json(rows);

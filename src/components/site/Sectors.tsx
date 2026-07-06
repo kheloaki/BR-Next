@@ -79,12 +79,27 @@ function sectorsData(locale: Locale): SectorSlide[] {
 
 function sectionTitle(locale: Locale) {
   if (locale === "en") {
-    return { eyebrow: "Served sectors", titleA: "Where", titleB: "industry", titleC: "moves forward, we operate." };
+    return {
+      eyebrow: "Industrial sectors served",
+      titleA: "Where",
+      titleB: "industry",
+      titleC: "moves forward, we supply & deliver.",
+    };
   }
   if (locale === "es") {
-    return { eyebrow: "Sectores atendidos", titleA: "Donde la", titleB: "industria", titleC: "avanza, intervenimos." };
+    return {
+      eyebrow: "Sectores industriales",
+      titleA: "Donde la",
+      titleB: "industria",
+      titleC: "avanza, suministramos y entregamos.",
+    };
   }
-  return { eyebrow: "Secteurs desservis", titleA: "Là où", titleB: "l'industrie", titleC: "avance, nous intervenons." };
+  return {
+    eyebrow: "Secteurs industriels",
+    titleA: "Là où",
+    titleB: "l'industrie",
+    titleC: "avance, nous fournissons & livrons.",
+  };
 }
 
 export function Sectors({ locale = "fr" }: { locale?: Locale }) {

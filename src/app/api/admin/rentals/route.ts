@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import type { MaterialCategory } from "@/components/admin/operations-types";
-import { MATERIAL_CATEGORY_LABELS } from "@/components/admin/operations-types";
-import { csvResponse } from "@/lib/admin/csv-response";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { rentalsCsv } from "@/lib/admin/ops-csv-export";
 import {
   computeEstimatedHours,
-  formatBonLocationUsageDays,
-  formatBonLocationUsageHours,
   mapRentalContractRow,
   RENTAL_LOCATAIRE_DEFAULT,
   resolveEquipmentName,
@@ -142,30 +140,9 @@ export async function GET(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const rows = (data ?? []).map((r) => mapRentalContractRow(r as Record<string, unknown>));
 
-  if (new URL(request.url).searchParams.get("format") === "csv") {
-    return csvResponse(
-      "bons-location.csv",
-      [
-        "N° bon location",
-        "Locataire",
-        "Loueur",
-        "Lieu travaux",
-        "Conducteur",
-        "Jours",
-        "Heures",
-        "Total MAD",
-      ],
-      rows.map((r) => [
-        r.bonLocationNo,
-        r.locataire,
-        r.ownerName,
-        r.projectId || "",
-        r.driverName,
-        formatBonLocationUsageDays(r),
-        formatBonLocationUsageHours(r),
-        String(r.totalMad),
-      ]),
-    );
+  const exportFormat = new URL(request.url).searchParams.get("format");
+  if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+    return rentalsCsv(rows, parseExportFormat(exportFormat));
   }
 
   return NextResponse.json(rows);

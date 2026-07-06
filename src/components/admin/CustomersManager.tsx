@@ -162,6 +162,7 @@ export function CustomersManager() {
       <OpsModuleHeader
         title="Clients"
         description="Gérez le carnet client utilisé dans les devis et factures."
+        exportHref="/api/admin/customers"
         actions={
           <>
             <a

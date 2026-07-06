@@ -31,6 +31,7 @@ import { ProjectsPageSkeleton } from "@/components/admin/skeletons/pages";
 import { AdminMiniStats } from "@/components/admin/ux/AdminMiniStats";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { formatDateFr } from "@/lib/admin/date-time-fr";
 
 const STATUSES: ProjectStatus[] = ["active", "inactive"];
 
@@ -39,14 +40,6 @@ const STATUS_BADGE: Record<ProjectStatus, string> = {
   inactive: "bg-[var(--graphite)]/10 text-[var(--graphite)] border border-border",
 };
 
-function formatDate(value: string | null) {
-  if (!value) return null;
-  return new Date(value).toLocaleDateString("fr-FR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 const emptyForm = (): AdminProjectForm => ({
   code: "",
@@ -205,6 +198,7 @@ export function ProjectsManager() {
       <OpsModuleHeader
         title="Projets (chantiers)"
         description="Chaque projet regroupe production, foration, carburant et RH — ouvrez la fiche pour le tableau de bord."
+        exportHref="/api/admin/projects"
         actions={
           <>
             <button type="button" className={btnPrimary} onClick={openCreate}>
@@ -439,7 +433,7 @@ function ProjectCard({
   const fin = p.financials;
   const period =
     p.startDate || p.endDate
-      ? [formatDate(p.startDate), formatDate(p.endDate)].filter(Boolean).join(" → ")
+      ? `${p.startDate ? formatDateFr(p.startDate) : "—"} → ${p.endDate ? formatDateFr(p.endDate) : "—"}`
       : null;
 
   return (

@@ -38,6 +38,7 @@ import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import { useAdminListFormNav } from "@/components/admin/ux/useAdminListFormNav";
+import { formatDateFr, formatDateTimeFr } from "@/lib/admin/date-time-fr";
 
 export function SitePvManager({ defaultProjectId, embedded }: { defaultProjectId?: string; embedded?: boolean }) {
   const toast = useAdminToast();
@@ -225,7 +226,8 @@ export function SitePvManager({ defaultProjectId, embedded }: { defaultProjectId
       {!embedded ? (
       <OpsModuleHeader
         title="Procès-verbaux chantier"
-        description="PV de réunion, visite, réception, matériel, incident — export PDF."
+        description="PV de réunion, visite, réception, matériel, incident — export PDF ou liste CSV/Excel."
+        exportHref="/api/admin/site-pv"
         actions={
           tab === "list" ? (
             <button
@@ -328,7 +330,7 @@ export function SitePvManager({ defaultProjectId, embedded }: { defaultProjectId
                       <tr key={row.id} className={rowHover}>
                         <td className={`${tdClass} font-mono text-xs`}>{row.number}</td>
                         <td className={tdClass}>{SITE_PV_TYPE_LABELS[row.pvType]}</td>
-                        <td className={tdClass}>{row.pvDate}</td>
+                        <td className={tdClass}>{formatDateFr(row.pvDate)}</td>
                         <td className={tdTextClass}>
                           <AdminTruncatedText text={row.object} />
                         </td>

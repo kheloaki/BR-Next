@@ -213,7 +213,7 @@ export function PurchaseRequestsManager() {
       <OpsModuleHeader
         title="Demandes d'achat"
         description="Articles ou gasoil — validation → traitement achat (BC, BL/réception, facture)."
-        exportHref="/api/admin/purchase-requests?format=csv"
+        exportHref="/api/admin/purchase-requests"
         actions={
           <button type="button" className={btnPrimary} onClick={openNewDa}>
             Nouvelle DA

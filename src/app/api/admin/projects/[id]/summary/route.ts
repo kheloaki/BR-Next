@@ -5,8 +5,8 @@ import {
   canViewReports,
 } from "@/lib/admin/organization";
 import { requireAdminContext } from "@/lib/admin/require-admin";
-import { buildProjectReportCsv } from "@/lib/admin/reports/project-report-csv";
-import { csvResponse } from "@/lib/admin/csv-response";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { projectReportExportResponse } from "@/lib/admin/reports/project-report-export";
 import type { ProjectReportModule } from "@/lib/admin/project-report-types";
 
 const MODULES: ProjectReportModule[] = [
@@ -51,13 +51,10 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       return NextResponse.json({ error: "Projet introuvable" }, { status: 404 });
     }
 
-    if (format === "csv") {
+    if (format === "csv" || format === "excel" || format === "xls") {
       const mod = module ?? "global";
-      const csv = buildProjectReportCsv(mod, bundle);
-      const lines = csv.split("\n");
-      const headers = lines[0]?.split(",") ?? [];
-      const rows = lines.slice(1).map((l) => l.split(","));
-      return csvResponse(`projet-${bundle.meta.project.code || id}.csv`, headers, rows);
+      const exportFormat = parseExportFormat(format);
+      return projectReportExportResponse(mod, bundle, exportFormat);
     }
 
     const summary = bundleToProjectSummary(bundle);

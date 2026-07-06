@@ -57,7 +57,7 @@ export function FinanceTresoreriePanel() {
       <OpsModuleHeader
         title="Trésorerie"
         description="Vue consolidée caisse + banque."
-        exportHref="/api/admin/finance/reports?kind=tresorerie&format=csv"
+        exportHref="/api/admin/finance/reports?kind=tresorerie"
       />
 
       {report ? (

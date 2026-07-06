@@ -31,6 +31,7 @@ import { AdminTableWrap } from "@/components/admin/ux/AdminTableWrap";
 import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { confirmDelete, readApiError } from "@/components/admin/ux/useAdminToast";
+import { formatDateFr, formatDateTimeFr } from "@/lib/admin/date-time-fr";
 
 type StockMovementHistoryPanelProps = {
   movements: StockMovement[];
@@ -197,7 +198,7 @@ export function StockMovementHistoryPanel({
     if (
       !(await confirmDelete(`${m.reference} — ${STOCK_MOVEMENT_LABELS[m.movementType]}`, {
         title: "Supprimer le mouvement",
-        description: `Retirer ce mouvement du ${m.movementDate} (${m.qty} unités) ? Le stock sera recalculé.`,
+        description: `Retirer ce mouvement du ${formatDateFr(m.movementDate)} (${m.qty} unités) ? Le stock sera recalculé.`,
         confirmLabel: "Supprimer",
       }))
     ) {
@@ -278,7 +279,7 @@ export function StockMovementHistoryPanel({
             <tbody>
               {sortedFiltered.map((m) => (
                 <tr key={m.id} className={rowHover}>
-                  <td className={tdClass}>{m.movementDate}</td>
+                  <td className={tdClass}>{formatDateFr(m.movementDate)}</td>
                   <td className={tdClass}>
                     <AdminTruncatedText text={m.reference} lines={1} />
                   </td>
@@ -351,7 +352,7 @@ export function StockMovementHistoryPanel({
           hint={
             editing.traitementLink
               ? "Ce mouvement est lié à un traitement — modification impossible depuis le stock."
-              : `${editing.designation} · enregistré le ${new Date(editing.createdAt).toLocaleDateString("fr-MA")}`
+              : `${editing.designation} · enregistré le ${formatDateTimeFr(editing.createdAt)}`
           }
           footer={
             editing.traitementLink ? (

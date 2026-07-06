@@ -40,6 +40,7 @@ import {
   emptyPurchaseRequestLine,
 } from "@/lib/admin/map-purchase-request-lines";
 import { traitementsHref } from "@/lib/admin/traitement-nav";
+import { formatDateFr } from "@/lib/admin/date-time-fr";
 
 type CreateProps = {
   mode: "create";
@@ -658,9 +659,9 @@ function ViewSheet({
           {isGasoil && request.pumpMeter != null ? (
             <Field label="Compteur pompe" value={request.pumpMeter.toLocaleString("fr-FR")} />
           ) : null}
-          <Field label="Créée le" value={new Date(request.createdAt).toLocaleDateString("fr-FR")} />
+          <Field label="Créée le" value={formatDateFr(request.createdAt)} />
           {request.approvedAt ? (
-            <Field label="Approuvée le" value={new Date(request.approvedAt).toLocaleDateString("fr-FR")} />
+            <Field label="Approuvée le" value={formatDateFr(request.approvedAt)} />
           ) : null}
         </dl>
         <div className="rounded-lg border border-border overflow-hidden">

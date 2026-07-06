@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
-import heroIndustrial from "@/assets/hero-industrial.jpg";
+import digitalHero from "@/assets/digital-hero.jpg";
 import type { Locale } from "@/lib/i18n";
 
 type ContactRow = {
@@ -34,12 +34,12 @@ export function ContactCTA({ locale = "fr" }: { locale?: Locale }) {
       ? {
           eyebrow: "Let's discuss your project",
           intro:
-            "Need a quote, technical brief or complex sourcing? Our teams reply within 24 business hours.",
+            "Digital platform, SaaS, web/mobile app, cloud project — or industrial quote and complex sourcing? Our teams reply within 24 business hours.",
           manifesto:
-            "We deliver industrial supply with rigor — from sourcing to site, across Morocco and Africa.",
+            "We build digital platforms in Agadir — and deliver industrial supply with rigor across Morocco and Africa.",
           titleA: "Tell us about",
-          titleB: "your need.",
-          formTitle: "Quote request",
+          titleB: "your project.",
+          formTitle: "Project request",
           thankYou: "Thank you.",
           sent: "Request sent. Our teams will contact you within 24 business hours.",
           error: "Unable to send your request right now. Please try again.",
@@ -47,8 +47,8 @@ export function ContactCTA({ locale = "fr" }: { locale?: Locale }) {
           company: "Company *",
           email: "Email *",
           phone: "Phone",
-          sector: "Sector (mining, construction, industry...)",
-          need: "Describe your need: products, volumes, deadlines, delivery location...",
+          sector: "Need type (SaaS, web app, cloud, mining, construction...)",
+          need: "Describe your project: scope, deadlines, budget range, delivery location...",
           submit: "Send request",
           sending: "Sending...",
           labels: { phone: "Phone", whatsapp: "WhatsApp Business", email: "Business email", hq: "Head office" },
@@ -58,12 +58,12 @@ export function ContactCTA({ locale = "fr" }: { locale?: Locale }) {
         ? {
             eyebrow: "Hablemos de su proyecto",
             intro:
-              "Necesita una cotizacion, un pliego tecnico o un sourcing complejo? Nuestro equipo responde en 24h laborables.",
+              "Plataforma digital, SaaS, app web/movil, cloud — o cotizacion industrial y sourcing complejo? Nuestro equipo responde en 24h laborables.",
             manifesto:
-              "Aportamos rigor industrial — del sourcing al terreno, en Marruecos y Africa.",
+              "Construimos plataformas digitales en Agadir — y aportamos rigor industrial en Marruecos y Africa.",
             titleA: "Cuéntenos",
-            titleB: "su necesidad.",
-            formTitle: "Solicitud de cotizacion",
+            titleB: "su proyecto.",
+            formTitle: "Solicitud de proyecto",
             thankYou: "Gracias.",
             sent: "Solicitud enviada. Nuestro equipo le contactara en 24h laborables.",
             error: "No se pudo enviar la solicitud. Intente de nuevo.",
@@ -71,36 +71,36 @@ export function ContactCTA({ locale = "fr" }: { locale?: Locale }) {
             company: "Empresa *",
             email: "Email *",
             phone: "Telefono",
-            sector: "Sector (mineria, construccion, industria...)",
-            need: "Describa su necesidad: productos, volumenes, plazos, lugar de entrega...",
+            sector: "Tipo de necesidad (SaaS, app web, cloud, mineria, construccion...)",
+            need: "Describa su proyecto: alcance, plazos, presupuesto, lugar de entrega...",
             submit: "Enviar solicitud",
             sending: "Enviando...",
             labels: { phone: "Telefono", whatsapp: "WhatsApp Business", email: "Email comercial", hq: "Sede" },
             city: "Agadir · Marruecos",
           }
-      : {
-          eyebrow: "Parlons projet",
-          intro:
-            "Une demande de devis, un cahier des charges, un sourcing complexe ? Nos équipes répondent sous 24h ouvrées.",
-          manifesto:
-            "Nous livrons l'exigence industrielle — du sourcing au chantier, au Maroc et en Afrique.",
-          titleA: "Parlez-nous de",
-          titleB: "votre besoin.",
-          formTitle: "Demande de devis",
-          thankYou: "Merci.",
-          sent: "Demande envoyée. Nos équipes vous recontactent sous 24h ouvrées.",
-          error: "Impossible d'envoyer la demande pour le moment. Réessayez.",
-          fullName: "Nom complet *",
-          company: "Société *",
-          email: "Email *",
-          phone: "Téléphone",
-          sector: "Secteur (mines, BTP, industrie...)",
-          need: "Décrivez votre besoin : produits, volumes, délais, lieu de livraison...",
-          submit: "Envoyer la demande",
-          sending: "Envoi...",
-          labels: { phone: "Téléphone", whatsapp: "WhatsApp Business", email: "Email commercial", hq: "Siège social" },
-          city: "Agadir · Maroc",
-        };
+        : {
+            eyebrow: "Parlons projet",
+            intro:
+              "Plateforme digitale, SaaS, application web/mobile, cloud — ou devis industriel et sourcing complexe ? Nos équipes répondent sous 24h ouvrées.",
+            manifesto:
+              "Nous construisons des plateformes digitales à Agadir — et livrons l'exigence industrielle au Maroc et en Afrique.",
+            titleA: "Parlez-nous de",
+            titleB: "votre projet.",
+            formTitle: "Demande de projet",
+            thankYou: "Merci.",
+            sent: "Demande envoyée. Nos équipes vous recontactent sous 24h ouvrées.",
+            error: "Impossible d'envoyer la demande pour le moment. Réessayez.",
+            fullName: "Nom complet *",
+            company: "Société *",
+            email: "Email *",
+            phone: "Téléphone",
+            sector: "Type de besoin (SaaS, app web, cloud, mines, BTP...)",
+            need: "Décrivez votre projet : périmètre, délais, budget, lieu de livraison...",
+            submit: "Envoyer la demande",
+            sending: "Envoi...",
+            labels: { phone: "Téléphone", whatsapp: "WhatsApp Business", email: "Email commercial", hq: "Siège social" },
+            city: "Agadir · Maroc",
+          };
   const contactRows: ContactRow[] = [
     { icon: Phone, label: t.labels.phone, value: "+212 661 65 60 42", href: "tel:+212661656042" },
     { icon: MessageCircle, label: t.labels.whatsapp, value: "+212 661 65 60 42", href: "https://wa.me/212661656042" },
@@ -124,10 +124,10 @@ export function ContactCTA({ locale = "fr" }: { locale?: Locale }) {
           email: form.email,
           subject:
             locale === "en"
-              ? "Quote request"
+              ? "Project request"
               : locale === "es"
-                ? "Solicitud de cotizacion"
-                : "Demande de devis",
+                ? "Solicitud de proyecto"
+                : "Demande de projet",
           message: [
             `Company: ${form.company}`,
             `Phone: ${form.phone || "-"}`,
@@ -169,7 +169,7 @@ export function ContactCTA({ locale = "fr" }: { locale?: Locale }) {
       className="relative bg-[var(--navy-deep)] text-[var(--ivory)] overflow-hidden"
     >
       <div className="relative min-h-[45vh] flex items-end overflow-hidden">
-        <Image src={heroIndustrial} alt="" fill sizes="100vw" className="object-cover opacity-40" />
+        <Image src={digitalHero} alt="" fill sizes="100vw" className="object-cover opacity-40" />
         <div
           className="absolute inset-0"
           style={{

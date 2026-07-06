@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { financeClosingsCsv } from "@/lib/admin/referential-csv-export";
 import { FINANCE_CASHFLOW_TYPES } from "@/lib/admin/finance-rules";
 import { assertFinanceManage, canCloseCaisse } from "@/lib/admin/finance-permissions";
 import {
@@ -16,6 +18,7 @@ export async function GET(request: Request) {
   if ("error" in auth) return auth.error;
 
   const accountId = new URL(request.url).searchParams.get("accountId");
+  const format = new URL(request.url).searchParams.get("format");
   let query = getSupabaseAdminClient()
     .from("admin_finance_caisse_closings")
     .select("*, admin_finance_accounts(name)")
@@ -25,7 +28,14 @@ export async function GET(request: Request) {
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json((data ?? []).map((row) => mapFinanceClosing(row as Record<string, unknown>)));
+  const rows = (data ?? []).map((row) => mapFinanceClosing(row as Record<string, unknown>));
+  if (format === "csv" || format === "excel" || format === "xls") {
+    return financeClosingsCsv(rows, {
+      accountId: accountId ?? undefined,
+      format: parseExportFormat(format),
+    });
+  }
+  return NextResponse.json(rows);
 }
 
 export async function POST(request: Request) {

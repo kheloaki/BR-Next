@@ -28,6 +28,7 @@ import { OpsPerfBars } from "@/components/admin/ux/OpsPerfBars";
 import { ReferentialBanner } from "@/components/admin/ux/ReferentialBanner";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import { useTableSort } from "@/components/admin/ux/useTableSort";
+import { formatDateFr, formatDateTimeFr } from "@/lib/admin/date-time-fr";
 
 export function DrillingManager() {
   const toast = useAdminToast();
@@ -138,7 +139,7 @@ export function DrillingManager() {
       <OpsModuleHeader
         title="Rapport foration"
         description="Performance foreuses et rapports journaliers."
-        exportHref="/api/admin/drilling?format=csv"
+        exportHref="/api/admin/drilling"
         actions={
           <button type="button" className={btnPrimary} onClick={() => setTab("new")}>
             Nouveau rapport
@@ -205,7 +206,7 @@ export function DrillingManager() {
               <tbody>
                 {sortedRows.map((r) => (
                   <tr key={r.id} className={rowHover}>
-                    <td className={tdClass}>{r.reportDate}</td>
+                    <td className={tdClass}>{formatDateFr(r.reportDate)}</td>
                     <td className={tdClass}>
                       <AdminTruncatedText text={r.siteName} lines={1} />
                     </td>

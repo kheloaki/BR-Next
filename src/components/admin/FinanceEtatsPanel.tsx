@@ -4,6 +4,7 @@ import { useState } from "react";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import { btnPrimary, btnSecondary, inputClass, labelClass, moduleWrap } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
+import { appendExportFormat } from "@/lib/admin/admin-csv-export";
 
 const REPORTS = [
   { kind: "journal_caisse", label: "Journal caisse" },
@@ -36,14 +37,21 @@ export function FinanceEtatsPanel() {
     if (res.ok) setPreview(await res.json());
   }
 
-  function exportCsv(kind: string) {
-    const qs = new URLSearchParams({ kind, from, to, format: "csv" });
-    window.open(`/api/admin/finance/reports?${qs}`, "_blank");
+  function exportBase(kind: string) {
+    const qs = new URLSearchParams({ kind, from, to });
+    return `/api/admin/finance/reports?${qs}`;
+  }
+
+  function openExport(kind: string, format: "csv" | "excel") {
+    window.open(appendExportFormat(exportBase(kind), format), "_blank");
   }
 
   return (
     <div className={moduleWrap}>
-      <OpsModuleHeader title="États finance" description="Rapports Sage-like — export CSV." />
+      <OpsModuleHeader
+        title="États finance"
+        description="Rapports Sage-like — export CSV ou Excel (séparateur point-virgule, format français)."
+      />
 
       <AdminFormCard title="Période">
         <div className="flex flex-wrap gap-3 items-end">
@@ -62,12 +70,15 @@ export function FinanceEtatsPanel() {
         {REPORTS.map((r) => (
           <div key={r.kind} className="rounded-md border border-border bg-white p-3 flex flex-col gap-2">
             <p className="text-sm font-medium text-[var(--navy)]">{r.label}</p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button type="button" className={btnSecondary} onClick={() => void loadPreview(r.kind)}>
                 Aperçu
               </button>
-              <button type="button" className={btnPrimary} onClick={() => exportCsv(r.kind)}>
+              <button type="button" className={btnPrimary} onClick={() => openExport(r.kind, "csv")}>
                 CSV
+              </button>
+              <button type="button" className={btnSecondary} onClick={() => openExport(r.kind, "excel")}>
+                Excel
               </button>
             </div>
           </div>

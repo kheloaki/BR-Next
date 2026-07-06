@@ -30,6 +30,7 @@ import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { ReferentialBanner } from "@/components/admin/ux/ReferentialBanner";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import { useTableSort } from "@/components/admin/ux/useTableSort";
+import { formatDateFr, formatDateTimeFr } from "@/lib/admin/date-time-fr";
 
 const USAGE_TYPE_LABELS: Record<PartsUsage["usageType"], string> = {
   part: "Pièce",
@@ -153,7 +154,7 @@ export function PartsManager() {
       <OpsModuleHeader
         title="Pièces & lubrifiants"
         description="Consommation par engin liée au stock."
-        exportHref="/api/admin/parts-usage?format=csv"
+        exportHref="/api/admin/parts-usage"
         actions={
           <button type="button" className={btnPrimary} onClick={() => setTab("new")}>
             Saisir consommation
@@ -235,7 +236,7 @@ export function PartsManager() {
               <tbody>
                 {sortedRows.map((r) => (
                   <tr key={r.id} className={rowHover}>
-                    <td className={tdClass}>{r.usageDate}</td>
+                    <td className={tdClass}>{formatDateFr(r.usageDate)}</td>
                     <td className={tdClass}>
                       <AdminTruncatedText text={r.equipmentName} lines={1} />
                     </td>

@@ -1,13 +1,7 @@
 "use client";
 
 import type { ProjectDashboard } from "@/components/admin/operations-types";
-
-function fmtDate(d: string) {
-  const x = d.slice(0, 10);
-  if (!x) return "";
-  const [y, m, day] = x.split("-");
-  return `${day}/${m}/${y}`;
-}
+import { formatDateFr } from "@/lib/admin/date-time-fr";
 
 export function ProjectCumulativeCostChart({
   series,
@@ -83,7 +77,7 @@ export function ProjectCumulativeCostChart({
               textAnchor="middle"
               className="fill-[var(--graphite)] text-[7px]"
             >
-              {fmtDate(p.date)}
+              {formatDateFr(p.date)}
             </text>
           ) : null,
         )}

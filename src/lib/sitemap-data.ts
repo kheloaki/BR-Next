@@ -14,6 +14,7 @@ const coreRoutes = [
   "/pourquoi",
   "/projets",
   "/services",
+  "/solutions",
   "/secteurs",
   "/agadir",
 ] as const;

@@ -28,6 +28,7 @@ import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import { useTableSort } from "@/components/admin/ux/useTableSort";
+import { formatDateFr, formatDateTimeFr } from "@/lib/admin/date-time-fr";
 
 export function LogisticsManager() {
   const toast = useAdminToast();
@@ -147,7 +148,7 @@ export function LogisticsManager() {
       <OpsModuleHeader
         title="Logistique & voyages"
         description="Pointage des trajets et livraisons."
-        exportHref="/api/admin/trips?format=csv"
+        exportHref="/api/admin/trips"
         actions={
           <button type="button" className={btnPrimary} onClick={() => setTab("new")}>
             Nouveau trajet
@@ -205,7 +206,7 @@ export function LogisticsManager() {
               <tbody>
                 {sortedRows.map((r) => (
                   <tr key={r.id} className={rowHover}>
-                    <td className={tdClass}>{r.tripDate}</td>
+                    <td className={tdClass}>{formatDateFr(r.tripDate)}</td>
                     <td className={tdClass}>{r.vehicleCode}</td>
                     <td className={tdClass}>
                       <AdminTruncatedText text={r.driverName} lines={1} />

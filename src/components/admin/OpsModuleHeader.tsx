@@ -1,30 +1,65 @@
 import type { ReactNode } from "react";
-import { btnSecondary, moduleTitle } from "@/components/admin/admin-form-styles";
+import { btnSecondary, moduleTitle, pageSubtitle } from "@/components/admin/admin-form-styles";
+import { appendExportFormat } from "@/lib/admin/admin-csv-export";
+
+export type ModuleExportTarget = {
+  label?: string;
+  href: string;
+};
+
+function ExportButtons({ targets }: { targets: ModuleExportTarget[] }) {
+  return (
+    <>
+      {targets.map((target) => {
+        const prefix = target.label ? `${target.label} ` : "";
+        return (
+          <div key={target.href} className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <a
+              href={appendExportFormat(target.href, "csv")}
+              className={`${btnSecondary} w-full sm:w-auto`}
+            >
+              {prefix}CSV
+            </a>
+            <a
+              href={appendExportFormat(target.href, "excel")}
+              className={`${btnSecondary} w-full sm:w-auto`}
+            >
+              {prefix}Excel
+            </a>
+          </div>
+        );
+      })}
+    </>
+  );
+}
 
 export function OpsModuleHeader({
   title,
   description,
   exportHref,
+  exports,
   actions,
 }: {
   title: string;
   description: string;
+  /** Base export URL — format=csv|excel is appended automatically */
   exportHref?: string;
+  /** Multiple export targets (e.g. inventaire + mouvements) */
+  exports?: ModuleExportTarget[];
   actions?: ReactNode;
 }) {
+  const exportTargets: ModuleExportTarget[] =
+    exports?.length ? exports : exportHref ? [{ href: exportHref }] : [];
+
   return (
-    <div className="mb-4 flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
       <div className="min-w-0 flex-1">
         <h2 className={moduleTitle}>{title}</h2>
-        <p className="mt-1 max-w-2xl text-sm text-[var(--graphite)]/80">{description}</p>
+        <p className={pageSubtitle}>{description}</p>
       </div>
       <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
         {actions}
-        {exportHref ? (
-          <a href={exportHref} className={`${btnSecondary} w-full sm:w-auto`}>
-            Exporter CSV
-          </a>
-        ) : null}
+        {exportTargets.length > 0 ? <ExportButtons targets={exportTargets} /> : null}
       </div>
     </div>
   );

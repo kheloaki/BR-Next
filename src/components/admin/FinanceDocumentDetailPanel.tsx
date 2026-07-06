@@ -22,6 +22,7 @@ import {
   inventoryPanelTitle,
   labelClass,
   moduleWrap,
+  panel,
   rowHover,
   tdClass,
   tdTextClass,
@@ -38,13 +39,7 @@ import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { AdminBackLink } from "@/components/admin/ux/AdminBackLink";
 import { financeFacturesHref } from "@/lib/admin/finance-nav";
 import { formatMoney } from "@/lib/admin/price-ht-ttc";
-
-function fmtDate(d: string) {
-  const x = d.slice(0, 10);
-  if (!x) return "—";
-  const [y, m, day] = x.split("-");
-  return `${day}/${m}/${y}`;
-}
+import { formatDateFr } from "@/lib/admin/date-time-fr";
 
 export function FinanceDocumentDetailPanel({ documentId }: { documentId: string }) {
   const searchParams = useSearchParams();
@@ -164,7 +159,7 @@ export function FinanceDocumentDetailPanel({ documentId }: { documentId: string 
         }
       />
 
-      <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm shadow-black/[0.03] mb-4">
+      <div className={`${panel} mb-4`}>
         <div className="border-b border-border px-4 py-3 sm:px-5">
           <h3 className={inventoryPanelTitle}>Détails facture</h3>
         </div>
@@ -187,7 +182,7 @@ export function FinanceDocumentDetailPanel({ documentId }: { documentId: string 
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-[var(--graphite)]/65">Date facture</p>
-            <p className="text-sm">{fmtDate(doc.issueDate)}</p>
+            <p className="text-sm">{formatDateFr(doc.issueDate)}</p>
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-[var(--graphite)]/65">Chantier</p>
@@ -262,7 +257,7 @@ export function FinanceDocumentDetailPanel({ documentId }: { documentId: string 
             <tbody>
               {sortedPayments.map((p) => (
                 <tr key={p.allocationId} className={rowHover}>
-                  <td className={tdClass}>{fmtDate(p.movementDate)}</td>
+                  <td className={tdClass}>{formatDateFr(p.movementDate)}</td>
                   <td className={tdClass}>
                     {p.paymentMethod ? FINANCE_PAYMENT_METHOD_LABELS[p.paymentMethod] : "—"}
                   </td>

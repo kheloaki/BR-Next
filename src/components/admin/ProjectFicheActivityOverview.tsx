@@ -37,13 +37,7 @@ import {
 } from "@/lib/admin/project-fiche-sections";
 import { formatMoney } from "@/lib/admin/price-ht-ttc";
 import type { AdminProject } from "@/components/admin/operations-types";
-
-function fmtDate(d: string) {
-  const x = d.slice(0, 10);
-  if (!x) return "—";
-  const [y, m, day] = x.split("-");
-  return `${day}/${m}/${y}`;
-}
+import { formatDateFr } from "@/lib/admin/date-time-fr";
 
 function ModuleLink({ href, label }: { href: string; label: string }) {
   return (
@@ -239,7 +233,7 @@ export function ProjectFicheActivityOverview({
                     <td className={tdClass}>
                       <AdminTruncatedText text={f.ticketNo} lines={1} />
                     </td>
-                    <td className={tdClass}>{fmtDate(f.entryDate)}</td>
+                    <td className={tdClass}>{formatDateFr(f.entryDate)}</td>
                     <td className={tdClass}>
                       <AdminTruncatedText text={f.equipmentName || f.vehicleLabel} lines={1} />
                     </td>
@@ -284,7 +278,7 @@ export function ProjectFicheActivityOverview({
                     <td className={tdClass}>
                       <AdminTruncatedText text={r.bonLocationNo || r.contractNo} lines={1} />
                     </td>
-                    <td className={tdClass}>{r.lineDate ? fmtDate(r.lineDate) : "—"}</td>
+                    <td className={tdClass}>{r.lineDate ? formatDateFr(r.lineDate) : "—"}</td>
                     <td className={tdTextClass}>
                       <AdminTruncatedText text={r.designation || r.equipmentName} />
                     </td>
@@ -323,7 +317,7 @@ export function ProjectFicheActivityOverview({
               <tbody>
                 {sortedProduction.map((p) => (
                   <tr key={p.id} className={rowHover}>
-                    <td className={tdClass}>{fmtDate(p.entryDate)}</td>
+                    <td className={tdClass}>{formatDateFr(p.entryDate)}</td>
                     <td className={tdClass}>
                       <AdminTruncatedText text={p.siteName} lines={1} />
                     </td>
@@ -358,7 +352,7 @@ export function ProjectFicheActivityOverview({
               <tbody>
                 {sortedDrilling.map((d) => (
                   <tr key={d.id} className={rowHover}>
-                    <td className={tdClass}>{fmtDate(d.reportDate)}</td>
+                    <td className={tdClass}>{formatDateFr(d.reportDate)}</td>
                     <td className={tdClass}>
                       <AdminTruncatedText text={d.rigName} lines={1} />
                     </td>
@@ -395,7 +389,7 @@ export function ProjectFicheActivityOverview({
               <tbody>
                 {sortedTrips.map((t) => (
                   <tr key={t.id} className={rowHover}>
-                    <td className={tdClass}>{fmtDate(t.tripDate)}</td>
+                    <td className={tdClass}>{formatDateFr(t.tripDate)}</td>
                     <td className={tdClass}>
                       <AdminTruncatedText text={t.plate || t.vehicleCode} lines={1} />
                     </td>
@@ -432,7 +426,7 @@ export function ProjectFicheActivityOverview({
               <tbody>
                 {sortedAttendance.map((a) => (
                   <tr key={a.id} className={rowHover}>
-                    <td className={tdClass}>{fmtDate(a.recordDate)}</td>
+                    <td className={tdClass}>{formatDateFr(a.recordDate)}</td>
                     <td className={tdClass}>
                       <AdminTruncatedText text={a.employeeName} lines={1} />
                     </td>
@@ -511,7 +505,7 @@ export function ProjectFicheActivityOverview({
               <tbody>
                 {sortedStock.map((m) => (
                   <tr key={m.id} className={rowHover}>
-                    <td className={tdClass}>{fmtDate(m.movementDate)}</td>
+                    <td className={tdClass}>{formatDateFr(m.movementDate)}</td>
                     <td className={tdClass}>{m.movementType}</td>
                     <td className={tdTextClass}>
                       <AdminTruncatedText text={m.designation || m.reference} />

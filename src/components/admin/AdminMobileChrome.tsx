@@ -13,19 +13,19 @@ export function AdminMobileChrome({ active: _active }: { active: AdminSection })
   const showBack = pathname.startsWith("/admin") && pathname !== "/admin";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-white/95 backdrop-blur-md px-4 py-3 lg:hidden">
+    <header className="sticky top-0 z-40 border-b border-border bg-white/90 px-4 py-3 backdrop-blur-md lg:hidden">
       <div className="flex min-w-0 items-center gap-2">
         {showBack ? (
           <AdminBackLink
             showIcon
             label=""
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--navy)] hover:bg-[var(--gold)]/10"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--admin-radius-md)] text-[var(--navy)] hover:bg-[var(--muted)]"
             aria-label="Retour"
           />
         ) : null}
         <Image src={logoFooter} alt="" width={28} height={28} className="h-7 w-7 shrink-0 object-contain" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--graphite)]/55">
+          <p className="truncate text-[11px] font-medium uppercase tracking-wider text-[var(--graphite)]">
             BARANE INVEST
           </p>
           <p className="truncate text-base font-semibold leading-tight text-[var(--navy)]">{pageTitle}</p>

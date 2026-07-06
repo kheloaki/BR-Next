@@ -29,11 +29,12 @@ export const RENTAL_VIEW_META: Record<
   materials: {
     title: "Matériel location",
     description: "Fiches matériel par catégorie — chantier, tarif journalier (9 h), chauffeur et transport.",
+    exportHref: "/api/admin/rental-materials",
   },
   bons: {
     title: "Bons location",
     description: "Bon de location avec conducteur — lieu de travaux, usage jr/h (1 jr = 9 h) et tarif.",
-    exportHref: "/api/admin/rentals?format=csv",
+    exportHref: "/api/admin/rentals",
   },
 };
 

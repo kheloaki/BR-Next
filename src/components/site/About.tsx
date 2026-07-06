@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import digitalSoftware from "@/assets/digital-software.jpg";
 import sectorInfrastructure from "@/assets/sector-infrastructure.jpg";
 import type { Locale } from "@/lib/i18n";
 import { ScrollRevealWords, usePrefersReducedMotion } from "@/components/site/motion";
@@ -13,66 +14,69 @@ function aboutCopy(locale: Locale) {
   if (locale === "en") {
     return {
       eyebrow: "About",
-      values: ["Field execution", "Multi-brand sourcing", "Morocco & Africa"],
-      titleA: "A reliable industrial partner,",
-      titleB: "structured",
-      titleC: "and execution-focused.",
-      tag: "Since our origins",
+      values: ["Digital platforms", "Cloud & SaaS", "Industrial B2B"],
+      titleA: "A digital startup in Agadir,",
+      titleB: "with an industrial",
+      titleC: "division built for the field.",
+      tag: "Agadir · Morocco",
       p1:
-        "BARANE INVEST is a Moroccan company specialized in industrial supply, infrastructure works, logistics, and B2B trade.",
+        "BARANE INVEST develops business software, SaaS platforms, web & mobile apps, cloud hosting, AI automation and e-commerce — from strategy to delivery and maintenance.",
       p2:
-        "We support contractors, industrial players, mining operators, and public/private principals with corporate rigor and field execution.",
+        "In parallel, we supply construction, infrastructure, logistics and industrial equipment to contractors, mines and large-scale projects across Morocco and Africa.",
       bullets: [
-        "Legally established Moroccan company",
-        "Professional governance",
-        "Multi-brand sourcing",
-        "Nationwide logistics network",
-        "Import-export capability",
+        "Digital: SaaS, web/mobile, cloud, AI & e-commerce",
+        "Industry: multi-brand sourcing & nationwide logistics",
+        "Moroccan company — professional governance",
+        "One structure: consulting, dev, hosting & maintenance",
+        "Agadir HQ — national & international reach",
       ],
-      cta: "Our domains",
+      ctaDigital: "Digital services",
+      ctaIndustrial: "Industrial activities",
     };
   }
   if (locale === "es") {
     return {
       eyebrow: "Nosotros",
-      values: ["Ejecucion en terreno", "Sourcing multimarca", "Marruecos y Africa"],
-      titleA: "Un socio industrial",
-      titleB: "solido",
-      titleC: "estructurado y orientado a la ejecucion.",
-      tag: "Desde nuestros origenes",
+      values: ["Plataformas digitales", "Cloud y SaaS", "Industria B2B"],
+      titleA: "Una startup digital en Agadir,",
+      titleB: "con un pilar",
+      titleC: "industrial orientado al terreno.",
+      tag: "Agadir · Marruecos",
       p1:
-        "BARANE INVEST es una empresa marroqui especializada en suministro industrial, infraestructuras, logistica y comercio B2B.",
+        "BARANE INVEST desarrolla software de gestion, plataformas SaaS, apps web y moviles, cloud, automatizacion con IA y e-commerce — de la estrategia a la entrega y el mantenimiento.",
       p2:
-        "Acompanamos a contratistas, industrias, minas y actores publicos/privados con rigor profesional y ejecucion en terreno.",
+        "En paralelo, suministramos construccion, infraestructura, logistica y equipamiento industrial a contratistas, minas y grandes obras en Marruecos y Africa.",
       bullets: [
-        "Empresa marroqui legalmente constituida",
-        "Gobernanza profesional",
-        "Sourcing multimarca",
-        "Red logistica nacional",
-        "Capacidad import-export",
+        "Digital: SaaS, web/movil, cloud, IA y e-commerce",
+        "Industria: sourcing multimarca y logistica nacional",
+        "Empresa marroqui — gobernanza profesional",
+        "Una estructura: consultoria, dev, hosting y mantenimiento",
+        "Sede en Agadir — alcance nacional e internacional",
       ],
-      cta: "Nuestras actividades",
+      ctaDigital: "Servicios digitales",
+      ctaIndustrial: "Actividades industriales",
     };
   }
   return {
     eyebrow: "À propos",
-    values: ["Exécution terrain", "Sourcing multi-marques", "Maroc & Afrique"],
-    titleA: "Un partenaire industriel",
-    titleB: "sérieux",
-    titleC: "structuré et opérationnel.",
-    tag: "Depuis nos origines",
+    values: ["Plateformes digitales", "Cloud & SaaS", "Industrie B2B"],
+    titleA: "Une startup digitale à Agadir,",
+    titleB: "avec un pôle",
+    titleC: "industriel opérationnel.",
+    tag: "Agadir · Maroc",
     p1:
-      "BARANE INVEST est une société marocaine spécialisée dans la fourniture industrielle, les travaux d'infrastructure, la logistique et le commerce B2B.",
+      "BARANE INVEST développe logiciels métiers, plateformes SaaS, applications web & mobiles, cloud, automatisation IA et e-commerce — de la stratégie à la livraison et la maintenance.",
     p2:
-      "Nous accompagnons les contractants, industriels, mines, carrières et donneurs d'ordre publics et privés avec une rigueur corporate et une exécution terrain sans compromis.",
+      "En parallèle, nous fournissons construction, infrastructure, logistique et équipement industriel aux contractants, mines et grands chantiers au Maroc et en Afrique.",
     bullets: [
-      "Société marocaine légalement constituée",
-      "Gouvernance professionnelle",
-      "Approvisionnement multi-marques",
-      "Réseau logistique national",
-      "Capacité import-export",
+      "Digital : SaaS, web/mobile, cloud, IA & e-commerce",
+      "Industrie : sourcing multi-marques & logistique nationale",
+      "Société marocaine — gouvernance professionnelle",
+      "Une structure : conseil, dev, hébergement & maintenance",
+      "Siège à Agadir — rayonnement national & international",
     ],
-    cta: "Nos domaines",
+    ctaDigital: "Services digitaux",
+    ctaIndustrial: "Activités industrielles",
   };
 }
 
@@ -117,14 +121,14 @@ export function About({ locale = "fr" }: { locale?: Locale }) {
           <span className="eyebrow text-[var(--navy)]">{t.eyebrow}</span>
           <RotatingValues values={t.values} />
           <h2 className="display-xl text-5xl lg:text-7xl xl:text-8xl text-[var(--navy)] max-w-5xl">
-            {t.titleA} <span className="text-[var(--gold)]">{t.titleB}</span>, {t.titleC}
+            {t.titleA} <span className="text-[var(--gold)]">{t.titleB}</span> {t.titleC}
           </h2>
           <div className="mt-16 grid lg:grid-cols-12 gap-12">
             <div className="lg:col-span-6">
               <div className="relative aspect-[4/5] overflow-hidden">
                 <Image
-                  src={sectorInfrastructure}
-                  alt="Infrastructure"
+                  src={digitalSoftware}
+                  alt="BARANE INVEST — services digitaux"
                   fill
                   sizes="(max-width: 1024px) 100vw, 50vw"
                   className="object-cover"
@@ -146,11 +150,18 @@ export function About({ locale = "fr" }: { locale?: Locale }) {
                   </li>
                 ))}
               </ul>
-              <Button variant="navy" size="lg" className="mt-10 self-start" asChild>
-                <Link href={`${prefix}/activites`}>
-                  {t.cta} <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
+              <div className="mt-10 flex flex-wrap gap-3">
+                <Button variant="navy" size="lg" asChild>
+                  <Link href={`${prefix}/services`}>
+                    {t.ctaDigital} <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button variant="outlineNavy" size="lg" asChild>
+                  <Link href={`${prefix}/activites`}>
+                    {t.ctaIndustrial} <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
             </div>
           </div>
         </div>

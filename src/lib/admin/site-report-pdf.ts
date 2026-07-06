@@ -2,12 +2,7 @@ import { jsPDF } from "jspdf";
 import type { SiteReport } from "@/lib/admin/site-report-types";
 import { SITE_REPORT_STATUS_LABELS, SITE_REPORT_TYPE_LABELS } from "@/lib/admin/site-report-types";
 import { getDefaultOrganizationName } from "@/lib/admin/organization";
-
-function formatDate(iso: string) {
-  if (!iso) return "—";
-  const [y, m, d] = iso.slice(0, 10).split("-");
-  return `${d}/${m}/${y}`;
-}
+import { formatDateFr } from "@/lib/admin/date-time-fr";
 
 export function siteReportPdfBytes(report: SiteReport, projectName?: string, orgName?: string) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -25,7 +20,7 @@ export function siteReportPdfBytes(report: SiteReport, projectName?: string, org
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.text(
-    `N° ${report.number} · ${formatDate(report.reportDate)} · ${SITE_REPORT_STATUS_LABELS[report.status]}`,
+    `N° ${report.number} · ${formatDateFr(report.reportDate)} · ${SITE_REPORT_STATUS_LABELS[report.status]}`,
     margin,
     y,
   );
@@ -33,7 +28,7 @@ export function siteReportPdfBytes(report: SiteReport, projectName?: string, org
 
   const period =
     report.periodFrom || report.periodTo
-      ? `${report.periodFrom ? formatDate(report.periodFrom) : "—"} → ${report.periodTo ? formatDate(report.periodTo) : "—"}`
+      ? `${report.periodFrom ? formatDateFr(report.periodFrom) : "—"} → ${report.periodTo ? formatDateFr(report.periodTo) : "—"}`
       : "—";
   doc.text(`Chantier : ${projectName || "—"}`, margin, y);
   y += 5;

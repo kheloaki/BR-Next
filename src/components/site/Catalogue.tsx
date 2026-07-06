@@ -81,10 +81,10 @@ export function Catalogue({
   const t =
     locale === "en"
       ? {
-          eyebrow: "B2B catalogue",
+          eyebrow: "Industrial division · B2B catalogue",
           titleA: "Technical",
           titleB: "products",
-          titleC: "for every chain.",
+          titleC: "for every industrial chain.",
           cta: "View catalogue",
           ctaPdf: "Download PDF catalogue",
           families: "Other categories",
@@ -92,20 +92,20 @@ export function Catalogue({
         }
       : locale === "es"
         ? {
-            eyebrow: "Catalogo B2B",
+            eyebrow: "Division industrial · Catalogo B2B",
             titleA: "Productos",
             titleB: "tecnicos",
-            titleC: "para cada cadena de valor.",
+            titleC: "para cada cadena industrial.",
             cta: "Ver catalogo",
             ctaPdf: "Descargar catalogo PDF",
             families: "Otras familias",
             belowTitle: "Familias de productos del catalogo",
           }
         : {
-            eyebrow: "Catalogue B2B",
+            eyebrow: "Pôle industriel · Catalogue B2B",
             titleA: "Des produits",
             titleB: "techniques",
-            titleC: "pour chaque chaîne.",
+            titleC: "pour chaque chaîne industrielle.",
             cta: "Voir le catalogue",
             ctaPdf: "Télécharger le catalogue PDF",
             families: "Autres familles",

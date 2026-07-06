@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { csvResponse } from "@/lib/admin/csv-response";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { traitementsCsv } from "@/lib/admin/ops-csv-export";
 import { mapTraitementLine, mapTraitementRow } from "@/lib/admin/map-traitement";
 import { nextTraitementNumber } from "@/lib/admin/traitement-number";
 import {
   defaultTraitementSteps,
   normalizeTraitementSteps,
-  TRAITEMENT_STATUS_LABELS,
   TRAITEMENT_STEP_LABELS,
   type TraitementLineInput,
   type TraitementStatus,
@@ -178,35 +178,12 @@ export async function GET(request: Request) {
     const rows = await loadAllTraitements(supabase, organizationId, type);
     const enriched = await attachTraitementFinanceSummaries(supabase, organizationId, rows, auth.userId);
 
-    if (searchParams.get("format") === "csv") {
-      const filename = type === "achat" ? "traitements-achat.csv" : type === "vente" ? "traitements-vente.csv" : "traitements.csv";
-      return csvResponse(
-        filename,
-        ["N°", "Objet", "Partenaire", "Statut", "Articles", "BC/Devis", "BL", "F", "BR", "TTC", "Reste", "Paiement"],
-        enriched.map((r) => {
-          const firstStep = r.traitementType === "achat" ? r.steps.bc : r.steps.devis;
-          const fin = r.financeSummary;
-          const finTtc =
-            fin && "amountTtc" in fin ? String(fin.amountTtc) : fin?.pendingSync ? "Non sync" : "";
-          const finReste = fin && "remainingAmount" in fin ? String(fin.remainingAmount) : "";
-          const finStatut =
-            fin && "paymentStatus" in fin ? fin.paymentStatus : fin?.pendingSync ? "—" : "";
-          return [
-            r.number,
-            r.label,
-            r.partnerName,
-            TRAITEMENT_STATUS_LABELS[r.status],
-            String(r.lines.length),
-            firstStep?.docNumber || firstStep?.status || "",
-            r.steps.bl?.docNumber || r.steps.bl?.status || "",
-            r.steps.f?.docNumber || r.steps.f?.status || "",
-            r.steps.br?.docNumber || r.steps.br?.status || "",
-            finTtc,
-            finReste,
-            finStatut,
-          ];
-        }),
-      );
+    const exportFormat = searchParams.get("format");
+    if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+      return traitementsCsv(enriched, {
+        type,
+        format: parseExportFormat(exportFormat),
+      });
     }
 
     return NextResponse.json(enriched);

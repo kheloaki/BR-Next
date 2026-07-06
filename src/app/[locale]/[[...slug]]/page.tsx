@@ -11,6 +11,7 @@ import PrivacyPage from "@/app/privacy/page";
 import PourquoiPage from "@/app/pourquoi/page";
 import ProjetsPage from "@/app/projets/page";
 import ServicesPage from "@/app/services/page";
+import SolutionsPage from "@/app/solutions/page";
 import SecteursPage from "@/app/secteurs/page";
 import ActivitesLogistiquePage from "@/app/activites/logistique-industrielle/page";
 import ActivitesLogistiqueDelaisPage from "@/app/activites/logistique-industrielle/delais-livraison-projets-industriels/page";
@@ -36,6 +37,7 @@ const routeMap = {
   pourquoi: true,
   projets: true,
   services: true,
+  solutions: true,
   secteurs: true,
   "activites/logistique-industrielle": true,
   "activites/logistique-industrielle/delais-livraison-projets-industriels": true,
@@ -56,19 +58,19 @@ const localizedMeta: Partial<
 > = {
   "": {
     fr: {
-      title: "BARANE INVEST | Groupe industriel B2B",
+      title: "BARANE INVEST | Digital & Industrie au Maroc",
       description:
-        "BARANE INVEST accompagne les projets B2B en logistique, équipements industriels et approvisionnement multisectoriel au Maroc.",
+        "Startup digitale à Agadir : logiciels métiers, applications web & mobiles, plateformes SaaS, cloud, IA et e-commerce, en complément d'un pôle industriel B2B au Maroc.",
     },
     en: {
-      title: "BARANE INVEST | B2B Industrial Group",
+      title: "BARANE INVEST | Digital & Industry in Morocco",
       description:
-        "BARANE INVEST supports B2B projects with logistics, industrial equipment and multisector sourcing in Morocco.",
+        "Agadir-based digital startup: business software, web & mobile apps, SaaS platforms, cloud, AI and e-commerce, alongside a B2B industrial division in Morocco.",
     },
     es: {
-      title: "BARANE INVEST | Grupo Industrial B2B",
+      title: "BARANE INVEST | Digital e Industria en Marruecos",
       description:
-        "BARANE INVEST acompana proyectos B2B con logistica, equipos industriales y abastecimiento multisectorial en Marruecos.",
+        "Startup digital en Agadir: software de gestion, apps web y moviles, plataformas SaaS, cloud, IA y e-commerce, junto a una division industrial B2B en Marruecos.",
     },
   },
   about: {
@@ -233,6 +235,23 @@ const localizedMeta: Partial<
       title: "Servicios digitales | BARANE INVEST",
       description:
         "Desarrollo de software, transformacion digital y marketing digital para impulsar operaciones B2B.",
+    },
+  },
+  solutions: {
+    fr: {
+      title: "Solutions & produits digitaux | BARANE INVEST",
+      description:
+        "Plateformes SaaS, logiciels métiers, applications web et mobiles, marketplaces et solutions e-commerce pour PME marocaines.",
+    },
+    en: {
+      title: "Digital solutions & products | BARANE INVEST",
+      description:
+        "SaaS platforms, business software, web and mobile apps, marketplaces and e-commerce solutions for Moroccan SMEs.",
+    },
+    es: {
+      title: "Soluciones y productos digitales | BARANE INVEST",
+      description:
+        "Plataformas SaaS, software de gestion, apps web y moviles, marketplaces y soluciones e-commerce para PYMES marroquies.",
     },
   },
   secteurs: {
@@ -492,6 +511,8 @@ export default async function LocalePage(props: {
       return <ProjetsPage locale={currentLocale} pathPrefix={pathPrefix} />;
     case "services":
       return <ServicesPage locale={currentLocale} pathPrefix={pathPrefix} />;
+    case "solutions":
+      return <SolutionsPage locale={currentLocale} pathPrefix={pathPrefix} />;
     case "secteurs":
       return <SecteursPage locale={currentLocale} pathPrefix={pathPrefix} />;
     case "activites/logistique-industrielle":

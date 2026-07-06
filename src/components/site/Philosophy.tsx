@@ -14,39 +14,39 @@ function philosophyCopy(locale: Locale) {
   if (locale === "en") {
     return {
       titles: [
-        "Field execution.",
-        "Industrial projects.",
-        "Construction & infrastructure.",
-        "Logistics & equipment.",
-        "Morocco & Africa.",
+        "SaaS & business software.",
+        "Web & mobile applications.",
+        "Cloud, AI & automation.",
+        "Industrial supply & logistics.",
+        "Agadir · Morocco · Africa.",
       ],
       body:
-        "BARANE INVEST is a Moroccan industrial group built for demanding B2B environments — construction, infrastructure, logistics and equipment supply — with corporate rigor and uncompromising on-site delivery.",
+        "BARANE INVEST is a digital startup based in Agadir — we build SaaS platforms, web & mobile apps, cloud infrastructure and e-commerce — alongside a structured industrial B2B division for construction, infrastructure, logistics and equipment across Morocco and Africa.",
     };
   }
   if (locale === "es") {
     return {
       titles: [
-        "Ejecucion en terreno.",
-        "Proyectos industriales.",
-        "Construccion e infraestructura.",
-        "Logistica y equipamiento.",
-        "Marruecos y Africa.",
+        "SaaS y software de gestion.",
+        "Aplicaciones web y moviles.",
+        "Cloud, IA y automatizacion.",
+        "Suministro industrial y logistica.",
+        "Agadir · Marruecos · Africa.",
       ],
       body:
-        "BARANE INVEST es un grupo industrial marroqui pensado para entornos B2B exigentes — construccion, infraestructura, logistica y equipamiento — con rigor corporativo y ejecucion en terreno sin compromisos.",
+        "BARANE INVEST es una startup digital con sede en Agadir — desarrollamos plataformas SaaS, apps web y moviles, infraestructura cloud y e-commerce — junto a un pilar industrial B2B estructurado para construccion, infraestructura, logistica y equipamiento en Marruecos y Africa.",
     };
   }
   return {
     titles: [
-      "Exécution terrain.",
-      "Projets industriels.",
-      "Construction & infrastructure.",
-      "Logistique & équipement.",
-      "Maroc & Afrique.",
+      "SaaS & logiciels métiers.",
+      "Applications web & mobiles.",
+      "Cloud, IA & automatisation.",
+      "Fourniture industrielle & logistique.",
+      "Agadir · Maroc · Afrique.",
     ],
     body:
-      "BARANE INVEST est un groupe industriel marocain conçu pour les environnements B2B exigeants — construction, infrastructure, logistique et équipement — avec une rigueur corporate et une exécution terrain sans compromis.",
+      "BARANE INVEST est une startup digitale basée à Agadir — nous concevons plateformes SaaS, applications web & mobiles, cloud, IA et e-commerce — aux côtés d'un pôle industriel B2B structuré pour la construction, l'infrastructure, la logistique et l'équipement au Maroc et en Afrique.",
   };
 }
 

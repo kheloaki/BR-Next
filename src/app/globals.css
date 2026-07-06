@@ -175,6 +175,10 @@
     background: var(--gold);
     color: var(--navy-deep);
   }
+
+  [id] {
+    scroll-margin-top: 5.5rem;
+  }
 }
 
 /* Topographic / contour pattern overlay (inline SVG) */
@@ -275,6 +279,65 @@
 }
 .animate-marquee {
   animation: marquee 40s linear infinite;
+}
+
+/* ─── Admin ERP shell (SaaS dashboard — scoped, marketing site unchanged) ─── */
+[data-admin] {
+  --background: #f3f4f6;
+  --foreground: #111827;
+  --card: #ffffff;
+  --card-foreground: #111827;
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --muted: #f3f4f6;
+  --muted-foreground: #6b7280;
+  --secondary: #f3f4f6;
+  --secondary-foreground: #374151;
+  --ring: #3b82f6;
+
+  --navy: #111827;
+  --navy-deep: #030712;
+  --graphite: #6b7280;
+  --gold: #f59e0b;
+  --gold-soft: #fbbf24;
+  --ivory: #f9fafb;
+
+  --admin-sidebar: #f3f4f6;
+  --admin-canvas: #ffffff;
+  --admin-shell-bg: #e5e7eb;
+  --admin-accent: #2563eb;
+  --admin-accent-soft: #eff6ff;
+  --admin-accent-bar: #3b82f6;
+  --admin-success: #10b981;
+  --admin-success-soft: #ecfdf5;
+  --admin-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  --admin-shadow-card: 0 4px 20px -6px rgb(15 23 42 / 0.08);
+  --admin-shadow-shell: 0 24px 48px -12px rgb(15 23 42 / 0.14);
+  --admin-radius-sm: 0.5rem;
+  --admin-radius-md: 0.75rem;
+  --admin-radius-lg: 1rem;
+  --admin-radius-xl: 1.5rem;
+  --admin-radius-pill: 9999px;
+  --admin-topbar-h: 3rem;
+
+  color: var(--foreground);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+[data-admin] h1,
+[data-admin] h2,
+[data-admin] h3,
+[data-admin] h4 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  text-transform: none;
+}
+
+[data-admin] ::selection {
+  background: #dbeafe;
+  color: #1e3a8a;
 }
 
 /* Display type helper */

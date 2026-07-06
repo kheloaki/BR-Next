@@ -151,6 +151,7 @@ export function DepotsManager() {
       <OpsModuleHeader
         title="Dépôts"
         description="Entrepôts et magasins — distincts des projets chantier. Utilisés pour les mouvements de stock."
+        exportHref="/api/admin/depots"
         actions={
           <button type="button" className={btnPrimary} onClick={resetForm}>
             Nouveau dépôt

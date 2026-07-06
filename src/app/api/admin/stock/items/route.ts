@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { csvResponse } from "@/lib/admin/csv-response";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { stockInventoryCsv } from "@/lib/admin/ops-csv-export";
 import {
   inventoryToStockItem,
   loadArticlesWithInventory,
@@ -34,20 +35,12 @@ export async function GET(request: Request) {
   let items = excludeGasoilFromStockList(merged);
   if (alertsOnly) items = items.filter((i) => i.status !== "ok");
 
-  if (searchParams.get("format") === "csv") {
-    return csvResponse(
-      "stock-inventaire.csv",
-      ["Référence", "Désignation", "Catégorie", "Qté", "Seuil", "Prix", "Statut"],
-      items.map((i) => [
-        i.reference,
-        i.designation,
-        i.category,
-        String(i.qty),
-        String(i.minQty),
-        String(i.unitPrice),
-        i.status,
-      ]),
-    );
+  const exportFormat = searchParams.get("format");
+  if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+    return stockInventoryCsv(items, {
+      alertsOnly,
+      format: parseExportFormat(exportFormat),
+    });
   }
 
   return NextResponse.json(items);

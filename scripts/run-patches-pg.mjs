@@ -61,6 +61,7 @@ const PATCHES = [
   "47-purchase-request-lines.sql",
   "48-supplier-supply-type-catalog.sql",
   "49-gasoil-unit-litres.sql",
+  "50-employee-cin-fields.sql",
 ];
 
 function loadDatabaseUrl() {

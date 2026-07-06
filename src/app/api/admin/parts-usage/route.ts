@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { PartsUsageType } from "@/components/admin/operations-types";
-import { csvResponse } from "@/lib/admin/csv-response";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { partsUsageCsv } from "@/lib/admin/ops-csv-export";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
 import { opsId } from "@/lib/admin/ops-id";
 import { resolveProjectFields } from "@/lib/admin/project-resolve";
@@ -37,19 +38,9 @@ export async function GET(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const rows = (data ?? []).map(mapRow);
 
-  if (new URL(request.url).searchParams.get("format") === "csv") {
-    return csvResponse(
-      "pieces-lubrifiants.csv",
-      ["Date", "Engin", "Réf", "Désignation", "Qté", "Type"],
-      rows.map((r) => [
-        r.usageDate,
-        r.equipmentName,
-        r.reference,
-        r.designation,
-        String(r.qty),
-        r.usageType,
-      ]),
-    );
+  const exportFormat = new URL(request.url).searchParams.get("format");
+  if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+    return partsUsageCsv(rows, parseExportFormat(exportFormat));
   }
 
   return NextResponse.json(rows);

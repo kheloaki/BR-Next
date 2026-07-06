@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { btnSecondary } from "@/components/admin/admin-form-styles";
+import { btnSecondary, alertWarning } from "@/components/admin/admin-form-styles";
 import { GASOIL_STOCK_MODULE_HREF, GASOIL_STOCK_MODULE_MESSAGE } from "@/lib/admin/gasoil-stock";
 
 export function GasoilStockModuleNotice({ compact = false }: { compact?: boolean }) {
@@ -17,7 +17,7 @@ export function GasoilStockModuleNotice({ compact = false }: { compact?: boolean
   }
 
   return (
-    <div className="rounded-md border border-amber-200/80 bg-amber-50/80 px-4 py-3 text-sm text-amber-950">
+    <div className={alertWarning}>
       <p>
         <strong>{GASOIL_STOCK_MODULE_MESSAGE}</strong> Entrées (traitement achat gasoil, réception BL), sorties (bons
         de sortie) et inventaire citerne :{" "}

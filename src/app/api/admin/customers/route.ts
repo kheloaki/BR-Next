@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { customersCsv } from "@/lib/admin/referential-csv-export";
 import { requireAdminContext } from "@/lib/admin/require-admin";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireAdminContext();
   if ("error" in auth) return auth.error;
   const { userId, organizationId } = auth;
@@ -18,7 +20,13 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json(data ?? []);
+  const rows = data ?? [];
+  const exportFormat = new URL(request.url).searchParams.get("format");
+  if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+    return customersCsv(rows, parseExportFormat(exportFormat));
+  }
+
+  return NextResponse.json(rows);
 }
 
 export async function POST(request: Request) {

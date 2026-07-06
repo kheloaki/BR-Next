@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { SiteReportStatus, SiteReportType } from "@/lib/admin/site-report-types";
 import { SITE_REPORT_TYPES } from "@/lib/admin/site-report-types";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { siteReportsListCsv } from "@/lib/admin/referential-csv-export";
 import { mapSiteReportRow } from "@/lib/admin/map-site-report";
 import { nextSiteReportNumber } from "@/lib/admin/site-report-number";
 import { siteReportPdfBytes, siteReportPdfFilename } from "@/lib/admin/site-report-pdf";
@@ -71,7 +73,14 @@ export async function GET(request: Request) {
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json((data ?? []).map((r) => mapSiteReportRow(r as Record<string, unknown>)));
+  const rows = (data ?? []).map((r) => mapSiteReportRow(r as Record<string, unknown>));
+  if (format === "csv" || format === "excel" || format === "xls") {
+    return siteReportsListCsv(rows, {
+      projectId: projectId ?? undefined,
+      format: parseExportFormat(format),
+    });
+  }
+  return NextResponse.json(rows);
 }
 
 export async function POST(request: Request) {

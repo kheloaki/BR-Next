@@ -28,6 +28,7 @@ import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { gasoilMovementDetail, gasoilMovementOrigin } from "@/lib/admin/gasoil-stock-movement-label";
+import { formatDateFr, formatDateTimeFr } from "@/lib/admin/date-time-fr";
 
 export type FuelStockTab = "stock" | "journal";
 
@@ -247,7 +248,7 @@ export function FuelGasoilStockPanel({
             <tbody>
               {sortedMovements.map((m) => (
                 <tr key={m.id} className={rowHover}>
-                  <td className={tdClass}>{m.movementDate}</td>
+                  <td className={tdClass}>{formatDateFr(m.movementDate)}</td>
                   <td className={tdTextClass}>
                     <AdminTruncatedText text={gasoilMovementOrigin(m)} />
                   </td>

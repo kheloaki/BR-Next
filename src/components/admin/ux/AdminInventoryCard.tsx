@@ -19,8 +19,8 @@ export function AdminInventoryCard({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-white overflow-hidden shadow-sm shadow-black/[0.03]">
-      <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-5">
+    <div className="overflow-hidden rounded-[var(--admin-radius-lg)] border border-border/80 bg-white shadow-[var(--admin-shadow-card)]">
+      <div className="flex flex-col gap-3 border-b border-border px-4 py-3.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-5">
         <h3 className={titleClassName ?? `${sectionTitle} text-base`}>{title}</h3>
         <div className="flex w-full flex-col gap-2 sm:ms-auto sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
           {onSearchChange ? (

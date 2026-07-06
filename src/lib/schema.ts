@@ -12,7 +12,7 @@ type FaqItem = {
 };
 
 const organizationDescription =
-  "Groupe industriel marocain spécialisé en fourniture B2B de pièces d'usure, roulements industriels, bandes convoyeuses, moteurs et équipements industriels pour les secteurs mines, BTP, infrastructure et logistique au Maroc et en Afrique.";
+  "BARANE INVEST est une startup digitale basée à Agadir qui développe, édite et exploite des logiciels métiers, applications web et mobiles, plateformes SaaS, marketplaces et solutions e-commerce, avec des services de transformation digitale, cloud, automatisation, IA, hébergement, maintenance et marketing digital — en complément d'un pôle industriel B2B (fourniture, équipement, logistique) au Maroc et en Afrique.";
 
 const websiteLanguages: Record<Locale, string> = {
   fr: "fr-MA",
@@ -93,15 +93,18 @@ export function buildOrganizationSchema(_locale: Locale) {
     },
     areaServed: ["MA", "DZ", "SN", "CI", "CM", "GH", "TN", "EG", "ZA"],
     knowsAbout: [
-      "pièces d'usure industrielles",
-      "roulements SKF FAG NSK Timken",
-      "bandes transporteuses Fenner ContiTech",
-      "convoyeurs industriels",
-      "moteurs Siemens ABB",
-      "hydraulique Parker Bosch",
-      "fourniture mines et carrières Maroc",
-      "équipement BTP Afrique",
-      "import-export industriel",
+      "développement logiciel sur mesure",
+      "applications web et mobiles",
+      "plateformes SaaS",
+      "marketplaces et e-commerce",
+      "transformation digitale",
+      "intégration cloud et hébergement",
+      "automatisation et intelligence artificielle",
+      "analyse de données et tableaux de bord",
+      "marketing digital et référencement SEO",
+      "création de contenus numériques",
+      "fourniture et équipement industriel B2B Maroc",
+      "logistique et import-export",
     ],
     openingHoursSpecification: {
       "@type": "OpeningHoursSpecification",

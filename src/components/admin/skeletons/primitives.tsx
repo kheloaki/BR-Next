@@ -17,7 +17,7 @@ export function SkeletonStatus({ label, children }: { label: string; children: R
 export function SkeletonBone({ className, style }: { className?: string; style?: CSSProperties }) {
   return (
     <div
-      className={cn("animate-pulse rounded-md bg-[var(--graphite)]/10", className)}
+      className={cn("animate-pulse rounded-[var(--admin-radius-sm)] bg-[var(--graphite)]/10", className)}
       style={style}
       aria-hidden
     />
@@ -39,9 +39,9 @@ export function SkeletonModuleHeader({
         <SkeletonBone className="h-4 w-4/5 max-w-xl" />
       </div>
       <div className="flex flex-wrap gap-2 shrink-0">
-        {hasExport ? <SkeletonBone className="h-11 w-24 rounded-lg" /> : null}
+        {hasExport ? <SkeletonBone className="h-11 w-24 rounded-[var(--admin-radius-pill)]" /> : null}
         {Array.from({ length: actionCount }, (_, i) => (
-          <SkeletonBone key={i} className="h-11 w-36 rounded-lg" />
+          <SkeletonBone key={i} className="h-11 w-36 rounded-[var(--admin-radius-pill)]" />
         ))}
       </div>
     </div>
@@ -71,7 +71,7 @@ export function SkeletonTabs({ labels }: { labels: string[] }) {
       {labels.map((label) => (
         <SkeletonBone
           key={label}
-          className="h-9 rounded-lg"
+          className="h-9 rounded-[var(--admin-radius-pill)]"
           style={{ width: `${Math.max(label.length * 9, 72)}px` }}
         />
       ))}
@@ -82,9 +82,9 @@ export function SkeletonTabs({ labels }: { labels: string[] }) {
 export function SkeletonFilterBar({ fields = 0 }: { fields?: number }) {
   return (
     <div className="mb-4 flex flex-wrap items-end gap-3">
-      <SkeletonBone className="h-10 min-w-[220px] flex-1 max-w-md rounded-lg" />
+      <SkeletonBone className="h-10 min-w-[220px] flex-1 max-w-md rounded-[var(--admin-radius-pill)]" />
       {Array.from({ length: fields }, (_, i) => (
-        <SkeletonBone key={i} className="h-10 w-40 rounded-lg" />
+        <SkeletonBone key={i} className="h-10 w-40 rounded-[var(--admin-radius-pill)]" />
       ))}
     </div>
   );
@@ -96,7 +96,7 @@ export function SkeletonFieldRow({ cols = 3 }: { cols?: number }) {
       {Array.from({ length: cols }, (_, i) => (
         <div key={i} className="space-y-1">
           <SkeletonBone className="h-3 w-14" />
-          <SkeletonBone className="h-10 w-36 rounded-lg" />
+          <SkeletonBone className="h-10 w-36 rounded-[var(--admin-radius-pill)]" />
         </div>
       ))}
     </div>
@@ -160,8 +160,8 @@ export function SkeletonInventoryCard({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
         <SkeletonBone className="h-5 w-44" />
         <div className="flex flex-wrap gap-2">
-          {hasSearch ? <SkeletonBone className="h-9 w-56 rounded-lg" /> : null}
-          {toolbarSelect ? <SkeletonBone className="h-9 w-40 rounded-lg" /> : null}
+          {hasSearch ? <SkeletonBone className="h-9 w-56 rounded-[var(--admin-radius-pill)]" /> : null}
+          {toolbarSelect ? <SkeletonBone className="h-9 w-40 rounded-[var(--admin-radius-pill)]" /> : null}
         </div>
       </div>
       {filterFields > 0 ? <SkeletonFieldRow cols={filterFields} /> : null}
@@ -208,13 +208,13 @@ export function SkeletonFormCard({ fields = 6 }: { fields?: number }) {
         {Array.from({ length: fields }, (_, i) => (
           <div key={i} className={cn("space-y-2", i === fields - 1 && fields % 3 !== 0 && "sm:col-span-2")}>
             <SkeletonBone className="h-3 w-24" />
-            <SkeletonBone className="h-11 w-full rounded-lg" />
+            <SkeletonBone className="h-11 w-full rounded-[var(--admin-radius-pill)]" />
           </div>
         ))}
       </div>
       <div className="flex gap-2 border-t border-border px-5 py-4">
-        <SkeletonBone className="h-11 w-28 rounded-lg" />
-        <SkeletonBone className="h-11 w-32 rounded-lg" />
+        <SkeletonBone className="h-11 w-28 rounded-[var(--admin-radius-pill)]" />
+        <SkeletonBone className="h-11 w-32 rounded-[var(--admin-radius-pill)]" />
       </div>
     </div>
   );
@@ -235,7 +235,7 @@ export function SkeletonSheetForm({ fields = 4 }: { fields?: number }) {
       {Array.from({ length: fields }, (_, i) => (
         <div key={i} className="space-y-2">
           <SkeletonBone className="h-3 w-20" />
-          <SkeletonBone className="h-11 w-full rounded-lg" />
+          <SkeletonBone className="h-11 w-full rounded-[var(--admin-radius-pill)]" />
         </div>
       ))}
     </div>
@@ -266,8 +266,8 @@ export function SkeletonFinanceDetailCard() {
       </div>
       <div className="border-t border-border px-4 py-4 sm:px-5">
         <div className="grid max-w-2xl gap-3 sm:grid-cols-2">
-          <SkeletonBone className="h-11 w-full rounded-lg" />
-          <SkeletonBone className="h-11 w-full rounded-lg" />
+          <SkeletonBone className="h-11 w-full rounded-[var(--admin-radius-pill)]" />
+          <SkeletonBone className="h-11 w-full rounded-[var(--admin-radius-pill)]" />
         </div>
       </div>
     </div>
@@ -281,7 +281,7 @@ export function SkeletonQuoteBuilderHeader() {
         <SkeletonBone className="h-9 w-64" />
         <SkeletonBone className="h-3 w-48" />
       </div>
-      <SkeletonBone className="h-10 w-72 rounded-lg" />
+      <SkeletonBone className="h-10 w-72 rounded-[var(--admin-radius-pill)]" />
     </div>
   );
 }
@@ -297,8 +297,8 @@ export function SkeletonQuoteBuilderBody() {
         <SkeletonBone className="h-5 w-32" />
         <SkeletonBone className="h-4 w-full" />
         <SkeletonBone className="h-4 w-full" />
-        <SkeletonBone className="h-11 w-full rounded-lg" />
-        <SkeletonBone className="h-11 w-full rounded-lg" />
+        <SkeletonBone className="h-11 w-full rounded-[var(--admin-radius-pill)]" />
+        <SkeletonBone className="h-11 w-full rounded-[var(--admin-radius-pill)]" />
       </div>
     </div>
   );
@@ -314,7 +314,7 @@ export function SkeletonGasoilStockPanel() {
             <SkeletonBone className="h-3 w-24" />
             <SkeletonBone className="h-8 w-32" />
           </div>
-          <SkeletonBone className="h-10 w-36 rounded-lg" />
+          <SkeletonBone className="h-10 w-36 rounded-[var(--admin-radius-pill)]" />
         </div>
         <SkeletonTable cols={5} rows={4} />
       </div>

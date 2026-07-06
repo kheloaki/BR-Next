@@ -10,6 +10,7 @@ import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 import {
   btnSecondary,
   moduleWrap,
+  alertError,
   rowHover,
   tdClass,
   tdTextClass,
@@ -32,6 +33,7 @@ import {
   type QuoteDraft,
 } from "@/components/admin/devis-types";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { formatDateTimeFr } from "@/lib/admin/date-time-fr";
 import {
   facturationBonLivraisonFromFacturePath,
   facturationDocumentsPath,
@@ -69,17 +71,6 @@ const FILTER_COPY: Record<Filter, { title: string; description: string; empty: s
   },
 };
 
-function formatDocDate(value: string) {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("fr-FR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 const tableAction =
   "inline-flex h-8 shrink-0 items-center justify-center rounded-md border px-2.5 text-xs font-medium transition whitespace-nowrap";
@@ -213,6 +204,11 @@ export function SavedDevisList() {
       <OpsModuleHeader
         title={copy.title}
         description={copy.description}
+        exportHref={
+          filter === "all"
+            ? "/api/admin/quotes"
+            : `/api/admin/quotes?documentType=${filter}`
+        }
         actions={
           <div className="flex flex-wrap gap-2">
             <button type="button" className={btnSecondary} onClick={() => void loadData()}>
@@ -224,7 +220,7 @@ export function SavedDevisList() {
       />
 
       {loadError ? (
-        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{loadError}</p>
+        <p className={`mb-4 ${alertError}`}>{loadError}</p>
       ) : null}
 
       <AdminTabs
@@ -323,7 +319,7 @@ export function SavedDevisList() {
                       ) : null}
                     </td>
                     <td className={`${tdClass} whitespace-nowrap text-[var(--graphite)]/80`}>
-                      {formatDocDate(quote.createdAt)}
+                      {formatDateTimeFr(quote.createdAt)}
                     </td>
                     <td className={`${tdClass} text-right tabular-nums`}>{quote.items.length}</td>
                     <td className={`${tdClass} text-right`}>

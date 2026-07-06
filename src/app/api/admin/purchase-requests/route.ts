@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { PurchaseCategory, PurchaseRequestStatus } from "@/components/admin/operations-types";
-import { csvResponse } from "@/lib/admin/csv-response";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { purchaseRequestsCsv } from "@/lib/admin/ops-csv-export";
 import { nextDaNumber } from "@/lib/admin/da-number";
 import { getGasoilStockItem } from "@/lib/admin/gasoil-stock-server";
 import { GASOIL_UNIT } from "@/lib/admin/gasoil-stock";
@@ -47,19 +48,12 @@ export async function GET(request: Request) {
     return NextResponse.json(rows[0]);
   }
 
-  if (searchParams.get("format") === "csv") {
-    return csvResponse(
-      "demandes-achat.csv",
-      ["N°", "Catégorie", "Objet", "Montant", "Statut", "Demandeur"],
-      rows.map((r) => [
-        r.number,
-        r.category,
-        r.subject,
-        String(r.totalAmount),
-        r.status,
-        r.requester,
-      ]),
-    );
+  const exportFormat = searchParams.get("format");
+  if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+    return purchaseRequestsCsv(rows, {
+      gasoilOnly,
+      format: parseExportFormat(exportFormat),
+    });
   }
 
   return NextResponse.json(rows);

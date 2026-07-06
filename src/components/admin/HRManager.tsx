@@ -25,6 +25,7 @@ import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { ReferentialBanner } from "@/components/admin/ux/ReferentialBanner";
 import { useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { formatDateFr, formatDateTimeFr } from "@/lib/admin/date-time-fr";
 
 export function HRManager() {
   const toast = useAdminToast();
@@ -99,7 +100,7 @@ export function HRManager() {
       <OpsModuleHeader
         title="RH & pointage"
         description="Pointage quotidien en masse, historique et récap mensuel."
-        exportHref="/api/admin/attendance?format=csv"
+        exportHref="/api/admin/attendance"
         actions={
           <button type="button" className={`${btnPrimary} w-full sm:w-auto`} onClick={() => setTab("daily")}>
             Pointage du jour
@@ -166,7 +167,7 @@ export function HRManager() {
           title="Historique des pointages"
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Nom, matricule…"
+          searchPlaceholder="Nom, N° CIN…"
         >
           {filtered.length === 0 ? (
             <div className="px-5 py-12 text-center text-sm text-[var(--graphite)]/70">
@@ -180,7 +181,7 @@ export function HRManager() {
               <thead>
                 <tr>
                   <AdminSortableTh label="Date" sortKey="recordDate" sort={sort} onSort={onSort} />
-                  <AdminSortableTh label="Matricule" sortKey="matricule" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="N° CIN" sortKey="matricule" sort={sort} onSort={onSort} />
                   <AdminSortableTh label="Nom" sortKey="name" sort={sort} onSort={onSort} />
                   <AdminSortableTh label="Entrée" sortKey="timeIn" sort={sort} onSort={onSort} />
                   <AdminSortableTh label="Sortie" sortKey="timeOut" sort={sort} onSort={onSort} />
@@ -191,7 +192,7 @@ export function HRManager() {
               <tbody>
                 {sortedRows.map((r) => (
                   <tr key={r.id} className={rowHover}>
-                    <td className={tdClass}>{r.recordDate}</td>
+                    <td className={tdClass}>{formatDateFr(r.recordDate)}</td>
                     <td className={tdClass}>{r.matricule}</td>
                     <td className={tdClass}>
                       <AdminTruncatedText text={r.employeeName} lines={1} />

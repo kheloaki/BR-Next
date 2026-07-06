@@ -56,7 +56,7 @@ function HubSheet({
       <div
         role="dialog"
         aria-label={tab.label}
-        className="fixed inset-x-0 bottom-0 z-[70] flex max-h-[min(85dvh,640px)] flex-col rounded-t-2xl border border-border bg-white shadow-2xl lg:hidden animate-in slide-in-from-bottom duration-200"
+        className="fixed inset-x-0 bottom-0 z-[70] flex max-h-[min(85dvh,640px)] flex-col rounded-t-[var(--admin-radius-xl)] border border-border bg-white shadow-2xl lg:hidden animate-in slide-in-from-bottom duration-200"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         <div className="flex shrink-0 items-center justify-center pt-2">
@@ -73,7 +73,7 @@ function HubSheet({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-[var(--graphite)] hover:bg-[var(--background)]"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--admin-radius-md)] border border-border text-[var(--graphite)] hover:bg-[var(--background)]"
             aria-label="Fermer"
           >
             <X className="h-4 w-4" />
@@ -92,7 +92,7 @@ function HubSheet({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Rechercher une page…"
-                className="w-full rounded-lg border border-border bg-[var(--background)] py-2.5 pl-8 pr-3 text-sm outline-none focus:border-[var(--gold)] focus:ring-2 focus:ring-[var(--gold)]/15"
+                className="w-full rounded-[var(--admin-radius-pill)] border border-border bg-white py-2.5 pl-8 pr-3 text-sm shadow-sm outline-none focus:border-[var(--admin-accent)] focus:ring-2 focus:ring-[var(--admin-accent)]/10"
               />
             </div>
           </div>
@@ -114,8 +114,8 @@ function HubSheet({
                       onClick={onClose}
                       className={
                         active
-                          ? "flex items-center gap-3 rounded-xl border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-3 py-3"
-                          : "flex items-center gap-3 rounded-xl border border-border px-3 py-3 transition hover:bg-[var(--background)]"
+                          ? "flex items-center gap-3 rounded-[var(--admin-radius-lg)] border border-[var(--admin-accent)]/30 bg-[var(--admin-accent-soft)] px-3 py-3"
+                          : "flex items-center gap-3 rounded-[var(--admin-radius-lg)] border border-border px-3 py-3 transition hover:bg-[var(--background)]"
                       }
                     >
                       <Icon className="h-5 w-5 shrink-0 text-[var(--navy)]" strokeWidth={1.75} />
@@ -143,8 +143,8 @@ function HubSheet({
                       onClick={onClose}
                       className={
                         active
-                          ? "flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-xl border border-[var(--gold)]/45 bg-[var(--gold)]/10 px-2 py-3 text-center"
-                          : "flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-xl border border-border bg-[var(--background)]/50 px-2 py-3 text-center transition active:scale-[0.98] hover:border-[var(--gold)]/30 hover:bg-white"
+                          ? "flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-[var(--admin-radius-lg)] border border-[var(--admin-accent)]/35 bg-[var(--admin-accent-soft)] px-2 py-3 text-center"
+                          : "flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-[var(--admin-radius-lg)] border border-border bg-[var(--background)]/50 px-2 py-3 text-center transition active:scale-[0.98] hover:border-[var(--admin-accent)]/25 hover:bg-white"
                       }
                     >
                       <Icon className="h-6 w-6 text-[var(--navy)]" strokeWidth={1.75} aria-hidden />
@@ -166,7 +166,7 @@ function HubSheet({
                           key={action.href + action.label}
                           href={action.href}
                           onClick={onClose}
-                          className="flex items-center justify-between rounded-lg px-2 py-2.5 transition hover:bg-[var(--background)]"
+                          className="flex items-center justify-between rounded-[var(--admin-radius-md)] px-2 py-2.5 transition hover:bg-[var(--background)]"
                         >
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-[var(--navy)]">{action.label}</p>
@@ -231,7 +231,7 @@ export function AdminMobileBottomNav() {
                 key={tab.id}
                 type="button"
                 onClick={() => onTabPress(tab)}
-                className={`relative flex flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 transition ${
+                className={`relative flex flex-col items-center justify-center gap-0.5 rounded-[var(--admin-radius-md)] px-1 py-1 transition ${
                   active ? "text-[var(--navy)]" : "text-[var(--graphite)]/55"
                 }`}
                 aria-current={active ? "page" : undefined}
@@ -239,12 +239,12 @@ export function AdminMobileBottomNav() {
               >
                 {active ? (
                   <span
-                    className="absolute inset-x-2 top-1 h-8 rounded-lg bg-[var(--gold)]/12"
+                    className="absolute inset-x-2 top-1 h-8 rounded-[var(--admin-radius-md)] bg-[var(--admin-accent-soft)]"
                     aria-hidden
                   />
                 ) : null}
                 <Icon
-                  className={`relative h-5 w-5 ${active ? "text-[var(--gold)]" : ""}`}
+                  className={`relative h-5 w-5 ${active ? "text-[var(--admin-accent)]" : ""}`}
                   strokeWidth={active ? 2.25 : 1.75}
                   aria-hidden
                 />

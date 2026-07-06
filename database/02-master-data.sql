@@ -75,9 +75,11 @@ create index if not exists idx_admin_equipment_user_id
 create table if not exists public.admin_employees (
   id text primary key,
   user_id text not null references public.admin_users(id) on delete cascade,
-  matricule text not null default '',
+  cin text not null default '',
   name text not null,
   role text not null default '',
+  address text not null default '',
+  birth_date date,
   default_project_id text references public.admin_projects(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

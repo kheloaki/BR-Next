@@ -1,7 +1,7 @@
 "use client";
 
 import { AdminBackLink } from "@/components/admin/ux/AdminBackLink";
-import { btnSecondary, moduleWrap } from "@/components/admin/admin-form-styles";
+import { btnSecondary, card, moduleWrap } from "@/components/admin/admin-form-styles";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 
 export function AdminComingSoonPanel({
@@ -14,7 +14,7 @@ export function AdminComingSoonPanel({
   return (
     <div className={moduleWrap}>
       <OpsModuleHeader title={title} description={description} />
-      <div className="rounded-xl border border-dashed border-border bg-white px-6 py-14 text-center">
+      <div className={`${card} border-dashed px-6 py-14 text-center`}>
         <p className="inline-flex rounded-full bg-[var(--gold)]/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--navy)]">
           Bientôt disponible
         </p>

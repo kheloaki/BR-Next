@@ -29,10 +29,13 @@ import {
 import { formatMoney } from "@/lib/admin/price-ht-ttc";
 import { traitementsHref } from "@/lib/admin/traitement-nav";
 import {
+  alertInfo,
+  alertWarning,
   btnSecondary,
   filterBarClass,
   filterFieldWrap,
   filterInputClass,
+  inlinePanel,
   labelClass,
   moduleWrap,
   rowHover,
@@ -288,12 +291,21 @@ export function FuelMaterialConsumptionPanel() {
     [fuelRows],
   );
 
+  const exportHref = useMemo(() => {
+    const params = new URLSearchParams();
+    if (filterDateFrom) params.set("from", filterDateFrom);
+    if (filterDateTo) params.set("to", filterDateTo);
+    const qs = params.toString();
+    return `/api/admin/fuel/consommation${qs ? `?${qs}` : ""}`;
+  }, [filterDateFrom, filterDateTo]);
+
   if (refLoading || loading) {
     return (
       <div className={moduleWrap}>
         <OpsModuleHeader
           title="Analyse consommation & location matériel"
           description="Heures location, gasoil consommé et coût par heure travaillée — par matériel."
+          exportHref={exportHref}
         />
         <FuelConsumptionPageSkeleton partial />
       </div>
@@ -305,6 +317,7 @@ export function FuelMaterialConsumptionPanel() {
       <OpsModuleHeader
         title="Analyse consommation & location matériel"
         description="Croise les bons location (heures + coût HT) et les bons de sortie gasoil (L, MAD/h) par matériel."
+        exportHref={exportHref}
         actions={
           <>
             <Link href="/admin/equipment-rental/bons" className={btnSecondary}>
@@ -324,14 +337,14 @@ export function FuelMaterialConsumptionPanel() {
         requireEquipment
       />
 
-      <div className="mb-4 rounded-lg border border-border bg-white px-4 py-3 text-sm text-[var(--graphite)]/85">
+      <div className={`mb-4 ${inlinePanel} text-[var(--graphite)]/85`}>
         Coût gasoil calculé à partir du <span className="font-medium text-[var(--navy)]">prix appliqué</span> sur
         chaque bon de sortie. Si le bon n&apos;a pas de prix, le système utilise le{" "}
         <span className="font-medium text-[var(--navy)]">prix moyen des achats stock</span> (traitements / BC gasoil).
       </div>
 
       {estimatedPriceLitres > 0 ? (
-        <div className="mb-4 rounded-lg border border-sky-200/80 bg-sky-50 px-4 py-3 text-sm text-sky-950">
+        <div className={`mb-4 ${alertInfo}`}>
           {fmtLitres(estimatedPriceLitres)} estimés au prix moyen stock (bons de sortie sans prix enregistré). Pour
           un coût exact par bon, saisissez le prix sur chaque{" "}
           <Link href="/admin/fuel/bons" className="font-medium underline underline-offset-2">
@@ -342,7 +355,7 @@ export function FuelMaterialConsumptionPanel() {
       ) : null}
 
       {totalUnpricedLitres > 0 ? (
-        <div className="mb-4 rounded-lg border border-amber-200/80 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+        <div className={`mb-4 ${alertWarning}`}>
           {fmtLitres(totalUnpricedLitres)} sans prix enregistré sur le bon ou le mouvement stock. Les coûts
           affichés concernent uniquement les bons avec prix connu ; complétez les{" "}
             <Link href={traitementsHref({ type: "achat" })} className="font-medium underline underline-offset-2">

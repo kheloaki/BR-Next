@@ -70,7 +70,7 @@ function buildDrafts(
       id: existing?.id,
       employeeId: emp.id,
       employeeName: emp.name,
-      matricule: emp.matricule,
+      matricule: emp.cin,
       role: emp.role,
       status: existing?.status ?? "present",
       timeIn: existing?.timeIn || defaultTimeIn,
@@ -138,17 +138,17 @@ export function HrDailyPointagePanel({
       if (!q) return true;
       return (
         emp.name.toLowerCase().includes(q) ||
-        emp.matricule.toLowerCase().includes(q) ||
+        emp.cin.toLowerCase().includes(q) ||
         emp.role.toLowerCase().includes(q)
       );
     });
   }, [employees, projectId, roleFilter, search]);
 
-  const { sort, onSort, applySort } = useTableSort("matricule", "asc");
+  const { sort, onSort, applySort } = useTableSort("cin", "asc");
 
   const sortAccessors = useMemo(
     () => ({
-      matricule: (emp: AdminEmployee) => emp.matricule,
+      cin: (emp: AdminEmployee) => emp.cin,
       name: (emp: AdminEmployee) => emp.name,
       role: (emp: AdminEmployee) => emp.role,
       status: (emp: AdminEmployee) =>
@@ -399,7 +399,7 @@ export function HrDailyPointagePanel({
         title={`Tableau pointage — ${visibleEmployees.length} affiché${visibleEmployees.length > 1 ? "s" : ""}`}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Nom, matricule, poste…"
+        searchPlaceholder="Nom, N° CIN, poste…"
         actions={
           roles.length > 1 ? (
             <SearchableEnumSelect
@@ -498,7 +498,7 @@ export function HrDailyPointagePanel({
                       aria-label="Tout sélectionner"
                     />
                   </th>
-                  <AdminSortableTh label="Matricule" sortKey="matricule" sort={sort} onSort={onSort} />
+                  <AdminSortableTh label="N° CIN" sortKey="cin" sort={sort} onSort={onSort} />
                   <AdminSortableTh label="Nom" sortKey="name" sort={sort} onSort={onSort} />
                   <AdminSortableTh label="Poste" sortKey="role" sort={sort} onSort={onSort} />
                   <AdminSortableTh
@@ -546,7 +546,7 @@ export function HrDailyPointagePanel({
                           aria-label={`Sélectionner ${emp.name}`}
                         />
                       </td>
-                      <td className={`${tdClass} tabular-nums`}>{emp.matricule}</td>
+                      <td className={`${tdClass} tabular-nums`}>{emp.cin}</td>
                       <td className={tdClass}>
                         <AdminTruncatedText text={emp.name} lines={1} />
                       </td>

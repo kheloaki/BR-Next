@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { SitePvStatus, SitePvType } from "@/lib/admin/site-pv-types";
 import { SITE_PV_TYPES } from "@/lib/admin/site-pv-types";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { sitePvListCsv } from "@/lib/admin/referential-csv-export";
 import { mapSitePvRow } from "@/lib/admin/map-site-pv";
 import { nextPvNumber } from "@/lib/admin/pv-number";
 import { sitePvPdfBytes, sitePvPdfFilename } from "@/lib/admin/site-pv-pdf";
@@ -80,7 +82,15 @@ export async function GET(request: Request) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json((data ?? []).map((r) => mapSitePvRow(r as Record<string, unknown>)));
+  const rows = (data ?? []).map((r) => mapSitePvRow(r as Record<string, unknown>));
+  if (format === "csv" || format === "excel" || format === "xls") {
+    return sitePvListCsv(rows, {
+      projectId: projectId ?? undefined,
+      format: parseExportFormat(format),
+    });
+  }
+
+  return NextResponse.json(rows);
 }
 
 export async function POST(request: Request) {

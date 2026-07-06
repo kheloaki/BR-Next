@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import type { DepotType } from "@/components/admin/operations-types";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { depotsCsv } from "@/lib/admin/referential-csv-export";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
 import { opsId } from "@/lib/admin/ops-id";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -18,7 +20,7 @@ function mapRow(r: Record<string, unknown>, projectName?: string) {
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireAdminUserId();
   if ("error" in auth) return auth.error;
   const { userId, organizationId } = auth;
@@ -30,18 +32,26 @@ export async function GET() {
     .eq("organization_id", organizationId)
     .order("name");
 
+  let rows =
+    error || !data
+      ? null
+      : (data ?? []).map((r) => {
+          const proj = r.admin_projects as { name?: string } | null;
+          return mapRow(r, proj?.name);
+        });
+
   if (error) {
     const fallback = await supabase.from("admin_depots").select("*").eq("organization_id", organizationId).order("name");
     if (fallback.error) return NextResponse.json({ error: fallback.error.message }, { status: 500 });
-    return NextResponse.json((fallback.data ?? []).map((r) => mapRow(r)));
+    rows = (fallback.data ?? []).map((r) => mapRow(r));
   }
 
-  return NextResponse.json(
-    (data ?? []).map((r) => {
-      const proj = r.admin_projects as { name?: string } | null;
-      return mapRow(r, proj?.name);
-    }),
-  );
+  const exportFormat = new URL(request.url).searchParams.get("format");
+  if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+    return depotsCsv(rows ?? [], parseExportFormat(exportFormat));
+  }
+
+  return NextResponse.json(rows ?? []);
 }
 
 export async function POST(request: Request) {

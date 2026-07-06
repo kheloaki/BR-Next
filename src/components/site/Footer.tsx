@@ -26,9 +26,10 @@ function footerCopy(isEnglish: boolean, isSpanish: boolean) {
   if (isEnglish) {
     return {
       description:
-        "BARANE INVEST — B2B industrial supplier based in Agadir, Morocco. Wear parts, SKF & FAG bearings, Fenner & ContiTech belts, Siemens & ABB motors, Parker hydraulics for mining, construction, infrastructure and industry across Morocco and Africa.",
-      tagline: "Industrial supply · Agadir · Morocco & Africa",
+        "BARANE INVEST — Agadir-based digital startup: business software, web & mobile apps, SaaS platforms, marketplaces, e-commerce, cloud, automation, AI and digital marketing. Also a B2B industrial division (supply, equipment, logistics) across Morocco and Africa.",
+      tagline: "Digital & Industry · Agadir · Morocco & Africa",
       company: "Company",
+      digital: "Digital",
       sectors: "Sectors",
       activities: "Activities",
       expertise: "Expertise & products",
@@ -90,6 +91,23 @@ function footerCopy(isEnglish: boolean, isSpanish: boolean) {
         { href: "/partenaires", label: "Partners & brands" },
         { href: "/projets", label: "Projects & references" },
       ] as FooterLink[],
+      digitalLinks: [
+        { href: "/services", label: "Digital services" },
+        { href: "/solutions", label: "SaaS & software" },
+        { href: "/solutions", label: "Web & mobile apps" },
+        { href: "/solutions", label: "E-commerce & marketplaces" },
+        { href: "/services", label: "Cloud & automation" },
+      ] as FooterLink[],
+      digitalKeywordLinks: [
+        { href: "/services", label: "Software development Morocco" },
+        { href: "/solutions", label: "SaaS platform Agadir" },
+        { href: "/solutions", label: "Mobile app development" },
+        { href: "/solutions", label: "E-commerce Morocco" },
+        { href: "/services", label: "Digital transformation" },
+        { href: "/services", label: "Cloud & hosting" },
+        { href: "/services", label: "SEO & digital marketing" },
+        { href: "/services", label: "AI & automation" },
+      ] as FooterLink[],
       legal: "Legal notice",
       privacy: "Privacy",
     };
@@ -97,9 +115,10 @@ function footerCopy(isEnglish: boolean, isSpanish: boolean) {
   if (isSpanish) {
     return {
       description:
-        "BARANE INVEST — proveedor industrial B2B con sede en Agadir, Marruecos. Piezas de desgaste, rodamientos SKF y FAG, bandas Fenner y ContiTech, motores Siemens y ABB, hidraulica Parker para mineria, construccion, infraestructura e industria en Marruecos y Africa.",
-      tagline: "Suministro industrial · Agadir · Marruecos y Africa",
+        "BARANE INVEST — startup digital en Agadir, Marruecos: software de gestion, apps web y moviles, plataformas SaaS, marketplaces, e-commerce, cloud, automatizacion, IA y marketing digital. Ademas, una division industrial B2B (suministro, equipos, logistica) en Marruecos y Africa.",
+      tagline: "Digital e Industria · Agadir · Marruecos y Africa",
       company: "Empresa",
+      digital: "Digital",
       sectors: "Sectores",
       activities: "Actividades",
       expertise: "Expertise y productos",
@@ -161,15 +180,33 @@ function footerCopy(isEnglish: boolean, isSpanish: boolean) {
         { href: "/partenaires", label: "Socios y marcas" },
         { href: "/projets", label: "Proyectos y referencias" },
       ] as FooterLink[],
+      digitalLinks: [
+        { href: "/services", label: "Servicios digitales" },
+        { href: "/solutions", label: "SaaS y software" },
+        { href: "/solutions", label: "Apps web y moviles" },
+        { href: "/solutions", label: "E-commerce y marketplaces" },
+        { href: "/services", label: "Cloud y automatizacion" },
+      ] as FooterLink[],
+      digitalKeywordLinks: [
+        { href: "/services", label: "Desarrollo de software Marruecos" },
+        { href: "/solutions", label: "Plataforma SaaS Agadir" },
+        { href: "/solutions", label: "Desarrollo de apps moviles" },
+        { href: "/solutions", label: "E-commerce Marruecos" },
+        { href: "/services", label: "Transformacion digital" },
+        { href: "/services", label: "Cloud y hosting" },
+        { href: "/services", label: "SEO y marketing digital" },
+        { href: "/services", label: "IA y automatizacion" },
+      ] as FooterLink[],
       legal: "Aviso legal",
       privacy: "Privacidad",
     };
   }
   return {
     description:
-      "BARANE INVEST — fournisseur équipement industriel Agadir, Maroc. Pièces d'usure, roulements SKF & FAG, bandes Fenner & ContiTech, moteurs Siemens & ABB, hydraulique Parker pour mines, BTP, infrastructure et industrie au Maroc et en Afrique.",
-    tagline: "Fourniture industrielle · Agadir · Maroc & Afrique",
+      "BARANE INVEST — startup digitale à Agadir, Maroc : logiciels métiers, applications web & mobiles, plateformes SaaS, marketplaces, e-commerce, cloud, automatisation, IA et marketing digital. Également un pôle industriel B2B (fourniture, équipement, logistique) au Maroc et en Afrique.",
+    tagline: "Digital & Industrie · Agadir · Maroc & Afrique",
     company: "Société",
+    digital: "Digital",
     sectors: "Secteurs",
     activities: "Activités",
     expertise: "Expertises & produits",
@@ -236,6 +273,23 @@ function footerCopy(isEnglish: boolean, isSpanish: boolean) {
       { href: "/partenaires", label: "Partenaires SKF Siemens ABB" },
       { href: "/projets", label: "Références projets B2B" },
     ] as FooterLink[],
+    digitalLinks: [
+      { href: "/services", label: "Services digitaux" },
+      { href: "/solutions", label: "SaaS & logiciels métiers" },
+      { href: "/solutions", label: "Applications web & mobiles" },
+      { href: "/solutions", label: "E-commerce & marketplaces" },
+      { href: "/services", label: "Cloud & automatisation" },
+    ] as FooterLink[],
+    digitalKeywordLinks: [
+      { href: "/services", label: "Développement logiciel Maroc" },
+      { href: "/solutions", label: "Plateforme SaaS Agadir" },
+      { href: "/solutions", label: "Développement application mobile" },
+      { href: "/solutions", label: "Création site e-commerce Maroc" },
+      { href: "/services", label: "Transformation digitale PME" },
+      { href: "/services", label: "Hébergement cloud & maintenance" },
+      { href: "/services", label: "Référencement SEO & marketing digital" },
+      { href: "/services", label: "Automatisation & intelligence artificielle" },
+    ] as FooterLink[],
     legal: "Mentions légales",
     privacy: "Confidentialité",
   };
@@ -286,7 +340,7 @@ export function Footer() {
             <div className="lg:col-span-4">
               <Image
                 src={logoFooter}
-                alt="BARANE INVEST — fournisseur équipement industriel Agadir Maroc"
+                alt="BARANE INVEST — startup digitale et fourniture industrielle Agadir Maroc"
                 width={320}
                 height={88}
                 className="h-20 w-auto object-contain"
@@ -305,22 +359,30 @@ export function Footer() {
               </div>
             </div>
 
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-8 grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <h4 className="eyebrow text-[var(--gold)] mb-6">{t.digital}</h4>
+              <FooterLinkList links={t.digitalLinks} localizedHref={localizedHref} />
+            </div>
+
+            <div>
               <h4 className="eyebrow text-[var(--gold)] mb-6">{t.company}</h4>
               <FooterLinkList links={t.companyLinks} localizedHref={localizedHref} />
             </div>
 
-            <div className="lg:col-span-2">
+            <div>
               <h4 className="eyebrow text-[var(--gold)] mb-6">{t.sectors}</h4>
               <FooterLinkList links={t.sectorLinks} localizedHref={localizedHref} />
             </div>
 
-            <div className="lg:col-span-2">
+            <div>
               <h4 className="eyebrow text-[var(--gold)] mb-6">{t.activities}</h4>
               <FooterLinkList links={t.activityLinks} localizedHref={localizedHref} />
             </div>
+            </div>
 
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-12 grid gap-10 border-t border-[var(--ivory)]/10 pt-12 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
               <h4 className="eyebrow text-[var(--gold)] mb-6">{t.local}</h4>
               <ul className="space-y-3 font-display text-lg text-[var(--ivory)]">
                 <li>
@@ -339,7 +401,9 @@ export function Footer() {
                   </Link>
                 </li>
               </ul>
-              <h4 className="eyebrow text-[var(--gold)] mb-4 mt-10">{t.contact}</h4>
+            </div>
+            <div>
+              <h4 className="eyebrow text-[var(--gold)] mb-4">{t.contact}</h4>
               <ul className="space-y-2 text-sm">
                 <li>{t.city}</li>
                 <li>
@@ -363,18 +427,26 @@ export function Footer() {
                   </a>
                 </li>
               </ul>
+            </div>
+            <div className="flex items-start">
               <a
                 href={CATALOG_PDF_PATH}
                 download
-                className="mt-8 inline-flex items-center justify-between gap-4 border border-[var(--gold)]/40 hover:bg-[var(--gold)] hover:text-[var(--navy-deep)] px-5 py-4 transition-all w-full max-w-xs group"
+                className="inline-flex items-center justify-between gap-4 border border-[var(--gold)]/40 hover:bg-[var(--gold)] hover:text-[var(--navy-deep)] px-5 py-4 transition-all w-full max-w-xs group"
               >
                 <span className="eyebrow text-[var(--gold)] group-hover:text-[var(--navy-deep)]">{t.profile}</span>
                 <Download className="h-4 w-4 shrink-0" />
               </a>
             </div>
+            </div>
           </div>
 
           <div className="mt-16 lg:mt-20 pt-12 lg:pt-16 border-t border-[var(--ivory)]/10">
+            <h4 className="eyebrow text-[var(--gold)] mb-8">{t.digital}</h4>
+            <FooterLinkList links={t.digitalKeywordLinks} localizedHref={localizedHref} size="sm" />
+          </div>
+
+          <div className="mt-10 pt-8 border-t border-[var(--ivory)]/10">
             <h4 className="eyebrow text-[var(--gold)] mb-8">{t.expertise}</h4>
             <FooterLinkList links={t.keywordLinks} localizedHref={localizedHref} size="sm" />
           </div>
@@ -414,19 +486,6 @@ export function Footer() {
               LinkedIn <ArrowUpRight className="h-3 w-3" />
             </a>
           </div>
-        </div>
-        <div className="max-w-[1400px] mx-auto pb-8 text-center">
-          <p className="text-xs text-[var(--ivory)]/40">
-            Website developed by{" "}
-            <a
-              href="https://www.itagroupe.com"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-[var(--gold)] underline underline-offset-2"
-            >
-              ITA GROUPE
-            </a>
-          </p>
         </div>
       </div>
     </footer>

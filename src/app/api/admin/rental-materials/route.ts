@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import type { MaterialCategory, RentalLocationMode } from "@/components/admin/operations-types";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { rentalMaterialsCsv } from "@/lib/admin/referential-csv-export";
 import { mapRentalMaterialRow, type RentalMaterialBody } from "@/lib/admin/map-rental-material-catalog";
 import { isMatriculeComplete } from "@/lib/admin/moroccan-matricule";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
@@ -34,7 +36,7 @@ function validatePricing(body: RentalMaterialBody, cat: MaterialCategory) {
   return null;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireAdminUserId();
   if ("error" in auth) return auth.error;
   const { organizationId } = auth;
@@ -46,7 +48,12 @@ export async function GET() {
     .order("designation");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json((data ?? []).map((r) => mapRentalMaterialRow(r as Record<string, unknown>)));
+  const rows = (data ?? []).map((r) => mapRentalMaterialRow(r as Record<string, unknown>));
+  const exportFormat = new URL(request.url).searchParams.get("format");
+  if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+    return rentalMaterialsCsv(rows, parseExportFormat(exportFormat));
+  }
+  return NextResponse.json(rows);
 }
 
 export async function POST(request: Request) {

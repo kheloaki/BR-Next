@@ -6,57 +6,65 @@ import Link from "next/link";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import heroIndustrial from "@/assets/hero-industrial.jpg";
-import sectorMining from "@/assets/sector-mining.jpg";
-import sectorConstruction from "@/assets/sector-construction.jpg";
+import heroDigitalDev from "@/assets/hero-digital-dev.jpg";
+import heroDigitalCode from "@/assets/hero-digital-code.jpg";
 import sectorLogistics from "@/assets/sector-logistics.jpg";
 import sectorEquipment from "@/assets/sector-equipment.jpg";
 import type { Locale } from "@/lib/i18n";
 import { usePrefersReducedMotion, useScrollProgress } from "@/components/site/motion";
 
 const sideImages = [
-  { src: sectorMining, alt: "Mines et carrières", position: "left" as const },
-  { src: sectorConstruction, alt: "Construction industrielle", position: "left" as const },
-  { src: sectorLogistics, alt: "Logistique terrain", position: "right" as const },
+  { src: heroDigitalDev, alt: "Développeurs logiciel — applications web & SaaS", position: "left" as const },
+  { src: heroDigitalCode, alt: "Programmation — développement web & mobile", position: "left" as const },
+  { src: sectorLogistics, alt: "Logistique industrielle", position: "right" as const },
   { src: sectorEquipment, alt: "Équipement industriel", position: "right" as const },
 ];
+
+const heroBackground = heroIndustrial;
 
 function heroCopy(locale: Locale) {
   if (locale === "en") {
     return {
       titleLine1: "BARANE",
       titleLine2: "INVEST",
-      eyebrow: "Industrial group · Morocco & Africa",
-      tagline: "Build industry, connect projects.",
+      eyebrow: "Digital startup · Industry · Agadir · Morocco",
+      tagline: "Build digital platforms. Power industrial projects.",
       body:
-        "Trusted partner for construction, infrastructure, logistics and industrial equipment — serving companies, mines and large-scale worksites.",
-      cta1: "Request a quote",
-      cta2: "View catalogue",
-      side: "Based in Morocco — Available across Africa",
+        "We develop business software, SaaS platforms, web & mobile apps, cloud and e-commerce — and we supply construction, infrastructure, logistics and industrial equipment across Morocco and Africa.",
+      cta1: "Digital services",
+      cta2: "Industrial catalogue",
+      cta1Href: "#digital",
+      cta2Href: "#catalogue",
+      side: "Agadir, Morocco — Digital & B2B industry",
     };
   }
   if (locale === "es") {
     return {
       titleLine1: "BARANE",
       titleLine2: "INVEST",
-      eyebrow: "Grupo industrial · Marruecos y Africa",
-      tagline: "Construir industria, conectar proyectos.",
+      eyebrow: "Startup digital · Industria · Agadir · Marruecos",
+      tagline: "Construir plataformas digitales. Impulsar proyectos industriales.",
       body:
-        "Socio de confianza para construccion, infraestructura, logistica y equipamiento industrial, al servicio de empresas, minas y grandes obras.",
-      cta1: "Solicitar cotizacion",
-      cta2: "Ver catalogo",
-      side: "Con base en Marruecos — Disponible en toda Africa",
+        "Desarrollamos software de gestion, plataformas SaaS, apps web y moviles, cloud y e-commerce — y suministramos construccion, infraestructura, logistica y equipamiento industrial en Marruecos y Africa.",
+      cta1: "Servicios digitales",
+      cta2: "Catalogo industrial",
+      cta1Href: "#digital",
+      cta2Href: "#catalogue",
+      side: "Agadir, Marruecos — Digital e industria B2B",
     };
   }
   return {
     titleLine1: "BARANE",
     titleLine2: "INVEST",
-    eyebrow: "Groupe industriel · Maroc & Afrique",
-    tagline: "Bâtir l'industrie, connecter les projets.",
+    eyebrow: "Startup digitale · Industrie · Agadir · Maroc",
+    tagline: "Construire le digital. Piloter l'industrie.",
     body:
-      "Partenaire de confiance pour la construction, l'infrastructure, la logistique et l'équipement industriel — au service des entreprises, mines et chantiers d'envergure.",
-    cta1: "Demander un devis",
-    cta2: "Voir le catalogue",
-    side: "Basé au Maroc — Disponible partout en Afrique",
+      "Nous développons logiciels métiers, plateformes SaaS, applications web & mobiles, cloud, IA et e-commerce — et nous fournissons construction, infrastructure, logistique et équipement industriel au Maroc et en Afrique.",
+    cta1: "Services digitaux",
+    cta2: "Catalogue industriel",
+    cta1Href: "/services",
+    cta2Href: "/catalogue",
+    side: "Agadir, Maroc — Digital & industrie B2B",
   };
 }
 
@@ -68,7 +76,7 @@ function HeroStatic({ locale }: { locale: Locale }) {
     <section id="hero" className="relative min-h-[100svh] overflow-hidden bg-[var(--navy-deep)]">
       <div className="absolute inset-0">
         <Image
-          src={heroIndustrial}
+          src={heroBackground}
           alt="Site industriel — BARANE INVEST"
           fill
           priority
@@ -99,12 +107,12 @@ function HeroStatic({ locale }: { locale: Locale }) {
           <p className="mt-6 max-w-md text-[var(--ivory)]/75">{t.body}</p>
           <div className="mt-8 flex flex-wrap gap-0">
             <Button variant="gold" size="xl" asChild>
-              <Link href={`${prefix}/contact`}>
+              <Link href={t.cta1Href}>
                 {t.cta1} <ArrowRight className="h-5 w-5" />
               </Link>
             </Button>
             <Button variant="outlineLight" size="xl" asChild>
-              <Link href={`${prefix}/catalogue`}>
+              <Link href={t.cta2Href}>
                 <Download className="h-5 w-5" /> {t.cta2}
               </Link>
             </Button>
@@ -167,7 +175,7 @@ function HeroBottomBanner({
 
         <div className="pointer-events-auto mx-auto mt-8 flex max-w-xl flex-col items-stretch justify-center gap-0 sm:flex-row sm:items-center">
           <Button variant="gold" size="xl" className="w-full sm:w-auto" asChild>
-            <Link href={`${prefix}/contact`}>
+            <Link href={t.cta1Href}>
               {t.cta1} <ArrowRight className="h-5 w-5" />
             </Link>
           </Button>
@@ -177,7 +185,7 @@ function HeroBottomBanner({
             className="w-full sm:w-auto"
             asChild
           >
-            <Link href={`${prefix}/catalogue`}>
+            <Link href={t.cta2Href}>
               <Download className="h-5 w-5" /> {t.cta2}
             </Link>
           </Button>
@@ -219,7 +227,7 @@ function HeroScroll({ locale }: { locale: Locale }) {
       <div className="relative sticky top-0 h-[100svh] overflow-hidden bg-[var(--navy-deep)]">
         <div className="absolute inset-0 z-10">
           <Image
-            src={heroIndustrial}
+            src={heroBackground}
             alt="Site industriel — BARANE INVEST"
             fill
             priority

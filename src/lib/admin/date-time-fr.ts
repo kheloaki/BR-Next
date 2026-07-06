@@ -28,6 +28,16 @@ export function formatDateFr(iso: string | null | undefined): string {
   return fr || "—";
 }
 
+/** ISO date or datetime → jj/mm/aaaa ou jj/mm/aaaa HH:mm */
+export function formatDateTimeFr(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const raw = iso.trim();
+  const fr = isoToFrDate(raw.slice(0, 10));
+  if (!fr) return "—";
+  const time = raw.match(/[T ](\d{2}):(\d{2})/);
+  return time ? `${fr} ${time[1]}:${time[2]}` : fr;
+}
+
 /** Normalise vers HH:mm (24 h). Chaîne vide si invalide. */
 export function normalizeTime24(value: string): string {
   const t = value.trim();

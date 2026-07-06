@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { csvResponse } from "@/lib/admin/csv-response";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
 import { loadFuelJournal } from "@/lib/admin/fuel-bon-sync";
-import { GASOIL_VEHICLE_CATEGORY_LABELS } from "@/lib/admin/gasoil-bon";
+import { fuelJournalCsv } from "@/lib/admin/ops-csv-export";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -14,22 +14,9 @@ export async function GET(request: Request) {
   try {
     const rows = await loadFuelJournal(supabase, organizationId);
 
-    if (new URL(request.url).searchParams.get("format") === "csv") {
-      return csvResponse(
-        "carburant.csv",
-        ["Date", "N° bon", "Catégorie", "Engin", "Litres", "Chantier", "Compteur", "Heure", "Conducteur"],
-        rows.map((r) => [
-          r.entryDate,
-          r.ticketNo,
-          r.vehicleCategory ? GASOIL_VEHICLE_CATEGORY_LABELS[r.vehicleCategory] : "",
-          r.equipmentName,
-          String(r.litres),
-          r.siteName,
-          r.meterStart != null ? String(r.meterStart) : "",
-          r.fuelTime ?? "",
-          r.fueledBy,
-        ]),
-      );
+    const exportFormat = new URL(request.url).searchParams.get("format");
+    if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+      return fuelJournalCsv(rows, parseExportFormat(exportFormat));
     }
 
     return NextResponse.json(rows);

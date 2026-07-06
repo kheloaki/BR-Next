@@ -1,13 +1,30 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-export default clerkMiddleware((_, request) => {
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-barane-pathname", request.nextUrl.pathname);
-  return NextResponse.next({
-    request: { headers: requestHeaders },
-  });
-});
+const isProtectedAdminRoute = createRouteMatcher([
+  "/admin(.*)",
+  "/(fr|en|es)/admin(.*)",
+  "/api/admin(.*)",
+]);
+
+export default clerkMiddleware(
+  async (auth, request) => {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-barane-pathname", request.nextUrl.pathname);
+
+    if (isProtectedAdminRoute(request)) {
+      await auth.protect();
+    }
+
+    return NextResponse.next({
+      request: { headers: requestHeaders },
+    });
+  },
+  {
+    signInUrl: "/sign-in",
+    signUpUrl: "/sign-up",
+  },
+);
 
 export const config = {
   matcher: [

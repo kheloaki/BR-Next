@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, Search, X } from "lucide-react";
 import {
   ADMIN_NAV_GROUPS,
-  ADMIN_NAV_SHORTCUTS,
   filterNavItems,
   findNavGroupLabelForPath,
   isActiveNavPath,
@@ -19,12 +18,12 @@ const OPEN_GROUPS_KEY = "admin-nav-open-groups-v2";
 function linkClass(active: boolean, collapsed: boolean) {
   if (collapsed) {
     return active
-      ? "flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--gold)]/15 text-[var(--navy)]"
-      : "flex h-10 w-10 items-center justify-center rounded-lg text-[var(--graphite)]/80 transition hover:bg-white hover:text-[var(--navy)]";
+      ? "flex h-9 w-9 items-center justify-center rounded-[var(--admin-radius-sm)] bg-white text-[var(--navy)] shadow-[var(--admin-shadow)]"
+      : "flex h-9 w-9 items-center justify-center rounded-[var(--admin-radius-sm)] text-[var(--graphite)] transition hover:bg-white/90 hover:text-[var(--navy)]";
   }
   return active
-    ? "flex min-h-[40px] items-center gap-2.5 rounded-lg border-l-[3px] border-[var(--gold)] bg-[var(--gold)]/10 py-2 pl-2.5 pr-3 text-sm font-medium text-[var(--navy)]"
-    : "flex min-h-[40px] items-center gap-2.5 rounded-lg border-l-[3px] border-transparent py-2 pl-2.5 pr-3 text-sm text-[var(--graphite)]/85 transition hover:bg-white/90 hover:text-[var(--navy)]";
+    ? "flex min-h-[34px] items-center gap-2 rounded-[var(--admin-radius-sm)] bg-white px-2.5 py-1.5 text-[13px] font-medium text-[var(--navy)] shadow-[var(--admin-shadow)]"
+    : "flex min-h-[34px] items-center gap-2 rounded-[var(--admin-radius-sm)] px-2.5 py-1.5 text-[13px] text-[var(--graphite)] transition hover:bg-white/70 hover:text-[var(--navy)]";
 }
 
 function defaultOpenGroups(pathname: string) {
@@ -110,21 +109,26 @@ export function AdminNavLinks({
   const isSearching = search.trim().length > 0;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       {!collapsed ? (
         <div className="relative">
           <Search
-            className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--graphite)]/45"
+            className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--graphite)]"
             aria-hidden
           />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher une page…"
-            className="w-full rounded-lg border border-border bg-white py-2 pl-8 pr-8 text-sm outline-none transition placeholder:text-[var(--graphite)]/45 focus:border-[var(--gold)] focus:ring-2 focus:ring-[var(--gold)]/15"
+            placeholder="Rechercher…"
+            className="w-full rounded-[var(--admin-radius-pill)] border border-border/80 bg-white py-2 pl-9 pr-12 text-[13px] shadow-sm outline-none transition placeholder:text-[var(--graphite)] focus:border-[var(--admin-accent)]/30 focus:ring-2 focus:ring-[var(--admin-accent)]/10"
             aria-label="Rechercher dans le menu"
           />
+          {!search ? (
+            <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded-[var(--admin-radius-sm)] border border-border bg-[var(--muted)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--graphite)]">
+              /
+            </kbd>
+          ) : null}
           {search ? (
             <button
               type="button"
@@ -162,52 +166,7 @@ export function AdminNavLinks({
         </nav>
       ) : (
         <>
-          {!collapsed ? (
-            <div>
-              <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--graphite)]/50">
-                Accès rapide
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {ADMIN_NAV_SHORTCUTS.map((item) => {
-                  const activeItem = isActiveNavPath(pathname, item.href);
-                  return (
-                    <AdminLink
-                      key={item.href}
-                      href={item.href}
-                      onClick={onNavigate}
-                      className={
-                        activeItem
-                          ? "rounded-full border border-[var(--gold)]/50 bg-[var(--gold)]/12 px-2.5 py-1 text-xs font-medium text-[var(--navy)]"
-                          : "rounded-full border border-border bg-white px-2.5 py-1 text-xs text-[var(--graphite)]/80 transition hover:border-[var(--gold)]/30 hover:text-[var(--navy)]"
-                      }
-                    >
-                      {item.label}
-                    </AdminLink>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-1 border-b border-border pb-3">
-              {ADMIN_NAV_SHORTCUTS.slice(0, 4).map((item) => {
-                const Icon = ADMIN_SECTION_ICON[item.section];
-                const activeItem = isActiveNavPath(pathname, item.href);
-                return (
-                  <AdminLink
-                    key={item.href}
-                    href={item.href}
-                    title={item.label}
-                    onClick={onNavigate}
-                    className={linkClass(activeItem, true)}
-                  >
-                    <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
-                  </AdminLink>
-                );
-              })}
-            </div>
-          )}
-
-          <nav className={`flex flex-col ${collapsed ? "items-center gap-1" : "gap-0.5"}`}>
+          <nav className={`flex flex-col ${collapsed ? "items-center gap-0.5" : "gap-0.5"}`}>
             {ADMIN_NAV_GROUPS.map((group, gi) => {
               const isLabeled = Boolean(group.label);
 
@@ -235,23 +194,18 @@ export function AdminNavLinks({
                 <div key={group.label} className={gi > 0 && !collapsed ? "pt-1" : ""}>
                   {!collapsed ? (
                     <>
-                      {gi > 0 ? <div className="my-2 h-px bg-border/80" aria-hidden /> : null}
+                      {gi > 0 ? <div className="my-3 h-px bg-border/70" aria-hidden /> : null}
                       <button
                         type="button"
                         onClick={() => toggleGroup(group.label!)}
-                        className="mb-0.5 flex w-full items-center justify-between rounded-md px-1.5 py-1.5 text-left text-xs font-semibold text-[var(--graphite)]/70 transition hover:bg-white/80 hover:text-[var(--navy)]"
+                        className="mb-1 flex w-full items-center justify-between px-2 py-1 text-left text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--graphite)] transition hover:text-[var(--navy)]"
                         aria-expanded={open}
                       >
                         <span>{group.label}</span>
-                        <span className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-normal text-[var(--graphite)]/45">
-                            {group.items.length}
-                          </span>
-                          <ChevronDown
-                            className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? "" : "-rotate-90"}`}
-                            aria-hidden
-                          />
-                        </span>
+                        <ChevronDown
+                          className={`h-3 w-3 shrink-0 transition-transform ${open ? "" : "-rotate-90"}`}
+                          aria-hidden
+                        />
                       </button>
                     </>
                   ) : gi > 0 ? (

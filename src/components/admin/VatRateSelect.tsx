@@ -9,12 +9,12 @@ export const VAT_RATE_PRESETS = [0, 7, 10, 14, 20] as const;
 const VAT_RATE_OTHER = [5, 12, 15, 18] as const;
 
 const pillBase =
-  "inline-flex shrink-0 items-center justify-center rounded-md border px-2.5 py-1.5 text-sm font-medium transition active:scale-[0.98]";
+  "inline-flex shrink-0 items-center justify-center rounded-[var(--admin-radius-pill)] border px-2.5 py-1.5 text-sm font-medium transition active:scale-[0.98]";
 
 function pillClass(selected: boolean) {
   return selected
-    ? `${pillBase} border-[var(--gold)] bg-[var(--gold)] text-[var(--navy-deep)]`
-    : `${pillBase} border-border bg-white text-[var(--navy)] hover:bg-[var(--background)]`;
+    ? `${pillBase} border-[var(--admin-accent)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)]`
+    : `${pillBase} border-border bg-white text-[var(--navy)] hover:bg-[var(--muted)]`;
 }
 
 export function VatRateSelect({

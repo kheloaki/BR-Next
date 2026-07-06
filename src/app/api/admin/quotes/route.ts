@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import type { QuoteDraft } from "@/components/admin/devis-types";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { quotesCsv } from "@/lib/admin/referential-csv-export";
 import { requireAdminContext } from "@/lib/admin/require-admin";
 import { computeNextDocumentNumber, yearFromDate } from "@/lib/admin/document-number";
 import { syncTraitementAfterQuoteSave } from "@/lib/admin/traitement-sync-server";
@@ -50,6 +52,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const documentType = searchParams.get("documentType");
+
   const quotes = (data ?? []).map((row) => {
     const payload = row.payload as QuoteDraft;
     return {
@@ -59,7 +63,19 @@ export async function GET(request: Request) {
     };
   });
 
-  return NextResponse.json(quotes, {
+  const filtered = documentType
+    ? quotes.filter((q) => (q.documentType ?? "devis") === documentType)
+    : quotes;
+
+  const exportFormat = searchParams.get("format");
+  if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+    return quotesCsv(filtered, {
+      documentType: documentType ?? undefined,
+      format: parseExportFormat(exportFormat),
+    });
+  }
+
+  return NextResponse.json(filtered, {
     headers: {
       "Cache-Control": "no-store, no-cache, must-revalidate",
       "X-Clerk-User-Id": userId,

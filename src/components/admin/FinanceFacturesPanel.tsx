@@ -22,8 +22,8 @@ export function FinanceFacturesPanel() {
 
   const exportHref =
     tab === "clients"
-      ? "/api/admin/finance/reports?kind=balance_clients&format=csv"
-      : "/api/admin/finance/reports?kind=balance_fournisseurs&format=csv";
+      ? "/api/admin/finance/reports?kind=balance_clients"
+      : "/api/admin/finance/reports?kind=balance_fournisseurs";
 
   return (
     <div className={moduleWrap}>

@@ -27,6 +27,7 @@ import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { ReferentialBanner } from "@/components/admin/ux/ReferentialBanner";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import { useTableSort } from "@/components/admin/ux/useTableSort";
+import { formatDateFr, formatDateTimeFr } from "@/lib/admin/date-time-fr";
 
 export function ProductionManager() {
   const toast = useAdminToast();
@@ -120,7 +121,7 @@ export function ProductionManager() {
       <OpsModuleHeader
         title="Production"
         description="Tonnage journalier et performance par chantier."
-        exportHref="/api/admin/production?format=csv"
+        exportHref="/api/admin/production"
         actions={
           <button type="button" className={btnPrimary} onClick={() => setTab("new")}>
             Saisir production
@@ -205,7 +206,7 @@ export function ProductionManager() {
               <tbody>
                 {sortedRows.map((r) => (
                   <tr key={r.id} className={rowHover}>
-                    <td className={tdClass}>{r.entryDate}</td>
+                    <td className={tdClass}>{formatDateFr(r.entryDate)}</td>
                     <td className={tdClass}>
                       <AdminTruncatedText text={r.siteName} lines={1} />
                     </td>

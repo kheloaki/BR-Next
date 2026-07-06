@@ -19,13 +19,13 @@ import {
   validateMovementInput,
 } from "@/lib/admin/finance-rules";
 import { DEFAULT_VAT_RATE, formatMoney, htToTtc, roundMoney } from "@/lib/admin/price-ht-ttc";
-import { btnPrimary, formGridClass, inputClass, labelClass } from "@/components/admin/admin-form-styles";
+import { btnPrimary, cardMuted, formGridClass, inputClass, labelClass } from "@/components/admin/admin-form-styles";
 import { AdminFormCard } from "@/components/admin/ux/AdminFormCard";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 
 function FormSection({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {
   return (
-    <section className={`rounded-lg border border-border/70 bg-[var(--background)]/35 p-4 ${className}`}>
+    <section className={`${cardMuted} p-4 ${className}`}>
       <h4 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--graphite)]/65">
         {title}
       </h4>

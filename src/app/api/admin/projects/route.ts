@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
 import { buildAdminProjectPayload, mapAdminProjectRow } from "@/lib/admin/map-project";
+import { projectsCsv } from "@/lib/admin/referential-csv-export";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
 import { opsId } from "@/lib/admin/ops-id";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -11,7 +13,8 @@ export async function GET(request: Request) {
   const auth = await requireAdminUserId();
   if ("error" in auth) return auth.error;
   const { userId, organizationId } = auth;
-  const status = new URL(request.url).searchParams.get("status");
+  const { searchParams } = new URL(request.url);
+  const status = searchParams.get("status");
 
   let query = getSupabaseAdminClient()
     .from("admin_projects")
@@ -27,7 +30,14 @@ export async function GET(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const projects = (data ?? []).map((r) => mapAdminProjectRow(r as Record<string, unknown>));
 
-  const financials = new URL(request.url).searchParams.get("financials") === "1";
+  const financials = searchParams.get("financials") === "1";
+  const exportFormat = searchParams.get("format");
+  if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+    return projectsCsv(projects, {
+      status: status ?? undefined,
+      format: parseExportFormat(exportFormat),
+    });
+  }
   if (!financials || projects.length === 0) {
     return NextResponse.json(projects);
   }

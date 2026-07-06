@@ -42,6 +42,7 @@ export function FinanceExpensesPanel() {
       <OpsModuleHeader
         title="Dépenses"
         description="Sorties caisse / banque — montant HT/TTC, fournisseur et catégorie."
+        exportHref="/api/admin/finance/reports?kind=depenses_categorie"
       />
       <FinanceExpenseForm
         accounts={accounts}

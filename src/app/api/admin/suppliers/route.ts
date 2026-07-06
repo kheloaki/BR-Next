@@ -9,6 +9,8 @@ import {
   mergeSupplyTypeOptions,
   type SupplierSupplyTypeOption,
 } from "@/lib/admin/supplier-supply-type-catalog";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { suppliersCsv } from "@/lib/admin/referential-csv-export";
 import { requireAdminContext } from "@/lib/admin/require-admin";
 import {
   normalizeSupplyTypes,
@@ -78,7 +80,16 @@ export async function GET(request: Request) {
     );
   }
 
-  return NextResponse.json(rows.map((r) => mapSupplierRow(r)));
+  const mapped = rows.map((r) => mapSupplierRow(r));
+  const exportFormat = new URL(request.url).searchParams.get("format");
+  if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+    return suppliersCsv(mapped, {
+      supplyType: supplyType ?? undefined,
+      format: parseExportFormat(exportFormat),
+    });
+  }
+
+  return NextResponse.json(mapped);
 }
 
 export async function POST(request: Request) {

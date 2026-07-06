@@ -38,6 +38,7 @@ import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import { useAdminListFormNav } from "@/components/admin/ux/useAdminListFormNav";
+import { formatDateFr, formatDateTimeFr } from "@/lib/admin/date-time-fr";
 
 export function SiteReportsManager({
   defaultProjectId,
@@ -203,7 +204,8 @@ export function SiteReportsManager({
       {!embedded ? (
         <OpsModuleHeader
           title="Rapports chantier"
-          description="Journalier, hebdomadaire, avancement, production — export PDF."
+          description="Journalier, hebdomadaire, avancement, production — export PDF ou liste CSV/Excel."
+          exportHref="/api/admin/site-reports"
           actions={
             tab === "list" ? (
               <button type="button" className={btnPrimary} onClick={() => { resetForm(); openFormNew(); }}>
@@ -291,7 +293,7 @@ export function SiteReportsManager({
                     <tr key={row.id} className={rowHover}>
                       <td className={`${tdClass} font-mono text-xs`}>{row.number}</td>
                       <td className={tdClass}>{SITE_REPORT_TYPE_LABELS[row.reportType]}</td>
-                      <td className={tdClass}>{row.reportDate}</td>
+                      <td className={tdClass}>{formatDateFr(row.reportDate)}</td>
                       <td className={tdClass}>
                         <AdminTruncatedText
                           text={projects.find((p) => p.id === row.projectId)?.name}

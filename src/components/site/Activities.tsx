@@ -53,12 +53,27 @@ function activitiesData(locale: Locale): Activity[] {
 
 function sectionTitle(locale: Locale) {
   if (locale === "en") {
-    return { eyebrow: "Business domains", titleA: "A", titleB: "multi-sector", titleC: "offer for industrial projects." };
+    return {
+      eyebrow: "Industrial division",
+      titleA: "A",
+      titleB: "multi-sector",
+      titleC: "B2B offer for construction, mining & infrastructure.",
+    };
   }
   if (locale === "es") {
-    return { eyebrow: "Areas de actividad", titleA: "Una oferta", titleB: "multisectorial", titleC: "para proyectos industriales." };
+    return {
+      eyebrow: "Division industrial",
+      titleA: "Una oferta",
+      titleB: "multisectorial",
+      titleC: "B2B para construccion, mineria e infraestructura.",
+    };
   }
-  return { eyebrow: "Domaines d'activité", titleA: "Une offre", titleB: "multi-sectorielle", titleC: "au service des projets industriels." };
+  return {
+    eyebrow: "Pôle industriel",
+    titleA: "Une offre",
+    titleB: "multi-sectorielle",
+    titleC: "B2B pour le BTP, les mines & l'infrastructure.",
+  };
 }
 
 export function Activities({ locale = "fr" }: { locale?: Locale }) {

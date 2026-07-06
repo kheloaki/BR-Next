@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { btnDanger, btnSecondary } from "@/components/admin/admin-form-styles";
+import { btnDanger, btnSecondary, card } from "@/components/admin/admin-form-styles";
 import { registerConfirmDelete, registerAlertDialog, type AlertDialogOptions, type ConfirmDeleteOptions } from "@/components/admin/ux/useAdminToast";
 
 type PendingConfirm = {
@@ -99,7 +99,7 @@ export function ConfirmDeleteProvider({ children }: { children: ReactNode }) {
             aria-modal="true"
             aria-labelledby="confirm-delete-title"
             aria-describedby="confirm-delete-desc"
-            className="relative w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-xl"
+            className={`relative w-full max-w-md ${card} p-6 shadow-xl`}
             onClick={(e) => e.stopPropagation()}
           >
             <h2 id="confirm-delete-title" className="text-lg font-semibold text-[var(--navy)]">

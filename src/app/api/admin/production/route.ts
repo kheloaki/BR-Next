@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { csvResponse } from "@/lib/admin/csv-response";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { productionCsv } from "@/lib/admin/ops-csv-export";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
 import { opsId } from "@/lib/admin/ops-id";
 import { resolveProjectFields } from "@/lib/admin/project-resolve";
@@ -39,18 +40,9 @@ export async function GET(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const rows = (data ?? []).map(mapRow);
 
-  if (new URL(request.url).searchParams.get("format") === "csv") {
-    return csvResponse(
-      "production.csv",
-      ["Date", "Chantier", "Tonnage", "Cible", "Matériau"],
-      rows.map((r) => [
-        r.entryDate,
-        r.siteName,
-        String(r.tonnage),
-        String(r.targetTonnage),
-        r.material,
-      ]),
-    );
+  const exportFormat = new URL(request.url).searchParams.get("format");
+  if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+    return productionCsv(rows, parseExportFormat(exportFormat));
   }
 
   return NextResponse.json(rows);

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { organizationMembersCsv } from "@/lib/admin/referential-csv-export";
 import {
   ASSIGNABLE_MEMBER_ROLES,
   canManageMembers,
@@ -19,7 +21,7 @@ function mapMember(row: Record<string, unknown>) {
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireAdminContext();
   if ("error" in auth) return auth.error;
   const { organizationId } = auth;
@@ -31,7 +33,12 @@ export async function GET() {
     .order("created_at", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json((data ?? []).map((row) => mapMember(row as Record<string, unknown>)));
+  const rows = (data ?? []).map((row) => mapMember(row as Record<string, unknown>));
+  const exportFormat = new URL(request.url).searchParams.get("format");
+  if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+    return organizationMembersCsv(rows, parseExportFormat(exportFormat));
+  }
+  return NextResponse.json(rows);
 }
 
 export async function POST(request: Request) {

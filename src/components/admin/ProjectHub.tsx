@@ -15,6 +15,7 @@ import { ProjectReportsPanel } from "@/components/admin/ProjectReportsPanel";
 import { ProjectDocumentsPanel, ProjectHistoryPanel } from "@/components/admin/ProjectDocumentsPanel";
 import { ProjectFicheSettingsSheet } from "@/components/admin/ProjectFicheSettingsSheet";
 import { btnSecondary, moduleWrap } from "@/components/admin/admin-form-styles";
+import { formatDateFr } from "@/lib/admin/date-time-fr";
 import { ProjectHubSkeleton } from "@/components/admin/skeletons/pages";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
 
@@ -100,6 +101,7 @@ export function ProjectHub({ projectId }: { projectId: string }) {
             .filter(Boolean)
             .join(" · ") || "Fiche projet"
         }
+        exportHref={`/api/admin/projects/${projectId}/summary`}
         actions={
           <>
             <button
@@ -158,7 +160,7 @@ export function ProjectHub({ projectId }: { projectId: string }) {
           )}
           {project.startDate || project.endDate ? (
             <p>
-              Période : {project.startDate ?? "—"} → {project.endDate ?? "—"}
+              Période : {project.startDate ? formatDateFr(project.startDate) : "—"} → {project.endDate ? formatDateFr(project.endDate) : "—"}
             </p>
           ) : null}
           {project.notes ? <p className="mt-1 text-[var(--graphite)]/70">{project.notes}</p> : null}

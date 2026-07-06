@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { OpsModuleHeader } from "@/components/admin/OpsModuleHeader";
-import { MatriculeInput } from "@/components/admin/MatriculeInput";
 import { PersonnelCategorySelectWithAdd } from "@/components/admin/PersonnelCategorySelectWithAdd";
 import { ProjectSelect } from "@/components/admin/ProjectSelect";
 import { useOpsReferential } from "@/components/admin/useOpsReferential";
@@ -39,9 +38,11 @@ export function PersonnelManager() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
-  const [newEmpMatricule, setNewEmpMatricule] = useState("");
+  const [newEmpCin, setNewEmpCin] = useState("");
   const [newEmpName, setNewEmpName] = useState("");
   const [newEmpRole, setNewEmpRole] = useState("");
+  const [newEmpAddress, setNewEmpAddress] = useState("");
+  const [newEmpBirthDate, setNewEmpBirthDate] = useState("");
   const [newEmpProjectId, setNewEmpProjectId] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
 
@@ -58,7 +59,7 @@ export function PersonnelManager() {
 
   const loading = refLoading || catLoading;
 
-  const { sort: empSort, onSort: onEmpSort, applySort: applyEmpSort } = useTableSort("matricule", "asc");
+  const { sort: empSort, onSort: onEmpSort, applySort: applyEmpSort } = useTableSort("name", "asc");
   const { sort: catSort, onSort: onCatSort, applySort: applyCatSort } = useTableSort("name", "asc");
 
   const filteredEmployees = useMemo(() => {
@@ -67,7 +68,8 @@ export function PersonnelManager() {
     return employees.filter(
       (e) =>
         e.name.toLowerCase().includes(q) ||
-        e.matricule.toLowerCase().includes(q) ||
+        e.cin.toLowerCase().includes(q) ||
+        e.address.toLowerCase().includes(q) ||
         e.role.toLowerCase().includes(q) ||
         (e.defaultProjectName || "").toLowerCase().includes(q),
     );
@@ -75,9 +77,11 @@ export function PersonnelManager() {
 
   const empSortAccessors = useMemo(
     () => ({
-      matricule: (e: AdminEmployee) => e.matricule,
+      cin: (e: AdminEmployee) => e.cin,
       name: (e: AdminEmployee) => e.name,
       role: (e: AdminEmployee) => e.role,
+      address: (e: AdminEmployee) => e.address,
+      birthDate: (e: AdminEmployee) => e.birthDate ?? "",
       project: (e: AdminEmployee) => e.defaultProjectName ?? "",
     }),
     [],
@@ -110,9 +114,11 @@ export function PersonnelManager() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        matricule: newEmpMatricule.trim(),
+        cin: newEmpCin.trim(),
         name: newEmpName.trim(),
         role: newEmpRole.trim(),
+        address: newEmpAddress.trim(),
+        birthDate: newEmpBirthDate || null,
         defaultProjectId: newEmpProjectId || null,
       }),
     });
@@ -122,9 +128,11 @@ export function PersonnelManager() {
       return;
     }
     toast.success("Collaborateur ajouté.");
-    setNewEmpMatricule("");
+    setNewEmpCin("");
     setNewEmpName("");
     setNewEmpRole("");
+    setNewEmpAddress("");
+    setNewEmpBirthDate("");
     setNewEmpProjectId("");
     setAddOpen(false);
     await refresh();
@@ -136,9 +144,11 @@ export function PersonnelManager() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id: emp.id,
-        matricule: patch.matricule ?? emp.matricule,
+        cin: patch.cin ?? emp.cin,
         name: patch.name ?? emp.name,
         role: patch.role ?? emp.role,
+        address: patch.address ?? emp.address,
+        birthDate: patch.birthDate !== undefined ? patch.birthDate : emp.birthDate,
         defaultProjectId:
           patch.defaultProjectId !== undefined ? patch.defaultProjectId : emp.defaultProjectId,
       }),
@@ -210,6 +220,7 @@ export function PersonnelManager() {
       <OpsModuleHeader
         title="Personnel"
         description="Collaborateurs, postes et affectations. Ajout rapide via fiche latérale depuis les autres modules."
+        exportHref="/api/admin/employees"
         actions={
           <button type="button" className={btnPrimary} onClick={() => setAddOpen(true)}>
             + Ajouter au personnel
@@ -242,7 +253,7 @@ export function PersonnelManager() {
           title="Liste du personnel"
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Nom, matricule, poste…"
+          searchPlaceholder="Nom, N° CIN, adresse, poste…"
         >
           {filteredEmployees.length === 0 ? (
             <div className="px-5 py-12 text-center text-sm text-[var(--graphite)]/70">
@@ -255,9 +266,11 @@ export function PersonnelManager() {
             <AdminTableWrap>
               <thead>
                 <tr>
-                  <AdminSortableTh label="Matricule" sortKey="matricule" sort={empSort} onSort={onEmpSort} />
+                  <AdminSortableTh label="N° CIN" sortKey="cin" sort={empSort} onSort={onEmpSort} />
                   <AdminSortableTh label="Nom" sortKey="name" sort={empSort} onSort={onEmpSort} />
                   <AdminSortableTh label="Poste" sortKey="role" sort={empSort} onSort={onEmpSort} />
+                  <AdminSortableTh label="Adresse" sortKey="address" sort={empSort} onSort={onEmpSort} />
+                  <AdminSortableTh label="Date de naissance" sortKey="birthDate" sort={empSort} onSort={onEmpSort} />
                   <AdminSortableTh label="Chantier défaut" sortKey="project" sort={empSort} onSort={onEmpSort} />
                   <th className={thClass} />
                 </tr>
@@ -266,12 +279,13 @@ export function PersonnelManager() {
                 {sortedEmployees.map((emp) => (
                   <tr key={emp.id}>
                     <td className={tdClass}>
-                      <MatriculeInput
-                        compact
-                        deferCommit
-                        value={emp.matricule}
-                        onChange={(matricule) => {
-                          if (matricule !== emp.matricule) void updateEmployee(emp, { matricule });
+                      <input
+                        className={inputClass}
+                        defaultValue={emp.cin}
+                        placeholder="N° CIN"
+                        onBlur={(e) => {
+                          const cin = e.target.value.trim();
+                          if (cin !== emp.cin) void updateEmployee(emp, { cin });
                         }}
                       />
                     </td>
@@ -293,6 +307,28 @@ export function PersonnelManager() {
                         onCategoryAdded={(c) => setCategories((prev) => [...prev, c])}
                         allowEmpty
                         placeholder="Poste…"
+                      />
+                    </td>
+                    <td className={tdClass}>
+                      <input
+                        className={inputClass}
+                        defaultValue={emp.address}
+                        placeholder="Adresse"
+                        onBlur={(e) => {
+                          const address = e.target.value.trim();
+                          if (address !== emp.address) void updateEmployee(emp, { address });
+                        }}
+                      />
+                    </td>
+                    <td className={tdClass}>
+                      <input
+                        type="date"
+                        className={inputClass}
+                        defaultValue={emp.birthDate ?? ""}
+                        onBlur={(e) => {
+                          const birthDate = e.target.value || null;
+                          if (birthDate !== (emp.birthDate ?? "")) void updateEmployee(emp, { birthDate });
+                        }}
                       />
                     </td>
                     <td className={tdClass}>
@@ -391,10 +427,13 @@ export function PersonnelManager() {
       >
         <div className={formGridClass}>
           <div>
-            <p className={labelClass}>Matricule</p>
-            <div className="mt-1">
-              <MatriculeInput value={newEmpMatricule} onChange={setNewEmpMatricule} />
-            </div>
+            <p className={labelClass}>N° CIN</p>
+            <input
+              className={`${inputClass} mt-1`}
+              value={newEmpCin}
+              onChange={(e) => setNewEmpCin(e.target.value)}
+              placeholder="Carte d'identité nationale"
+            />
           </div>
           <div>
             <p className={labelClass}>Nom & prénom *</p>
@@ -411,6 +450,23 @@ export function PersonnelManager() {
               value={newEmpRole}
               onChange={setNewEmpRole}
               onCategoryAdded={(c) => setCategories((prev) => [...prev, c])}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <p className={labelClass}>Adresse</p>
+            <input
+              className={`${inputClass} mt-1`}
+              value={newEmpAddress}
+              onChange={(e) => setNewEmpAddress(e.target.value)}
+            />
+          </div>
+          <div>
+            <p className={labelClass}>Date de naissance</p>
+            <input
+              type="date"
+              className={`${inputClass} mt-1`}
+              value={newEmpBirthDate}
+              onChange={(e) => setNewEmpBirthDate(e.target.value)}
             />
           </div>
           <div className="sm:col-span-2">

@@ -22,6 +22,7 @@ import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { AdminToast } from "@/components/admin/ux/AdminToast";
 import { readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
 import { useTableSort } from "@/components/admin/ux/useTableSort";
+import { formatDateFr, formatDateTimeFr } from "@/lib/admin/date-time-fr";
 
 export function FinanceClosingsPanel() {
   const toast = useAdminToast();
@@ -84,7 +85,7 @@ export function FinanceClosingsPanel() {
 
   return (
     <div className={moduleWrap}>
-      <OpsModuleHeader title="Clôtures caisse" description="Contrôle journalier — solde théorique vs compté." />
+      <OpsModuleHeader title="Clôtures caisse" description="Contrôle journalier — solde théorique vs compté." exportHref="/api/admin/finance/closings" />
 
       <AdminFormCard
         title="Clôture caisse journalière"
@@ -136,7 +137,7 @@ export function FinanceClosingsPanel() {
           <tbody>
             {sortedClosings.map((c) => (
               <tr key={c.id} className={rowHover}>
-                <td className={tdClass}>{c.closingDate}</td>
+                <td className={tdClass}>{formatDateFr(c.closingDate)}</td>
                 <td className={tdClass}>
                   <AdminTruncatedText text={c.accountName ?? c.accountId} lines={1} />
                 </td>

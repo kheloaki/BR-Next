@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { csvResponse } from "@/lib/admin/csv-response";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { drillingCsv } from "@/lib/admin/ops-csv-export";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
 import { opsId } from "@/lib/admin/ops-id";
 import { resolveProjectFields } from "@/lib/admin/project-resolve";
@@ -41,18 +42,9 @@ export async function GET(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const rows = (data ?? []).map(mapRow);
 
-  if (new URL(request.url).searchParams.get("format") === "csv") {
-    return csvResponse(
-      "foration.csv",
-      ["Date", "Chantier", "Foreuse", "Mètres", "Cible"],
-      rows.map((r) => [
-        r.reportDate,
-        r.siteName,
-        r.rigName,
-        String(r.metersDrilled),
-        String(r.targetMeters),
-      ]),
-    );
+  const exportFormat = new URL(request.url).searchParams.get("format");
+  if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+    return drillingCsv(rows, parseExportFormat(exportFormat));
   }
 
   return NextResponse.json(rows);

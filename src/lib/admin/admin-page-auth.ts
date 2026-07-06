@@ -1,9 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 
-export async function requireAdminPage(redirectPath: string): Promise<string> {
-  const { userId, redirectToSignIn } = await auth();
-  if (!userId) {
-    return redirectToSignIn({ returnBackUrl: redirectPath }) as never;
-  }
+/** Ensures an authenticated Clerk session (admin routes are protected in proxy.ts). */
+export async function requireAdminPage(_redirectPath: string): Promise<string> {
+  const { userId } = await auth.protect();
   return userId;
 }

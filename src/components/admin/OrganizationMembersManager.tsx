@@ -239,6 +239,7 @@ export function OrganizationMembersManager() {
       <OpsModuleHeader
         title="Utilisateurs"
         description="Membres de l'espace BARANE INVEST — rôles, invitations et accès aux modules."
+        exportHref="/api/admin/organization/members"
       />
 
       <div className={`${moduleWrap} mt-4 space-y-4`}>

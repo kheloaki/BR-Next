@@ -45,18 +45,18 @@ export function FacturationNewDocumentButton({ className }: { className?: string
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 top-full z-30 mt-1.5 min-w-[240px] overflow-hidden rounded-lg border border-border bg-white py-1 shadow-lg"
+          className="absolute right-0 top-full z-30 mt-1.5 min-w-[240px] overflow-hidden rounded-[var(--admin-radius-lg)] border border-border bg-white py-1 shadow-[var(--admin-shadow-card)]"
         >
           {FACTURATION_NEW_DOCUMENT_OPTIONS.map(({ type, shortLabel }) => (
             <Link
               key={type}
               role="menuitem"
               href={facturationBuilderPath(type)}
-              className="flex items-center gap-3 px-3 py-2.5 transition hover:bg-[var(--background)]"
+              className="flex items-center gap-3 px-3 py-2.5 transition hover:bg-[var(--muted)]"
               onClick={() => setOpen(false)}
             >
               <span
-                className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xs font-bold ${DOCUMENT_BADGE_CLASS[type]}`}
+                className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--admin-radius-sm)] text-xs font-bold ${DOCUMENT_BADGE_CLASS[type]}`}
               >
                 {shortLabel}
               </span>

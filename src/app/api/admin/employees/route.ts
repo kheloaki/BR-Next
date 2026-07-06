@@ -1,14 +1,33 @@
 import { NextResponse } from "next/server";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { employeesCsv } from "@/lib/admin/referential-csv-export";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
 import { opsId } from "@/lib/admin/ops-id";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
-const SELECT = "id, matricule, name, role, default_project_id";
+const SELECT = "id, cin, name, role, address, birth_date, default_project_id";
 
-export async function GET() {
+function mapEmployeeRow(
+  r: Record<string, unknown>,
+  projectNames: Map<string, string>,
+) {
+  const projectId = (r.default_project_id as string) || null;
+  return {
+    id: r.id as string,
+    cin: (r.cin as string) || "",
+    name: r.name as string,
+    role: (r.role as string) || "",
+    address: (r.address as string) || "",
+    birthDate: r.birth_date ? String(r.birth_date).slice(0, 10) : null,
+    defaultProjectId: projectId,
+    defaultProjectName: projectId ? projectNames.get(projectId) || "" : "",
+  };
+}
+
+export async function GET(request: Request) {
   const auth = await requireAdminUserId();
   if ("error" in auth) return auth.error;
-  const { userId, organizationId } = auth;
+  const { organizationId } = auth;
 
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
@@ -32,18 +51,12 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json(
-    (data ?? []).map((r) => ({
-      id: r.id,
-      matricule: r.matricule,
-      name: r.name,
-      role: r.role,
-      defaultProjectId: (r.default_project_id as string) || null,
-      defaultProjectName: r.default_project_id
-        ? projectNames.get(r.default_project_id as string) || ""
-        : "",
-    })),
-  );
+  const rows = (data ?? []).map((r) => mapEmployeeRow(r, projectNames));
+  const exportFormat = new URL(request.url).searchParams.get("format");
+  if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+    return employeesCsv(rows, parseExportFormat(exportFormat));
+  }
+  return NextResponse.json(rows);
 }
 
 export async function POST(request: Request) {
@@ -52,9 +65,11 @@ export async function POST(request: Request) {
   const { userId, organizationId } = auth;
   const body = (await request.json()) as {
     id?: string;
-    matricule?: string;
+    cin?: string;
     name?: string;
     role?: string;
+    address?: string;
+    birthDate?: string | null;
     defaultProjectId?: string | null;
   };
   if (!body.name?.trim()) {
@@ -74,10 +89,13 @@ export async function POST(request: Request) {
     }
   }
 
+  const birthRaw = body.birthDate?.trim();
   const payload = {
-    matricule: body.matricule?.trim() || "",
+    cin: body.cin?.trim() || "",
     name: body.name.trim(),
     role: body.role?.trim() || "",
+    address: body.address?.trim() || "",
+    birth_date: birthRaw || null,
     default_project_id: projectId,
     updated_at: new Date().toISOString(),
   };
@@ -100,30 +118,23 @@ export async function POST(request: Request) {
   if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
   const r = result.data;
 
-  let defaultProjectName = "";
+  const projectNames = new Map<string, string>();
   if (r.default_project_id) {
     const { data: p } = await supabase
       .from("admin_projects")
       .select("name")
       .eq("id", r.default_project_id)
       .maybeSingle();
-    defaultProjectName = (p?.name as string) || "";
+    if (p?.name) projectNames.set(r.default_project_id as string, p.name as string);
   }
 
-  return NextResponse.json({
-    id: r.id,
-    matricule: r.matricule,
-    name: r.name,
-    role: r.role,
-    defaultProjectId: (r.default_project_id as string) || null,
-    defaultProjectName,
-  });
+  return NextResponse.json(mapEmployeeRow(r, projectNames));
 }
 
 export async function DELETE(request: Request) {
   const auth = await requireAdminUserId();
   if ("error" in auth) return auth.error;
-  const { userId, organizationId } = auth;
+  const { organizationId } = auth;
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 

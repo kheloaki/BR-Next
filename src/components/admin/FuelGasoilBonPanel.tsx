@@ -35,6 +35,12 @@ import {
   pruneFilterValue,
   pruneProjectId,
 } from "@/lib/admin/filter-scope";
+import { appendExportFormat } from "@/lib/admin/admin-csv-export";
+import {
+  filterGasoilBons,
+  gasoilBonExportBasePath,
+  gasoilBonListFiltersFromPanelState,
+} from "@/lib/admin/gasoil-bon-list-filters";
 import { GASOIL_VEHICLE_CATEGORIES, GASOIL_VEHICLE_CATEGORY_LABELS } from "@/lib/admin/gasoil-bon";
 import { assertBonSerieNoAvailable } from "@/lib/admin/bon-number-duplicate";
 import { formatBonLocationNo } from "@/lib/admin/rental-bon-number-format";
@@ -258,21 +264,57 @@ export function FuelGasoilBonPanel({
     filterDateTo !== "";
 
   const filtered = useMemo(() => {
-    let list = applyFacetScope(rows, gasoilFacetChecks);
-
-    const q = search.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter(
-      (r) =>
-        r.number.toLowerCase().includes(q) ||
-        projectName(r.projectId).toLowerCase().includes(q) ||
-        r.equipmentName.toLowerCase().includes(q) ||
-        r.vehicleLabel.toLowerCase().includes(q) ||
-        r.beneficiary.toLowerCase().includes(q) ||
-        r.supplier.toLowerCase().includes(q) ||
-        GASOIL_VEHICLE_CATEGORY_LABELS[r.vehicleCategory].toLowerCase().includes(q),
+    return filterGasoilBons(
+      rows,
+      gasoilBonListFiltersFromPanelState({
+        fixedBonType,
+        filterProjectId,
+        filterCategory,
+        filterMaterial,
+        filterPerson,
+        filterDateFrom,
+        filterDateTo,
+        search,
+      }),
+      { isCommande, projectName },
     );
-  }, [rows, search, projects, gasoilFacetChecks]);
+  }, [
+    rows,
+    fixedBonType,
+    filterProjectId,
+    filterCategory,
+    filterMaterial,
+    filterPerson,
+    filterDateFrom,
+    filterDateTo,
+    search,
+    isCommande,
+    projects,
+  ]);
+
+  const listExportHref = useMemo(() => {
+    return gasoilBonExportBasePath(
+      gasoilBonListFiltersFromPanelState({
+        fixedBonType,
+        filterProjectId,
+        filterCategory,
+        filterMaterial,
+        filterPerson,
+        filterDateFrom,
+        filterDateTo,
+        search,
+      }),
+    );
+  }, [
+    fixedBonType,
+    filterProjectId,
+    filterCategory,
+    filterMaterial,
+    filterPerson,
+    filterDateFrom,
+    filterDateTo,
+    search,
+  ]);
 
   const filteredTotals = useMemo(() => {
     let litres = 0;
@@ -484,9 +526,17 @@ export function FuelGasoilBonPanel({
               : "N° bon, matériel, chantier, conducteur…"
           }
           actions={
-            <button type="button" className={btnPrimary} onClick={openNew}>
-              {isCommande ? "Nouvelle commande" : "Nouveau bon"}
-            </button>
+            <>
+              <a href={appendExportFormat(listExportHref, "csv")} className={btnSecondary}>
+                CSV ({filtered.length})
+              </a>
+              <a href={appendExportFormat(listExportHref, "excel")} className={btnSecondary}>
+                Excel ({filtered.length})
+              </a>
+              <button type="button" className={btnPrimary} onClick={openNew}>
+                {isCommande ? "Nouvelle commande" : "Nouveau bon"}
+              </button>
+            </>
           }
         >
           <div className={filterBarClass}>

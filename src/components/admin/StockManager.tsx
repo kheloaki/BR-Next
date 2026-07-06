@@ -48,6 +48,7 @@ import { ProductSelectWithAdd } from "@/components/admin/ProductSelectWithAdd";
 import type { Product } from "@/components/admin/devis-types";
 import { isGasoilStockModuleError } from "@/lib/admin/gasoil-stock";
 import { confirmDelete, readApiError, useAdminToast } from "@/components/admin/ux/useAdminToast";
+import { formatDateFr, formatDateTimeFr } from "@/lib/admin/date-time-fr";
 
 export function StockManager() {
   const toast = useAdminToast();
@@ -282,7 +283,10 @@ export function StockManager() {
       <OpsModuleHeader
         title="Gestion de stock"
         description="Inventaire articles — quantités, seuils et mouvements."
-        exportHref="/api/admin/stock/items?format=csv"
+        exports={[
+          { label: "Inventaire", href: "/api/admin/stock/items" },
+          { label: "Mouvements", href: "/api/admin/stock/movements" },
+        ]}
         actions={
           <Link href="/admin/products" className={btnPrimary}>
             Catalogue articles
@@ -501,7 +505,7 @@ export function StockManager() {
                 <tbody>
                   {sortedRecentMovements.map((m) => (
                     <tr key={m.id} className={rowHover}>
-                      <td className={tdClass}>{m.movementDate}</td>
+                      <td className={tdClass}>{formatDateFr(m.movementDate)}</td>
                       <td className={tdTextClass}>
                         <AdminTruncatedText text={m.designation} />
                       </td>

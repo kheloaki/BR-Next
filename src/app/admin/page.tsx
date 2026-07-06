@@ -1,5 +1,27 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import {
+  ClipboardList,
+  Drill,
+  Factory,
+  FileText,
+  Fuel,
+  HardHat,
+  Landmark,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Package,
+  Pickaxe,
+  Receipt,
+  Share2,
+  ShoppingCart,
+  Truck,
+  Upload,
+  Users,
+  Wallet,
+  Warehouse,
+  Wrench,
+} from "lucide-react";
 import { currentUser } from "@clerk/nextjs/server";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { requireAdminPage } from "@/lib/admin/admin-page-auth";
@@ -11,17 +33,40 @@ import {
 import { resolveAdminOrganizationForUser } from "@/lib/admin/organization";
 import { ensureAdminUserRow } from "@/lib/supabase/admin";
 import { getDashboardStats, type DashboardStats } from "@/lib/admin/dashboard-stats";
+import { canAccessFinance } from "@/lib/admin/finance-permissions";
+import { financeFacturesHref } from "@/lib/admin/finance-nav";
 import { computeQuoteTotals } from "@/lib/admin/project-report-calculations";
 import {
-  facturationBuilderPath,
   facturationDocumentsPath,
   facturationEditPath,
 } from "@/lib/admin/facturation-nav";
-import { btnPrimary, btnSecondary, card } from "@/components/admin/admin-form-styles";
+import {
+  btnPrimary,
+  btnSecondary,
+  btnSecondarySm,
+  card,
+  linkAccent,
+  pageEyebrow,
+  pageSubtitle,
+  pageTitle,
+} from "@/components/admin/admin-form-styles";
+import {
+  AdminActivityChart,
+  AdminAttentionList,
+  AdminCommercialBreakdown,
+  AdminFinanceLockedCard,
+  AdminHeroKpi,
+  AdminInitCard,
+  AdminMetricCard,
+  AdminStatusPill,
+  AdminToolbarPill,
+} from "@/components/admin/ui/admin-dashboard";
+import { AdminDismissibleSection } from "@/components/admin/ui/AdminDismissibleSection";
+import { formatDateFr } from "@/lib/admin/date-time-fr";
 
 export const metadata: Metadata = {
   title: "Tableau de bord",
-  description: "Vue d'ensemble de l'activité commerciale BARANE INVEST.",
+  description: "Vue d'ensemble de l'activité BARANE INVEST — chantiers, commercial et opérations.",
   robots: {
     index: false,
     follow: false,
@@ -37,7 +82,19 @@ function moneyMad(value: number) {
 }
 
 function litresFr(value: number) {
-  return `${new Intl.NumberFormat("fr-MA", { maximumFractionDigits: 1 }).format(value)} L`;
+  return `${new Intl.NumberFormat("fr-MA", { maximumFractionDigits: 0 }).format(value)} L`;
+}
+
+function tonnageFr(value: number) {
+  return `${new Intl.NumberFormat("fr-MA", { maximumFractionDigits: 1 }).format(value)} t`;
+}
+
+function metersFr(value: number) {
+  return `${new Intl.NumberFormat("fr-MA", { maximumFractionDigits: 0 }).format(value)} m`;
+}
+
+function monthLabelFr() {
+  return new Intl.DateTimeFormat("fr-MA", { month: "long", year: "numeric" }).format(new Date());
 }
 
 const EMPTY_STATS: DashboardStats = {
@@ -53,6 +110,8 @@ const EMPTY_STATS: DashboardStats = {
     monthTotalTtc: 0,
     monthFacturesTtc: 0,
     monthDevisTtc: 0,
+    monthBcTtc: 0,
+    monthBlTtc: 0,
   },
   operations: {
     projectsCount: 0,
@@ -62,6 +121,9 @@ const EMPTY_STATS: DashboardStats = {
     pendingPurchaseRequests: 0,
     fuelLitresMonth: 0,
     fuelLitresTotal: 0,
+    gasoilStockLitres: 0,
+    gasoilMinLitres: 0,
+    gasoilStockStatus: "ok",
     productionTonnageMonth: 0,
     productionTargetMonth: 0,
     productionRate: null,
@@ -74,8 +136,53 @@ const EMPTY_STATS: DashboardStats = {
     partsUsageQtyMonth: 0,
     employeesCount: 0,
   },
+  activity: { weeks: [] },
+  finance: null,
+  attentionCount: 0,
   recentDocuments: [],
 };
+
+function buildAttentionItems(o: DashboardStats["operations"], finance: DashboardStats["finance"]) {
+  const items: { label: string; href: string; count?: number }[] = [];
+  if (o.stockAlerts > 0) {
+    items.push({
+      count: o.stockAlerts,
+      label: `alerte${o.stockAlerts > 1 ? "s" : ""} stock — réapprovisionner`,
+      href: "/admin/stock",
+    });
+  }
+  if (o.pendingPurchaseRequests > 0) {
+    items.push({
+      count: o.pendingPurchaseRequests,
+      label: `demande${o.pendingPurchaseRequests > 1 ? "s" : ""} d'achat en attente`,
+      href: "/admin/purchase-requests",
+    });
+  }
+  if (o.traitementsOpen > 0) {
+    items.push({
+      count: o.traitementsOpen,
+      label: `traitement${o.traitementsOpen > 1 ? "s" : ""} achat/vente en cours`,
+      href: "/admin/traitements",
+    });
+  }
+  if (o.gasoilStockStatus !== "ok") {
+    items.push({
+      label:
+        o.gasoilStockStatus === "out"
+          ? "Stock gasoil épuisé — réapprovisionner la citerne"
+          : `Stock gasoil bas (${litresFr(o.gasoilStockLitres)} / seuil ${litresFr(o.gasoilMinLitres)})`,
+      href: "/admin/fuel/stock",
+    });
+  }
+  if (finance && finance.overdueCount > 0) {
+    items.push({
+      count: finance.overdueCount,
+      label: `facture${finance.overdueCount > 1 ? "s" : ""} en retard de paiement`,
+      href: "/admin/finance/factures",
+    });
+  }
+  return items;
+}
 
 export default async function AdminPage({
   searchParams,
@@ -94,43 +201,55 @@ export default async function AdminPage({
   }
 
   let stats = EMPTY_STATS;
+  let canFinance = false;
   try {
     await ensureAdminUserRow(userId);
     const org = await resolveAdminOrganizationForUser(userId);
-    stats = await getDashboardStats(org.organizationId);
+    canFinance = canAccessFinance(org.role);
+    stats = await getDashboardStats(org.organizationId, { includeFinance: canFinance });
   } catch {
     // Render empty dashboard if DB unavailable
   }
 
-  const { commercial: c, operations: o, recentDocuments: recent } = stats;
+  const { commercial: c, operations: o, activity, finance, attentionCount, recentDocuments: recent } = stats;
   const greeting = firstName ? `Bonjour ${firstName}` : "Bonjour";
+  const attentionItems = buildAttentionItems(o, finance);
+  const monthName = monthLabelFr();
+
+  const gasoilSub =
+    o.gasoilStockLitres > 0
+      ? `Citerne ${litresFr(o.gasoilStockLitres)}${o.gasoilStockStatus !== "ok" ? " · bas" : ""}`
+      : "Consommation sorties ce mois";
 
   return (
     <AdminShell active="dashboard">
-      <div className={`${card} flex flex-wrap items-center justify-between gap-3 bg-[var(--background)]/60`}>
-        <div>
-          <p className="text-xs uppercase tracking-[0.12em] text-[var(--graphite)]/70">
-            BARANE INVEST · Espace administration
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold text-[var(--navy)]">{greeting}</h1>
-          <p className="mt-1 text-sm text-[var(--graphite)]/80">
-            Données en direct — {o.activeProjectsCount} chantier{o.activeProjectsCount !== 1 ? "s" : ""} actif
-            {o.activeProjectsCount !== 1 ? "s" : ""}
-            , {c.monthDocsCount} document{c.monthDocsCount !== 1 ? "s" : ""} ce mois.
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <p className={pageEyebrow}>BARANE INVEST · Tableau de bord</p>
+          <h1 className={`mt-1 ${pageTitle}`}>{greeting}</h1>
+          <p className={pageSubtitle}>
+            {monthName} — {o.activeProjectsCount} chantier{o.activeProjectsCount !== 1 ? "s" : ""} actif
+            {o.activeProjectsCount !== 1 ? "s" : ""}, {c.monthDocsCount} document{c.monthDocsCount !== 1 ? "s" : ""}{" "}
+            commercial{c.monthDocsCount !== 1 ? "ux" : ""}, {moneyMad(c.monthFacturesTtc)} facturé.
           </p>
         </div>
-        <div className="flex w-full flex-col gap-2 sm:flex-row">
-          <Link href={facturationDocumentsPath()} className={`${btnPrimary} w-full sm:w-auto`}>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Link href={facturationDocumentsPath()} className={btnPrimary}>
+            <Upload className="h-4 w-4" aria-hidden />
             Documents enregistrés
           </Link>
-          <Link href="/admin/projets" className={`${btnSecondary} w-full sm:w-auto`}>
+          <Link href="/admin/projets" className={btnSecondary}>
+            <Share2 className="h-4 w-4" aria-hidden />
             Chantiers
+          </Link>
+          <Link href="/admin/devis-builder" className={btnSecondary}>
+            Nouveau document
           </Link>
         </div>
       </div>
 
       {financeParam === "forbidden" && (
-        <div className="mt-4 rounded-md border border-[#f0d4b8] bg-[#fff8f0] px-4 py-3 text-sm text-[#7a3d12]">
+        <div className="mb-5 rounded-[var(--admin-radius-lg)] border border-amber-200/80 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <p className="font-medium">Accès Finance refusé</p>
           <p className="mt-1">
             Votre rôle actuel ne permet pas d&apos;accéder au module Finance. Demandez à un administrateur de vous
@@ -143,241 +262,417 @@ export default async function AdminPage({
         </div>
       )}
 
-      {(o.stockAlerts > 0 || o.pendingPurchaseRequests > 0 || o.traitementsOpen > 0) && (
-        <div className="mt-4 rounded-md border border-[#f0d4b8] bg-[#fff8f0] px-4 py-3 text-sm text-[#7a3d12] space-y-1">
-          {o.stockAlerts > 0 ? (
-            <p>
-              <strong>{o.stockAlerts}</strong> alerte{o.stockAlerts > 1 ? "s" : ""} stock.{" "}
-              <Link href="/admin/stock" className="underline underline-offset-2">
-                Voir le stock
-              </Link>
-            </p>
-          ) : null}
-          {o.pendingPurchaseRequests > 0 ? (
-            <p>
-              <strong>{o.pendingPurchaseRequests}</strong> demande{o.pendingPurchaseRequests > 1 ? "s" : ""} d&apos;achat
-              en attente.{" "}
-              <Link href="/admin/purchase-requests" className="underline underline-offset-2">
-                Traiter
-              </Link>
-            </p>
-          ) : null}
-          {o.traitementsOpen > 0 ? (
-            <p>
-              <strong>{o.traitementsOpen}</strong> traitement{o.traitementsOpen > 1 ? "s" : ""} achat/vente en cours.{" "}
-              <Link href="/admin/traitements" className="underline underline-offset-2">
-                Ouvrir
-              </Link>
-            </p>
+      {attentionItems.length > 0 ? (
+        <div className="mb-6">
+          <AdminAttentionList items={attentionItems} />
+        </div>
+      ) : null}
+
+      <section className="mb-8">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[var(--graphite)]">Indicateurs clés</h2>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <AdminHeroKpi
+            href={facturationDocumentsPath("facture")}
+            label="Facturation"
+            value={moneyMad(c.monthFacturesTtc)}
+            sub={`${c.factureCount} facture${c.factureCount !== 1 ? "s" : ""} · ${c.monthDocsCount} doc. ce mois`}
+            tone="amber"
+            variant="success"
+          />
+          <AdminHeroKpi
+            href="/admin/projets"
+            label="Chantiers"
+            value={`${o.activeProjectsCount} / ${o.projectsCount}`}
+            sub={`${o.activeProjectsCount} actif${o.activeProjectsCount !== 1 ? "s" : ""} sur ${o.projectsCount} projet${o.projectsCount !== 1 ? "s" : ""}`}
+            tone="emerald"
+            progress={o.projectsCount > 0 ? Math.round((o.activeProjectsCount / o.projectsCount) * 100) : undefined}
+          />
+          <AdminHeroKpi
+            href="/admin/production"
+            label="Production"
+            value={o.productionTonnageMonth > 0 ? tonnageFr(o.productionTonnageMonth) : "—"}
+            sub={
+              o.productionTargetMonth > 0
+                ? `Objectif ${tonnageFr(o.productionTargetMonth)} · ${o.productionRate ?? 0}% atteint`
+                : "Saisie production du mois"
+            }
+            tone="blue"
+            progress={o.productionRate ?? undefined}
+          />
+          <AdminHeroKpi
+            href={attentionItems[0]?.href ?? "/admin/stock"}
+            label="À traiter"
+            value={String(attentionCount)}
+            sub={
+              attentionCount > 0
+                ? "Stock · DA · traitements · gasoil"
+                : "Aucune alerte opérationnelle"
+            }
+            tone="orange"
+            variant={attentionCount > 0 ? "warning" : "success"}
+          />
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-sm font-medium text-[var(--navy)]">Finance & trésorerie</h2>
+          {canFinance ? (
+            <Link href="/admin/finance/tresorerie" className={linkAccent}>
+              Ouvrir la trésorerie
+            </Link>
           ) : null}
         </div>
-      )}
-
-      <p className="mt-4 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--graphite)]/70">
-        Facturation
-      </p>
-      <div className="mt-2 grid sm:grid-cols-2 xl:grid-cols-4 gap-3">
-        <KpiCard label="Devis" value={String(c.devisCount)} hint="Offres clients" href={facturationDocumentsPath("devis")} />
-        <KpiCard
-          label="Bons de commande"
-          value={String(c.bcCount)}
-          hint="Achats fournisseurs"
-          href={facturationDocumentsPath("bon_commande")}
-        />
-        <KpiCard
-          label="Bons de livraison"
-          value={String(c.blCount)}
-          hint="Expéditions / réceptions"
-          href={facturationDocumentsPath("bon_livraison")}
-        />
-        <KpiCard
-          label="Factures"
-          value={String(c.factureCount)}
-          hint="Facturation clients"
-          href={facturationDocumentsPath("facture")}
-        />
-      </div>
-
-      <p className="mt-4 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--graphite)]/70">Opérations</p>
-      <div className="mt-2 grid sm:grid-cols-2 xl:grid-cols-4 gap-3">
-        <KpiCard
-          label="Chantiers"
-          value={String(o.projectsCount)}
-          hint={`${o.activeProjectsCount} actif${o.activeProjectsCount !== 1 ? "s" : ""}`}
-          href="/admin/projets"
-        />
-        <KpiCard
-          label="Stock"
-          value={String(o.stockItems)}
-          hint={o.stockAlerts > 0 ? `${o.stockAlerts} alerte(s)` : "Articles hors gasoil"}
-          href="/admin/stock"
-        />
-        <KpiCard
-          label="Gasoil"
-          value={litresFr(o.fuelLitresMonth)}
-          hint={
-            o.fuelLitresMonth !== o.fuelLitresTotal
-              ? `${litresFr(o.fuelLitresTotal)} cumulé`
-              : "Consommation ce mois"
-          }
-          href="/admin/fuel/stock?tab=journal"
-        />
-        <KpiCard
-          label="Location matériel"
-          value={moneyMad(o.rentalMadMonth)}
-          hint={`${o.rentalBonsMonth} bon${o.rentalBonsMonth !== 1 ? "s" : ""} ce mois · ${o.rentalBonsCount} total`}
-          href="/admin/equipment-rental/bons"
-        />
-      </div>
-
-      <div className="mt-3 grid sm:grid-cols-2 xl:grid-cols-4 gap-3">
-        <KpiCard label="Clients" value={String(c.clientsCount)} hint="Carnet client" href="/admin/customers" />
-        <KpiCard label="Fournisseurs" value={String(c.suppliersCount)} hint="Carnet fournisseur" href="/admin/suppliers" />
-        <KpiCard
-          label="Collaborateurs"
-          value={String(o.employeesCount)}
-          hint="Registre personnel"
-          href="/admin/personnel"
-        />
-        <KpiCard
-          label="Traitements"
-          value={String(o.traitementsOpen)}
-          hint="Achat / vente en cours"
-          href="/admin/traitements"
-        />
-      </div>
-
-      <div className="mt-4 grid lg:grid-cols-3 gap-4">
-        <div className="rounded-md border border-border bg-white p-5 lg:col-span-2">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.12em] text-[var(--graphite)]/70">Activité du mois en cours</p>
-              <p className="mt-1 text-3xl font-semibold text-[var(--navy)]">{moneyMad(c.monthTotalTtc)}</p>
-              <p className="mt-1 text-sm text-[var(--graphite)]/80">
-                {c.monthDocsCount} document{c.monthDocsCount !== 1 ? "s" : ""} · Factures{" "}
-                {moneyMad(c.monthFacturesTtc)} · Devis {moneyMad(c.monthDevisTtc)}
-              </p>
+        {canFinance && finance ? (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <AdminHeroKpi
+                href="/admin/finance/tresorerie"
+                label="Trésorerie totale"
+                value={moneyMad(finance.totalTreasury)}
+                sub={`Caisse ${moneyMad(finance.totalCash)} · Banque ${moneyMad(finance.totalBank)}`}
+                tone="emerald"
+                variant="success"
+              />
+              <AdminHeroKpi
+                href="/admin/finance/caisse"
+                label="Encaissements"
+                value={moneyMad(finance.monthIncome)}
+                sub={`Entrées caisse/banque — ${monthName}`}
+                tone="blue"
+              />
+              <AdminHeroKpi
+                href="/admin/finance/depenses"
+                label="Décaissements"
+                value={moneyMad(finance.monthExpense)}
+                sub={`Sorties caisse/banque — ${monthName}`}
+                tone="orange"
+              />
+              <AdminHeroKpi
+                href="/admin/finance/factures"
+                label="Créances clients"
+                value={moneyMad(finance.clientReceivables)}
+                sub={`${finance.openClientInvoices} facture${finance.openClientInvoices !== 1 ? "s" : ""} à encaisser`}
+                tone="amber"
+                variant={finance.clientReceivables > 0 ? "warning" : "success"}
+              />
             </div>
-            <Link
-              href={facturationDocumentsPath()}
-              className="rounded-md border border-border bg-white px-3 py-1.5 text-xs hover:bg-[#f7f7f7]"
-            >
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <AdminMetricCard
+                label="Solde caisse"
+                value={moneyMad(finance.totalCash)}
+                sub={`${finance.accountCount} compte${finance.accountCount !== 1 ? "s" : ""} actif${finance.accountCount !== 1 ? "s" : ""}`}
+                href="/admin/finance/caisse"
+                icon={Wallet}
+                tone="emerald"
+              />
+              <AdminMetricCard
+                label="Solde banque"
+                value={moneyMad(finance.totalBank)}
+                sub="Comptes bancaires"
+                href="/admin/finance/banque"
+                icon={Landmark}
+                tone="blue"
+              />
+              <AdminMetricCard
+                label="Dettes fournisseurs"
+                value={moneyMad(finance.supplierPayables)}
+                sub="Factures fournisseur à payer"
+                href={financeFacturesHref({ tab: "fournisseurs" })}
+                icon={ArrowUpRight}
+                tone="violet"
+                alert={finance.supplierPayables > 0}
+              />
+              <AdminMetricCard
+                label="Résultat net"
+                value={moneyMad(finance.monthNet)}
+                sub={`Encaissements − décaissements (${monthName})`}
+                href="/admin/finance/etats"
+                icon={finance.monthNet >= 0 ? ArrowDownLeft : ArrowUpRight}
+                tone={finance.monthNet >= 0 ? "emerald" : "rose"}
+              />
+            </div>
+            {finance.accountCount === 0 ? (
+              <p className="mt-3 text-sm text-[var(--graphite)]">
+                Aucun compte caisse/banque configuré.{" "}
+                <Link href="/admin/finance/caisse" className="font-medium text-[var(--admin-accent)] hover:underline">
+                  Créer un compte
+                </Link>{" "}
+                pour activer le suivi de trésorerie.
+              </p>
+            ) : null}
+          </>
+        ) : canFinance && !finance ? (
+          <p className={`${card} px-4 py-6 text-sm text-[var(--graphite)]`}>
+            Module finance indisponible (tables non initialisées). Exécutez les scripts SQL finance ou contactez
+            l&apos;administrateur.
+          </p>
+        ) : (
+          <AdminFinanceLockedCard />
+        )}
+      </section>
+
+      <section className="mb-8">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-sm font-medium text-[var(--navy)]">Chantiers & terrain</h2>
+          <Link href="/admin/etats" className={linkAccent}>
+            États ERP
+          </Link>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <AdminMetricCard
+            label="Forage"
+            value={o.drillingMetersMonth > 0 ? metersFr(o.drillingMetersMonth) : "—"}
+            sub="Mètres forés ce mois"
+            href="/admin/drilling"
+            icon={Drill}
+            tone="violet"
+          />
+          <AdminMetricCard
+            label="Gasoil distribué"
+            value={litresFr(o.fuelLitresMonth)}
+            sub={gasoilSub}
+            href="/admin/fuel/bons"
+            icon={Fuel}
+            tone="pink"
+            alert={o.gasoilStockStatus !== "ok"}
+            progress={
+              o.gasoilMinLitres > 0
+                ? Math.min(100, Math.round((o.gasoilStockLitres / o.gasoilMinLitres) * 100))
+                : undefined
+            }
+          />
+          <AdminMetricCard
+            label="Location matériel"
+            value={moneyMad(o.rentalMadMonth)}
+            sub={`${o.rentalBonsMonth} bon${o.rentalBonsMonth !== 1 ? "s" : ""} ce mois`}
+            href="/admin/equipment-rental/bons"
+            icon={Wrench}
+            tone="orange"
+          />
+          <AdminMetricCard
+            label="Logistique"
+            value={String(o.tripsMonth)}
+            sub="Voyages / transports ce mois"
+            href="/admin/logistics"
+            icon={Truck}
+            tone="slate"
+          />
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="mb-3 text-sm font-medium text-[var(--navy)]">Achats, stock & suivi</h2>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <AdminMetricCard
+            label="Stock articles"
+            value={String(o.stockItems)}
+            sub={o.stockAlerts > 0 ? `${o.stockAlerts} alerte(s) seuil` : "Hors gasoil (citerne)"}
+            href="/admin/stock"
+            icon={Warehouse}
+            tone="blue"
+            alert={o.stockAlerts > 0}
+          />
+          <AdminMetricCard
+            label="Demandes d'achat"
+            value={String(o.pendingPurchaseRequests)}
+            sub="DA en attente de validation"
+            href="/admin/purchase-requests"
+            icon={ShoppingCart}
+            tone="amber"
+            alert={o.pendingPurchaseRequests > 0}
+          />
+          <AdminMetricCard
+            label="Traitements"
+            value={String(o.traitementsOpen)}
+            sub="Flux achat / vente en cours"
+            href="/admin/traitements"
+            icon={ClipboardList}
+            tone="violet"
+            alert={o.traitementsOpen > 0}
+          />
+          <AdminMetricCard
+            label="Pièces d'usure"
+            value={o.partsUsageQtyMonth > 0 ? String(o.partsUsageQtyMonth) : "—"}
+            sub="Quantité consommée ce mois"
+            href="/admin/parts"
+            icon={Pickaxe}
+            tone="emerald"
+          />
+        </div>
+      </section>
+
+      <AdminDismissibleSection title="Facturation commerciale">
+        <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <AdminInitCard
+            href={facturationDocumentsPath("devis")}
+            title="Devis"
+            description="Offres et propositions clients"
+            badge={String(c.devisCount)}
+            icon={FileText}
+            tone="blue"
+          />
+          <AdminInitCard
+            href={facturationDocumentsPath("bon_commande")}
+            title="Bons de commande"
+            description="Achats fournisseurs"
+            badge={String(c.bcCount)}
+            icon={ShoppingCart}
+            tone="emerald"
+          />
+          <AdminInitCard
+            href={facturationDocumentsPath("bon_livraison")}
+            title="Bons de livraison"
+            description="Expéditions et réceptions"
+            badge={String(c.blCount)}
+            icon={Truck}
+            tone="violet"
+          />
+          <AdminInitCard
+            href={facturationDocumentsPath("facture")}
+            title="Factures"
+            description="Facturation clients"
+            badge={String(c.factureCount)}
+            icon={Receipt}
+            tone="amber"
+          />
+        </div>
+        <AdminCommercialBreakdown
+          items={[
+            { label: "Devis", count: c.devisCount, amount: moneyMad(c.monthDevisTtc), tone: "blue" },
+            { label: "BC", count: c.bcCount, amount: moneyMad(c.monthBcTtc), tone: "emerald" },
+            { label: "BL", count: c.blCount, amount: moneyMad(c.monthBlTtc), tone: "violet" },
+            { label: "Factures", count: c.factureCount, amount: moneyMad(c.monthFacturesTtc), tone: "amber" },
+          ]}
+        />
+      </AdminDismissibleSection>
+
+      <div className="mt-8 grid gap-3 lg:grid-cols-5">
+        <div className={`${card} overflow-hidden lg:col-span-3`}>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+            <h2 className="text-sm font-semibold text-[var(--navy)]">Activité commerciale — {monthName}</h2>
+            <Link href={facturationDocumentsPath()} className={linkAccent}>
+              Tous les documents
+            </Link>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 border-b border-border bg-[var(--muted)]/30 px-4 py-2">
+            <AdminToolbarPill>Mois en cours</AdminToolbarPill>
+            <AdminToolbarPill>{o.activeProjectsCount} chantier{o.activeProjectsCount !== 1 ? "s" : ""} actif{o.activeProjectsCount !== 1 ? "s" : ""}</AdminToolbarPill>
+            <span className="ms-auto">
+              <AdminStatusPill variant={attentionCount > 0 ? "warning" : "success"} label={attentionCount > 0 ? `${attentionCount} alerte${attentionCount > 1 ? "s" : ""}` : "Opérationnel"} />
+            </span>
+          </div>
+          <div className="p-4">
+            <p className="text-3xl font-semibold tracking-tight text-[var(--navy)]">{moneyMad(c.monthTotalTtc)}</p>
+            <p className="mt-1 text-sm text-[var(--graphite)]">
+              Total TTC documents créés ce mois · {c.monthDocsCount} pièce{c.monthDocsCount !== 1 ? "s" : ""}
+            </p>
+            {activity.weeks.length > 0 ? (
+              <AdminActivityChart weeks={activity.weeks} />
+            ) : (
+              <p className="mt-6 rounded-[var(--admin-radius-md)] border border-dashed border-border px-4 py-8 text-center text-sm text-[var(--graphite)]">
+                Aucune activité commerciale enregistrée ce mois.
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-[var(--muted)]/20 px-4 py-3">
+            <div>
+              <p className="text-xs text-[var(--graphite)]">Catalogue produits</p>
+              <p className="text-sm font-semibold text-[var(--navy)]">{c.productsCount} références réutilisables</p>
+            </div>
+            <Link href="/admin/products" className={btnSecondarySm}>
+              Gérer le catalogue
+            </Link>
+          </div>
+        </div>
+
+        <div className={`${card} overflow-hidden lg:col-span-2`}>
+          <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+            <h2 className="text-sm font-semibold text-[var(--navy)]">Derniers documents</h2>
+            <Link href={facturationDocumentsPath()} className={linkAccent}>
+              Voir tous
+            </Link>
+          </div>
+          {recent.length === 0 ? (
+            <p className="px-4 py-6 text-sm text-[var(--graphite)]">
+              Aucun document encore. Créez un devis, BC, BL ou facture depuis{" "}
+              <Link href={facturationDocumentsPath()} className="font-medium text-[var(--admin-accent)] hover:underline">
+                Documents enregistrés
+              </Link>
+              .
+            </p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-[11px] font-medium text-[var(--graphite)]">
+                  <th className="px-4 py-2 font-medium">Document</th>
+                  <th className="px-2 py-2 font-medium">Montant</th>
+                  <th className="px-4 py-2 text-right font-medium">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recent.map((quote) => {
+                  const docType: DocumentType = quote.documentType ?? "devis";
+                  const ttc = computeQuoteTotals(quote).ttc;
+                  const created = quote.dbCreatedAt ?? quote.createdAt;
+                  return (
+                    <tr key={quote.id} className="border-b border-border/60 last:border-0">
+                      <td className="px-4 py-2.5">
+                        <Link href={facturationEditPath(quote)} className="flex items-center gap-2 hover:opacity-80">
+                          <DocTypeIcon type={docType} />
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-medium text-[var(--navy)]">
+                              N° {quote.quoteNumber || "—"}
+                            </p>
+                            <p className="truncate text-[11px] text-[var(--graphite)]">{quote.clientName || "Sans nom"}</p>
+                          </div>
+                        </Link>
+                      </td>
+                      <td className="px-2 py-2.5 text-xs tabular-nums text-[var(--navy)]">{moneyMad(ttc)}</td>
+                      <td className="px-4 py-2.5 text-right text-[11px] text-[var(--graphite)]">
+                        {created ? formatDateFr(created) : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+          <div className="border-t border-border px-4 py-3">
+            <Link href={facturationDocumentsPath()} className={btnSecondarySm}>
               Nouveau document
             </Link>
           </div>
         </div>
-        <div className="rounded-md border border-border bg-white p-5">
-          <p className="text-xs uppercase tracking-[0.12em] text-[var(--graphite)]/70">Catalogue</p>
-          <p className="mt-1 text-3xl font-semibold text-[var(--navy)]">{c.productsCount}</p>
-          <p className="mt-1 text-sm text-[var(--graphite)]/80">Produits réutilisables sur vos documents.</p>
-          <Link
-            href="/admin/products"
-            className="mt-3 inline-flex rounded-md border border-border bg-white px-3 py-1.5 text-xs hover:bg-[#f7f7f7]"
-          >
-            Gérer le catalogue
-          </Link>
-        </div>
       </div>
 
-      <div className="mt-4 rounded-md border border-border bg-white p-5 lg:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold text-[var(--navy)]">Derniers documents</h2>
-          <Link href={facturationDocumentsPath()} className="text-sm underline underline-offset-4 text-[var(--navy)]">
-            Voir tous ({c.devisCount + c.bcCount + c.blCount + c.factureCount})
-          </Link>
+      <section className="mt-8">
+        <h2 className="mb-3 text-sm font-medium text-[var(--navy)]">Référentiels</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <AdminMetricCard label="Clients" value={String(c.clientsCount)} sub="Carnet client" href="/admin/customers" icon={Users} tone="blue" />
+          <AdminMetricCard label="Fournisseurs" value={String(c.suppliersCount)} sub="Carnet fournisseur" href="/admin/suppliers" icon={Package} tone="violet" />
+          <AdminMetricCard label="Collaborateurs" value={String(o.employeesCount)} sub="Registre personnel" href="/admin/personnel" icon={Users} tone="emerald" />
+          <AdminMetricCard label="Chantiers" value={String(o.projectsCount)} sub={`${o.activeProjectsCount} en cours`} href="/admin/projets" icon={HardHat} tone="orange" />
         </div>
-        <div className="mt-4 space-y-2">
-          {recent.length === 0 ? (
-            <p className="rounded-md border border-border bg-[#fbfbfb] p-4 text-sm text-[var(--graphite)]/80">
-              Aucun document encore. Ouvrez{" "}
-              <Link href={facturationDocumentsPath()} className="font-medium underline underline-offset-2">
-                Documents enregistrés
-              </Link>{" "}
-              puis cliquez sur <strong>Nouveau</strong> pour créer un devis, BC, facture ou BL.
-            </p>
-          ) : (
-            recent.map((quote) => {
-              const docType: DocumentType = quote.documentType ?? "devis";
-              const ttc = computeQuoteTotals(quote).ttc;
-              return (
-                <div
-                  key={quote.id}
-                  className="rounded-md border border-border bg-white px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
-                >
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.08em] ${DOCUMENT_BADGE_CLASS[docType]}`}
-                      >
-                        {DOCUMENT_LABELS[docType]}
-                      </span>
-                      <p className="font-medium text-[var(--navy)]">
-                        N° {quote.quoteNumber || "—"} · {quote.clientName || "Sans nom"}
-                      </p>
-                    </div>
-                    <p className="mt-1 text-xs text-[var(--graphite)]/70">
-                      {new Date(quote.dbCreatedAt ?? quote.createdAt).toLocaleDateString("fr-FR", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}{" "}
-                      · {moneyMad(ttc)} TTC
-                    </p>
-                  </div>
-                  <Link
-                    href={facturationEditPath(quote)}
-                    className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-[#f7f7f7] self-start sm:self-center"
-                  >
-                    Modifier
-                  </Link>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
+      </section>
 
-      <div className="mt-4 rounded-md border border-border bg-white p-5 lg:p-6">
-        <h2 className="text-lg font-semibold text-[var(--navy)]">Accès rapide</h2>
-        <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          <ShortcutCard href="/admin/projets" title="Projets & états" description="Chantiers, KPIs et exports PDF/Excel." />
-          <ShortcutCard href="/admin/etats" title="États ERP" description="Rapports Sage par chantier et période." />
-          <ShortcutCard href="/admin/traitements" title="Traitements" description="Achat et vente — BC, BL, devis, factures." />
-          <ShortcutCard href="/admin/stock" title="Stock" description="Inventaire, mouvements et alertes." />
-          <ShortcutCard href="/admin/fuel/stock" title="Carburant" description="Stock gasoil et consommation." />
-          <ShortcutCard href="/admin/equipment-rental/bons" title="Location" description="Bons journaliers matériel." />
-          <ShortcutCard href="/admin/purchase-requests" title="Demandes d'achat" description="DA et validation achats." />
+      <section className="mt-8">
+        <h2 className="mb-3 text-sm font-medium text-[var(--navy)]">Accès rapide</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <AdminInitCard href="/admin/projets" title="Fiches chantiers" description="KPIs, coûts et exports par projet." icon={HardHat} tone="blue" />
+          <AdminInitCard href="/admin/etats" title="États ERP" description="Rapports Sage par chantier et période." icon={Factory} tone="emerald" />
+          <AdminInitCard href="/admin/traitements" title="Traitements" description="Flux achat et vente intégrés." icon={ClipboardList} tone="violet" />
+          <AdminInitCard href="/admin/fuel/stock" title="Carburant" description="Stock citerne et bons de sortie." icon={Fuel} tone="pink" />
         </div>
-      </div>
+      </section>
     </AdminShell>
   );
 }
 
-function KpiCard({
-  label,
-  value,
-  hint,
-  href,
-}: {
-  label: string;
-  value: string;
-  hint: string;
-  href: string;
-}) {
+function DocTypeIcon({ type }: { type: DocumentType }) {
   return (
-    <Link href={href} className={`${card} block p-5 transition hover:border-[var(--gold)]/55`}>
-      <p className="text-xs uppercase tracking-[0.12em] text-[var(--graphite)]/70">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-[var(--navy)] leading-tight">{value}</p>
-      <p className="mt-1 text-xs text-[var(--graphite)]/70">{hint}</p>
-    </Link>
-  );
-}
-
-function ShortcutCard({ href, title, description }: { href: string; title: string; description: string }) {
-  return (
-    <Link href={href} className={`${card} block p-4 transition hover:bg-[var(--background)]/80`}>
-      <p className="font-medium text-[var(--navy)]">{title}</p>
-      <p className="mt-2 text-sm text-[var(--graphite)]/80">{description}</p>
-    </Link>
+    <span className={`shrink-0 rounded px-1 py-0.5 text-[8px] font-bold uppercase ${DOCUMENT_BADGE_CLASS[type]}`}>
+      {DOCUMENT_LABELS[type].slice(0, 3)}
+    </span>
   );
 }

@@ -32,12 +32,12 @@ export function AdminQuickActionsFab() {
         />
       ) : null}
 
-      <div className="fixed bottom-6 right-4 z-[90] hidden flex-col items-end gap-3 sm:right-6 lg:flex">
+      <div className="fixed bottom-6 right-4 z-[90] flex flex-col items-end gap-3 sm:right-6 lg:hidden">
         {open ? (
           <div
             role="dialog"
             aria-label="Actions rapides ERP"
-            className="w-[min(calc(100vw-2rem),380px)] max-h-[min(72dvh,560px)] overflow-y-auto rounded-xl border border-border bg-white shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200"
+            className="w-[min(calc(100vw-2rem),380px)] max-h-[min(72dvh,560px)] overflow-y-auto rounded-[var(--admin-radius-lg)] border border-border bg-white shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200"
           >
             <div className="sticky top-0 z-10 border-b border-border bg-white/95 px-4 py-3 backdrop-blur-sm">
               <p className="text-sm font-semibold text-[var(--navy)]">Actions rapides</p>
@@ -54,7 +54,7 @@ export function AdminQuickActionsFab() {
                       <li key={action.href + action.label}>
                         <Link
                           href={action.href}
-                          className="flex flex-col rounded-lg px-3 py-2.5 transition hover:bg-[var(--background)]"
+                          className="flex flex-col rounded-[var(--admin-radius-md)] px-3 py-2.5 transition hover:bg-[var(--muted)]"
                           onClick={() => setOpen(false)}
                         >
                           <span className="text-sm font-medium text-[var(--navy)]">{action.label}</span>
@@ -76,7 +76,7 @@ export function AdminQuickActionsFab() {
           aria-expanded={open}
           aria-label={open ? "Fermer les actions rapides" : "Ouvrir les actions rapides ERP"}
           title="Actions rapides ERP"
-          className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[var(--gold)] text-2xl font-light leading-none text-[var(--navy-deep)] shadow-[var(--shadow-gold)] transition hover:scale-105 active:scale-95"
+          className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[var(--navy-deep)] text-xl font-light leading-none text-white shadow-lg transition hover:scale-105 active:scale-95"
           onClick={() => setOpen((v) => !v)}
         >
           <span className={`block transition-transform duration-200 ${open ? "rotate-45" : ""}`}>+</span>

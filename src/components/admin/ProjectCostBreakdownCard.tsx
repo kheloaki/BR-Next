@@ -1,4 +1,4 @@
-import { ficheAmountClass, inventoryPanelTitle } from "@/components/admin/admin-form-styles";
+import { ficheAmountClass, inventoryPanelTitle, panel } from "@/components/admin/admin-form-styles";
 import type { ProjectDashboard } from "@/components/admin/operations-types";
 import { formatMoney } from "@/lib/admin/price-ht-ttc";
 
@@ -22,7 +22,7 @@ export function ProjectCostBreakdownCard({
   const max = Math.max(...COST_ITEMS.map((item) => breakdown[item.key]), 1);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm shadow-black/[0.03]">
+    <div className={panel}>
       <div className="border-b border-border px-4 py-3 sm:px-5">
         <h3 className={inventoryPanelTitle}>Détail des coûts</h3>
       </div>

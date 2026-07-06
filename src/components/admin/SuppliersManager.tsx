@@ -10,6 +10,7 @@ import {
   formGridClass,
   inputClass,
   moduleWrap,
+  alertError,
   rowHover,
   tdClass,
   tdTextClass,
@@ -221,6 +222,7 @@ export function SuppliersManager() {
       <OpsModuleHeader
         title="Fournisseurs"
         description="Carnet fournisseurs pour les bons de commande et achats."
+        exportHref="/api/admin/suppliers"
         actions={
           <>
             <a
@@ -322,7 +324,7 @@ export function SuppliersManager() {
       ) : null}
 
       {loadError ? (
-        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</p>
+        <p className={`mb-4 ${alertError}`}>{loadError}</p>
       ) : null}
 
       {loading ? (

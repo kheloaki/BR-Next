@@ -30,6 +30,7 @@ import { AdminTruncatedText } from "@/components/admin/ux/AdminTruncatedText";
 import { useTableSort } from "@/components/admin/ux/useTableSort";
 import { DEFAULT_VAT_RATE, formatMoney } from "@/lib/admin/price-ht-ttc";
 import { confirmDelete, readApiError } from "@/components/admin/ux/useAdminToast";
+import { formatDateFr, formatDateTimeFr } from "@/lib/admin/date-time-fr";
 
 function fmtQty(n: number) {
   return n.toLocaleString("fr-MA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -233,7 +234,7 @@ export function StockSortieMagasinPanel({
     if (
       !(await confirmDelete(m.exitVoucherNo || m.reference, {
         title: "Supprimer la sortie",
-        description: `Retirer la sortie du ${m.movementDate} ? Le stock sera recalculé.`,
+        description: `Retirer la sortie du ${formatDateFr(m.movementDate)} ? Le stock sera recalculé.`,
         confirmLabel: "Supprimer",
       }))
     ) {
@@ -339,7 +340,7 @@ export function StockSortieMagasinPanel({
             <tbody>
               {sortedFiltered.map((m) => (
                 <tr key={m.id} className={rowHover}>
-                  <td className={tdClass}>{m.movementDate}</td>
+                  <td className={tdClass}>{formatDateFr(m.movementDate)}</td>
                   <td className={tdClass}>
                     <AdminTruncatedText text={m.reference} lines={1} />
                   </td>

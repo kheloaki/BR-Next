@@ -1,12 +1,24 @@
 import { NextResponse } from "next/server";
 import type { GasoilBonType, GasoilVehicleCategory } from "@/components/admin/operations-types";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import {
+  filterGasoilBons,
+  gasoilBonListFilterMeta,
+  parseGasoilBonListFilters,
+} from "@/lib/admin/gasoil-bon-list-filters";
+import { gasoilBonsCsv } from "@/lib/admin/ops-csv-export";
 import { nextBonCommandeDocumentNo, nextBonGasoilNumber, resolveBonGasoilNo, bonGasoilNoIsTaken } from "@/lib/admin/bon-gasoil-number";
 import { bonNumberAlreadyUsedMessage } from "@/lib/admin/bon-number-duplicate";
 import { yearFromDate } from "@/lib/admin/document-number";
 import {
   deleteFuelEntryForBon,
 } from "@/lib/admin/fuel-bon-sync";
-import { GASOIL_BON_TYPES, GASOIL_VEHICLE_CATEGORIES, gasoilBonPriceFields } from "@/lib/admin/gasoil-bon";
+import {
+  GASOIL_BON_TYPES,
+  GASOIL_VEHICLE_CATEGORIES,
+  GASOIL_VEHICLE_CATEGORY_LABELS,
+  gasoilBonPriceFields,
+} from "@/lib/admin/gasoil-bon";
 import { applyGasoilStockForBon, reverseGasoilStockForBon } from "@/lib/admin/gasoil-stock-server";
 import { resolveMaterialFields } from "@/lib/admin/material-resolve";
 import { requireAdminUserId } from "@/lib/admin/require-admin";
@@ -71,12 +83,13 @@ export async function GET(request: Request) {
   if ("error" in auth) return auth.error;
   const { organizationId } = auth;
   const { searchParams } = new URL(request.url);
-  const bonType = searchParams.get("bonType");
-  const vehicleCategory = searchParams.get("vehicleCategory");
+  const listFilters = parseGasoilBonListFilters(searchParams);
   const nextPreview = searchParams.get("next") === "1";
 
   if (nextPreview) {
-    const type = (bonType === "achat" || bonType === "sortie" ? bonType : "achat") as GasoilBonType;
+    const type = (listFilters.bonType === "achat" || listFilters.bonType === "sortie"
+      ? listFilters.bonType
+      : "achat") as GasoilBonType;
     const number =
       type === "achat"
         ? await nextBonCommandeDocumentNo(organizationId)
@@ -84,24 +97,99 @@ export async function GET(request: Request) {
     return NextResponse.json({ number });
   }
 
+  const exportFormat = searchParams.get("format");
+  const isExport = exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls";
+
   let query = getSupabaseAdminClient()
     .from("admin_gasoil_bons")
     .select("*")
     .eq("organization_id", organizationId)
     .order("bon_date", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(200);
+    .order("created_at", { ascending: false });
 
-  if (bonType && GASOIL_BON_TYPES.includes(bonType as GasoilBonType)) {
-    query = query.eq("bon_type", bonType);
+  if (listFilters.bonType) {
+    query = query.eq("bon_type", listFilters.bonType);
   }
-  if (vehicleCategory && GASOIL_VEHICLE_CATEGORIES.includes(vehicleCategory as GasoilVehicleCategory)) {
-    query = query.eq("vehicle_category", vehicleCategory);
+  if (listFilters.projectId) {
+    query = query.eq("project_id", listFilters.projectId);
   }
+  if (listFilters.vehicleCategory) {
+    query = query.eq("vehicle_category", listFilters.vehicleCategory);
+  }
+  if (listFilters.dateFrom) {
+    query = query.gte("bon_date", listFilters.dateFrom);
+  }
+  if (listFilters.dateTo) {
+    query = query.lte("bon_date", listFilters.dateTo);
+  }
+
+  query = query.limit(isExport ? 5000 : 200);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json((data ?? []).map((r) => mapRow(r as Record<string, unknown>)));
+
+  const projectIds = [
+    ...new Set(
+      (data ?? [])
+        .map((r) => r.project_id as string | null)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const projectNameById = new Map<string, string>();
+  if (projectIds.length > 0) {
+    const { data: projects } = await getSupabaseAdminClient()
+      .from("admin_projects")
+      .select("id, name")
+      .eq("organization_id", organizationId)
+      .in("id", projectIds);
+    for (const p of projects ?? []) {
+      projectNameById.set(p.id as string, p.name as string);
+    }
+  }
+
+  const projectName = (id: string | null) => {
+    if (!id) return "—";
+    return projectNameById.get(id) ?? "—";
+  };
+
+  const isCommande = listFilters.bonType === "achat";
+  const mapped = (data ?? []).map((r) => mapRow(r as Record<string, unknown>));
+  const rows = filterGasoilBons(mapped, listFilters, { isCommande, projectName });
+
+  if (isExport) {
+    const filterMeta = gasoilBonListFilterMeta(listFilters, {
+      isCommande,
+      projectName: (id) => projectName(id),
+    });
+    const totalLitres = rows.reduce((acc, r) => acc + r.litres, 0);
+    const totalMad = rows.reduce((acc, r) => acc + (r.totalAmount || 0), 0);
+    return gasoilBonsCsv(
+      rows.map((r) => ({
+        number: r.number,
+        bonType: r.bonType,
+        bonDate: r.bonDate,
+        vehicleCategory: r.vehicleCategory ? GASOIL_VEHICLE_CATEGORY_LABELS[r.vehicleCategory] : "",
+        equipmentName: r.equipmentName || r.vehicleLabel,
+        siteName: r.siteName || projectName(r.projectId),
+        litres: r.litres,
+        unitPrice: r.unitPrice,
+        totalAmount: r.totalAmount,
+        supplier: r.supplier,
+        beneficiary: r.beneficiary,
+        fuelTime: r.fuelTime,
+        pumpMeter: r.pumpMeter,
+        notes: r.notes,
+      })),
+      {
+        bonType: listFilters.bonType,
+        format: parseExportFormat(exportFormat),
+        filters: filterMeta,
+        subtitle: `${rows.length} bon(s) · ${totalLitres.toLocaleString("fr-FR")} L · ${totalMad.toLocaleString("fr-FR")} MAD`,
+      },
+    );
+  }
+
+  return NextResponse.json(rows);
 }
 
 export async function POST(request: Request) {

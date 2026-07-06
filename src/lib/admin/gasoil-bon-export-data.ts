@@ -3,6 +3,7 @@ import {
   GASOIL_BON_TYPE_LABELS,
   GASOIL_VEHICLE_CATEGORY_LABELS,
 } from "@/lib/admin/gasoil-bon";
+import { formatDateFr } from "@/lib/admin/date-time-fr";
 
 export type GasoilBonExportData = {
   bonType: GasoilBonType;
@@ -27,13 +28,6 @@ function parseSupervisor(notes: string): string {
   const m = notes.match(/Responsable:\s*([^|]+)/i);
   return m?.[1]?.trim() ?? "";
 }
-
-function formatDateFr(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("fr-FR");
-}
-
 function formatTimeFr(value: string) {
   if (!value) return "—";
   const [h, m] = value.split(":");

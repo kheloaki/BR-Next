@@ -5,7 +5,9 @@ import { useRef } from "react";
 import sectorMining from "@/assets/sector-mining.jpg";
 import sectorInfrastructure from "@/assets/sector-infrastructure.jpg";
 import sectorConstruction from "@/assets/sector-construction.jpg";
-import sectorLogistics from "@/assets/sector-logistics.jpg";
+import digitalSoftware from "@/assets/digital-software.jpg";
+import digitalCloud from "@/assets/digital-cloud.jpg";
+import digitalMarketing from "@/assets/digital-marketing.jpg";
 import type { Locale } from "@/lib/i18n";
 import { usePrefersReducedMotion, useScrollProgress } from "@/components/site/motion";
 
@@ -14,32 +16,54 @@ type Project = { img: StaticImageData; tag: string; title: string; location: str
 function projectsData(locale: Locale): Project[] {
   if (locale === "en") {
     return [
+      { img: digitalSoftware, tag: "SaaS", title: "Centralized business platform", location: "Moroccan SMEs · 2025" },
+      { img: digitalCloud, tag: "Cloud", title: "Hosting & digital transformation", location: "Agadir · Morocco · 2025" },
+      { img: digitalMarketing, tag: "Digital marketing", title: "SEO & acquisition strategy", location: "Morocco · 2025" },
       { img: sectorMining, tag: "Mining", title: "Wear parts supply", location: "Khouribga · Morocco · 2024" },
       { img: sectorInfrastructure, tag: "Infrastructure", title: "Support for major structures", location: "Motorway corridor · Morocco · 2024" },
       { img: sectorConstruction, tag: "Industrial construction", title: "Complex industrial site supply", location: "Agadir · Morocco · 2025" },
-      { img: sectorLogistics, tag: "Logistics", title: "Remote site delivery coordination", location: "West Africa · 2025" },
     ];
   }
   if (locale === "es") {
     return [
+      { img: digitalSoftware, tag: "SaaS", title: "Plataforma de gestion centralizada", location: "PYMES marroquies · 2025" },
+      { img: digitalCloud, tag: "Cloud", title: "Alojamiento y transformacion digital", location: "Agadir · Marruecos · 2025" },
+      { img: digitalMarketing, tag: "Marketing digital", title: "Estrategia SEO y adquisicion", location: "Marruecos · 2025" },
       { img: sectorMining, tag: "Mineria", title: "Suministro de piezas de desgaste", location: "Khouribga · Marruecos · 2024" },
       { img: sectorInfrastructure, tag: "Infraestructura", title: "Soporte para gran obra", location: "Corredor vial · Marruecos · 2024" },
       { img: sectorConstruction, tag: "Construccion", title: "Suministro obra industrial", location: "Agadir · Marruecos · 2025" },
-      { img: sectorLogistics, tag: "Logistica", title: "Coordinacion de entregas remotas", location: "Africa occidental · 2025" },
     ];
   }
   return [
+    { img: digitalSoftware, tag: "SaaS", title: "Plateforme métier centralisée", location: "PME marocaines · 2025" },
+    { img: digitalCloud, tag: "Cloud", title: "Hébergement & transformation digitale", location: "Agadir · Maroc · 2025" },
+    { img: digitalMarketing, tag: "Marketing digital", title: "Stratégie SEO & acquisition", location: "Maroc · 2025" },
     { img: sectorMining, tag: "Mines & carrières", title: "Approvisionnement pièces d'usure", location: "Khouribga · Maroc · 2024" },
     { img: sectorInfrastructure, tag: "Infrastructure", title: "Soutien matériel ouvrage d'art", location: "Axe autoroutier · Maroc · 2024" },
     { img: sectorConstruction, tag: "BTP industriel", title: "Fourniture chantier complexe", location: "Agadir · Maroc · 2025" },
-    { img: sectorLogistics, tag: "Logistique", title: "Coordination livraisons sites isolés", location: "Afrique de l'Ouest · 2025" },
   ];
 }
 
 function sectionTitle(locale: Locale) {
-  if (locale === "en") return { eyebrow: "Projects", titleA: "Concrete cases that showcase", titleB: "expertise" };
-  if (locale === "es") return { eyebrow: "Proyectos", titleA: "Casos concretos que muestran", titleB: "experiencia" };
-  return { eyebrow: "Réalisations", titleA: "Des cas concrets qui parlent", titleB: "d'expertise" };
+  if (locale === "en") {
+    return {
+      eyebrow: "Projects & case studies",
+      titleA: "Digital platforms and",
+      titleB: "industrial delivery",
+    };
+  }
+  if (locale === "es") {
+    return {
+      eyebrow: "Proyectos y casos",
+      titleA: "Plataformas digitales y",
+      titleB: "entrega industrial",
+    };
+  }
+  return {
+    eyebrow: "Réalisations",
+    titleA: "Plateformes digitales et",
+    titleB: "livraisons industrielles",
+  };
 }
 
 function ProjectsStack({ locale, projects }: { locale: Locale; projects: Project[] }) {

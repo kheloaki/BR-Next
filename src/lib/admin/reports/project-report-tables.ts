@@ -86,7 +86,7 @@ function rentalsTable(bundle: ProjectReportBundle): ReportTable {
 function personnelTable(bundle: ProjectReportBundle): ReportTable {
   return {
     title: "Pointage",
-    headers: ["Date", "Matricule", "Nom", "Rôle", "Entrée", "Sortie", "Statut", "H. sup."],
+    headers: ["Date", "N° CIN", "Nom", "Rôle", "Entrée", "Sortie", "Statut", "H. sup."],
     weights: [12, 12, 22, 14, 10, 10, 12, 10],
     rows: bundle.personnel.attendance.map((r) => [
       formatDateFr(r.recordDate),
@@ -324,15 +324,17 @@ export function parseCsvText(csv: string): string[][] {
   return rows.filter((r) => r.some((c) => c.trim() !== ""));
 }
 
-export function tableToCsv(table: ReportTable): string {
+export function tableToCsv(table: ReportTable, delimiter = ";"): string {
   const escape = (v: string) => {
     const s = String(v ?? "");
-    if (s.includes(",") || s.includes('"') || s.includes("\n")) return `"${s.replace(/"/g, '""')}"`;
+    if (s.includes(delimiter) || s.includes('"') || s.includes("\n") || s.includes("\r")) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
     return s;
   };
   const lines = [
-    table.headers.map(escape).join(","),
-    ...table.rows.map((r) => table.headers.map((_, i) => escape(r[i] ?? "")).join(",")),
+    table.headers.map(escape).join(delimiter),
+    ...table.rows.map((r) => table.headers.map((_, i) => escape(r[i] ?? "")).join(delimiter)),
   ];
-  return lines.join("\n");
+  return lines.join("\r\n");
 }

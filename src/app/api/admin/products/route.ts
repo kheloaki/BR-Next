@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { parseExportFormat } from "@/lib/admin/admin-csv-export";
+import { productsCsv } from "@/lib/admin/referential-csv-export";
 import { requireAdminContext } from "@/lib/admin/require-admin";
 import { ensureInventoryForProduct, syncInventoryFromProduct } from "@/lib/admin/article-inventory";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -26,7 +28,8 @@ export async function GET(request: Request) {
   if ("error" in auth) return auth.error;
   const { organizationId } = auth;
 
-  const category = new URL(request.url).searchParams.get("category");
+  const { searchParams } = new URL(request.url);
+  const category = searchParams.get("category");
 
   let query = getSupabaseAdminClient()
     .from("admin_products")
@@ -44,7 +47,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json((data ?? []).map(mapProduct));
+  const products = (data ?? []).map(mapProduct);
+  const exportFormat = searchParams.get("format");
+  if (exportFormat === "csv" || exportFormat === "excel" || exportFormat === "xls") {
+    return productsCsv(products, {
+      category: category ?? undefined,
+      format: parseExportFormat(exportFormat),
+    });
+  }
+
+  return NextResponse.json(products);
 }
 
 export async function POST(request: Request) {

@@ -167,7 +167,7 @@ export function SearchableSelect({
             <ul
               id={listId}
               role="listbox"
-              className="max-h-56 overflow-y-auto rounded-lg border border-border bg-white py-1 shadow-lg"
+              className="max-h-56 overflow-y-auto rounded-[var(--admin-radius-md)] border border-border bg-white py-1 shadow-[var(--admin-shadow-card)]"
               style={{
                 position: "fixed",
                 top: coords.top,
@@ -198,7 +198,7 @@ export function SearchableSelect({
             </ul>
           ) : query.trim() ? (
             <div
-              className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-[var(--graphite)]/70 shadow-lg"
+              className="rounded-[var(--admin-radius-md)] border border-border bg-white px-3 py-2 text-sm text-[var(--graphite)]/70 shadow-[var(--admin-shadow-card)]"
               style={{
                 position: "fixed",
                 top: coords.top,

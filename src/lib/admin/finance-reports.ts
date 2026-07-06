@@ -1,5 +1,6 @@
 import { FINANCE_CASHFLOW_TYPES } from "@/lib/admin/finance-rules";
 import { signedMovementAmount } from "@/lib/admin/finance-rules";
+import { buildAdminCsv } from "@/lib/admin/admin-csv-export";
 import type {
   FinanceAccount,
   FinanceDocument,
@@ -203,9 +204,21 @@ export function buildVirementsReport(movements: FinanceMovement[]) {
 }
 
 export function reportToCsv(report: { title: string; rows?: Record<string, unknown>[] }) {
-  if (!report.rows?.length) return `${report.title}\n(Aucune donnée)\n`;
+  if (!report.rows?.length) {
+    return buildAdminCsv(
+      { title: `BARANE INVEST — ${report.title}`, organization: "BARANE INVEST" },
+      [{ header: "Information", value: () => "Aucune donnée" }],
+      [{}],
+    );
+  }
   const keys = Object.keys(report.rows[0]!);
-  const header = keys.join(";");
-  const lines = report.rows.map((row) => keys.map((k) => String(row[k] ?? "")).join(";"));
-  return `${report.title}\n${header}\n${lines.join("\n")}\n`;
+  const columns = keys.map((key) => ({
+    header: key,
+    value: (row: Record<string, unknown>) => row[key],
+  }));
+  return buildAdminCsv(
+    { title: `BARANE INVEST — ${report.title}`, organization: "BARANE INVEST" },
+    columns,
+    report.rows,
+  );
 }

@@ -634,6 +634,7 @@ export function TraitementManager() {
             ? "Achat articles — BC, BL, facture. Après réception (BL), passez en traitement vente."
             : "Vente articles — Devis, BL (sortie stock), facture. Peut suivre un traitement achat."
         }
+        exportHref={`/api/admin/traitements?type=${kind}`}
         actions={
           tab === "list" ? (
             <button type="button" className={btnPrimary} onClick={openNew}>
