@@ -600,7 +600,7 @@ function drawItemsTable(ctx: PdfCtx, draft: QuoteDraft, tableTop: number, layout
       setFill(doc, COLORS.gold);
       doc.rect(left + 0.5, noteTop, 2, noteHeight, "F");
       setText(doc, COLORS.slate);
-      doc.text(wrapped, left + 5, y);
+      doc.text(wrapped, left + 5, noteTop + rowPadY + lineHeight * 0.78);
       doc.setFont("helvetica", "normal");
       setText(doc, COLORS.text);
       y = noteTop + noteHeight + rowGap + 0.5;
@@ -624,12 +624,17 @@ function drawItemsTable(ctx: PdfCtx, draft: QuoteDraft, tableTop: number, layout
     rowIndex++;
 
     const qtyLabel = item.unit ? `${money(item.qty)} ${item.unit}` : money(item.qty);
-    const numericY = rowTop + rowHeight / 2 + 1;
+    // Align designation + numeric cols on the same first-line baseline (avoid mid-row centering décalage)
+    const textBaselineY = rowTop + rowPadY + lineHeight * 0.78;
+    const numericY =
+      wrapped.length <= 1
+        ? textBaselineY
+        : rowTop + rowPadY + (wrapped.length * lineHeight) / 2;
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(descFontSize);
     setText(doc, COLORS.text);
-    doc.text(wrapped, c0 + descPadX, y);
+    doc.text(wrapped, c0 + descPadX, textBaselineY);
 
     doc.setFontSize(layout.compact ? 7.5 : 8);
     setText(doc, COLORS.text);
@@ -753,6 +758,16 @@ function drawFooter(ctx: PdfCtx, template: DevisTemplate, y: number, compact: bo
   doc.text(template.sellerContact, centerX, y + lineGap * 2, { align: "center" });
 }
 
+/** Pin legal footer near the bottom of the current A4 page when content leaves room. */
+function footerYForPage(layout: PdfLayout, contentBottom: number): number {
+  const lineGap = layout.compact ? 3.2 : 4;
+  const bottomMargin = layout.compact ? 8 : 10;
+  const pinnedY = layout.pageHeight - bottomMargin - lineGap * 2;
+  const minGap = layout.compact ? 4 : 6;
+  if (contentBottom + minGap <= pinnedY) return pinnedY;
+  return contentBottom + minGap;
+}
+
 export async function downloadDevisPdf(draft: QuoteDraft, template: DevisTemplate) {
   let resolved = draft;
   if (!draft.clientIce?.trim() && draft.clientName?.trim()) {
@@ -822,13 +837,10 @@ export async function downloadDevisPdf(draft: QuoteDraft, template: DevisTemplat
       belowTotals += layout.compact ? 30 : 38;
     }
 
-    const footerY = layout.compact
-      ? belowTotals + 2
-      : Math.min(layout.pageHeight - 8, Math.max(belowTotals + 6, 268));
-    drawFooter(ctx, template, footerY, layout.compact);
+    drawFooter(ctx, template, footerYForPage(layout, belowTotals), layout.compact);
   } else {
     const { doc, left, right } = ctx;
-    const noteY = Math.min(lastItemY + 6, 270);
+    const noteY = Math.min(lastItemY + 6, layout.pageHeight - layout.footerBlockH - 20);
     doc.setFont("helvetica", "italic");
     doc.setFontSize(8);
     setText(doc, COLORS.slate);
@@ -838,8 +850,7 @@ export async function downloadDevisPdf(draft: QuoteDraft, template: DevisTemplat
       noteY,
       { align: "center" },
     );
-    const footerY = Math.min(272, Math.max(noteY + 10, 268));
-    drawFooter(ctx, template, footerY, layout.compact);
+    drawFooter(ctx, template, footerYForPage(layout, noteY), layout.compact);
   }
 
   const fileSlug = pdfFileSlug(documentType);

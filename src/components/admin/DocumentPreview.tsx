@@ -186,7 +186,7 @@ export function DocumentPreview({
               ) : (
                 <div
                   key={`row-${idx}`}
-                  className={`grid items-start gap-x-2 gap-y-1 px-2 py-2 text-[10px] ${
+                  className={`grid items-center gap-x-2 gap-y-1 px-2 py-2 text-[10px] ${
                     deliveryNote
                       ? "grid-cols-[minmax(0,1fr)_48px]"
                       : "grid-cols-[minmax(0,1fr)_40px_56px]"
@@ -195,12 +195,12 @@ export function DocumentPreview({
                   <p className="min-w-0 text-left leading-snug text-[var(--graphite)] whitespace-pre-wrap break-words [overflow-wrap:anywhere] [hyphens:none]">
                     {item.designation}
                   </p>
-                  <span className="pt-0.5 text-right text-[var(--graphite)]/80 whitespace-nowrap">
+                  <span className="text-right text-[var(--graphite)]/80 whitespace-nowrap">
                     {item.qty}
                     {item.unit ? ` ${item.unit}` : ""}
                   </span>
                   {!deliveryNote ? (
-                    <span className="pt-0.5 text-right font-semibold text-[var(--navy)] leading-tight">
+                    <span className="text-right font-semibold text-[var(--navy)] leading-tight">
                       <span className="block">{money(item.qty * item.unitPrice)}</span>
                       <span className="block text-[9px] font-normal text-[var(--graphite)]/70">
                         {formatMoney(lineTotalTtc(item.qty, item.unitPrice, vatRate))}
