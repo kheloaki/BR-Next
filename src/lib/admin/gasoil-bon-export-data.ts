@@ -22,6 +22,13 @@ export type GasoilBonExportData = {
   supplier: string;
   deliveryNote: string;
   notes: string;
+  lines: Array<{
+    bonDate: string;
+    equipment: string;
+    pumpMeter: string;
+    fuelTime: string;
+    litres: string;
+  }>;
 };
 
 function parseSupervisor(notes: string): string {
@@ -40,16 +47,36 @@ export function buildGasoilBonExportData(
   projectName: string,
 ): GasoilBonExportData {
   const isAchat = bon.bonType === "achat";
+  const equipment = isAchat ? "—" : bon.equipmentName || bon.vehicleLabel || "—";
+  const lines =
+    !isAchat && bon.lineItems?.length
+      ? bon.lineItems.map((l) => ({
+          bonDate: formatDateFr(l.bonDate || bon.bonDate),
+          equipment: l.vehicleLabel || equipment,
+          pumpMeter: l.pumpMeter != null ? String(l.pumpMeter) : "—",
+          fuelTime: formatTimeFr(l.fuelTime),
+          litres: `${l.litres.toLocaleString("fr-MA")} L`,
+        }))
+      : [
+          {
+            bonDate: formatDateFr(bon.bonDate),
+            equipment,
+            pumpMeter: bon.pumpMeter != null ? String(bon.pumpMeter) : "—",
+            fuelTime: isAchat ? "—" : formatTimeFr(bon.fuelTime),
+            litres: `${bon.litres.toLocaleString("fr-MA")} L`,
+          },
+        ];
+  const primary = lines[0];
   return {
     bonType: bon.bonType,
     number: bon.number,
     bonTypeLabel: GASOIL_BON_TYPE_LABELS[bon.bonType],
     vehicleCategoryLabel: isAchat ? "—" : GASOIL_VEHICLE_CATEGORY_LABELS[bon.vehicleCategory],
     chantier: projectName || bon.siteName || "—",
-    bonDate: formatDateFr(bon.bonDate),
-    equipment: isAchat ? "—" : bon.equipmentName || bon.vehicleLabel || "—",
-    pumpMeter: bon.pumpMeter != null ? String(bon.pumpMeter) : "—",
-    fuelTime: isAchat ? "—" : formatTimeFr(bon.fuelTime),
+    bonDate: primary.bonDate,
+    equipment: primary.equipment,
+    pumpMeter: primary.pumpMeter,
+    fuelTime: primary.fuelTime,
     litres: `${bon.litres.toLocaleString("fr-MA")} L`,
     driver: bon.beneficiary || "—",
     pompiste: bon.supplier || "—",
@@ -57,6 +84,7 @@ export function buildGasoilBonExportData(
     supplier: bon.supplier || "—",
     deliveryNote: bon.deliveryNote || "—",
     notes: bon.notes || "—",
+    lines,
   };
 }
 

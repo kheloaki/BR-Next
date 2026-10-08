@@ -386,6 +386,7 @@ create table if not exists public.admin_gasoil_bons (
   beneficiary text not null default '',
   delivery_note text not null default '',
   notes text not null default '',
+  line_items jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   constraint admin_gasoil_bons_type_check
     check (bon_type in ('achat', 'sortie')),

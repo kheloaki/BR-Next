@@ -1,5 +1,6 @@
 "use client";
 
+import { Plus, Trash2 } from "lucide-react";
 import { useMemo } from "react";
 import { GasoilContactSelectWithAdd } from "@/components/admin/GasoilContactSelectWithAdd";
 import { FrenchDateInput, FrenchTimeInput } from "@/components/admin/FrenchDateTimeInput";
@@ -16,8 +17,9 @@ import {
   GASOIL_VEHICLE_CATEGORY_LABELS,
   materialCategoryToGasoilCategory,
 } from "@/lib/admin/gasoil-bon";
+import { emptyGasoilBonLine, sumGasoilBonLineLitres } from "@/lib/admin/gasoil-bon-lines";
 import { formatBonLocationNo } from "@/lib/admin/rental-bon-number-format";
-import type { GasoilBonFormState } from "@/components/admin/FuelGasoilBonForm";
+import type { GasoilBonFormState, GasoilBonLineForm } from "@/components/admin/FuelGasoilBonForm";
 import type { GasoilUnitPriceInfo } from "@/lib/admin/gasoil-unit-price";
 import { formatMoney } from "@/lib/admin/price-ht-ttc";
 
@@ -48,6 +50,8 @@ export function FuelGasoilBonSortieForm({
   lockBonNumber,
   avgUnitPriceInfo,
 }: Props) {
+  const lines = form.lines.length > 0 ? form.lines : [emptyGasoilBonLine()];
+
   const materialsForBon = useMemo(() => {
     const list = materials.filter((m) => {
       if (!m.active) return false;
@@ -63,11 +67,48 @@ export function FuelGasoilBonSortieForm({
   }, [materials, form.projectId, form.vehicleCategory]);
 
   const projectLabel = projects.find((p) => p.id === form.projectId);
-  const litres = typeof form.litres === "number" ? form.litres : Number(form.litres) || 0;
+  const litres = sumGasoilBonLineLitres(lines);
   const unitPrice =
     typeof form.unitPricePerLitre === "number" ? form.unitPricePerLitre : Number(form.unitPricePerLitre) || 0;
   const totalAmount = litres > 0 && unitPrice > 0 ? litres * unitPrice : 0;
   const avgPrice = avgUnitPriceInfo?.unitPricePerLitre ?? 0;
+
+  function setLines(next: GasoilBonLineForm[]) {
+    const primary = next[0];
+    onChange({
+      lines: next,
+      bonDate: primary?.bonDate ?? form.bonDate,
+      materialId: primary?.materialId ?? form.materialId,
+      vehicleLabel: primary?.vehicleLabel ?? form.vehicleLabel,
+      pumpMeter: primary?.pumpMeter ?? form.pumpMeter,
+      fuelTime: primary?.fuelTime ?? form.fuelTime,
+      litres: sumGasoilBonLineLitres(next) || "",
+    });
+  }
+
+  function patchLine(id: string, patch: Partial<GasoilBonLineForm>) {
+    setLines(lines.map((line) => (line.id === id ? { ...line, ...patch } : line)));
+  }
+
+  function addLine() {
+    const last = lines[lines.length - 1];
+    setLines([
+      ...lines,
+      emptyGasoilBonLine({
+        bonDate: last?.bonDate || form.bonDate,
+        materialId: last?.materialId || "",
+        vehicleLabel: last?.vehicleLabel || "",
+        fuelTime: "",
+        pumpMeter: "",
+        litres: "",
+      }),
+    ]);
+  }
+
+  function removeLine(id: string) {
+    if (lines.length <= 1) return;
+    setLines(lines.filter((line) => line.id !== id));
+  }
 
   return (
     <div className="mx-auto max-w-4xl border-2 border-[var(--navy)] bg-white shadow-sm">
@@ -116,15 +157,17 @@ export function FuelGasoilBonSortieForm({
               value={form.projectId}
               onChange={(id) => {
                 const patch: Partial<GasoilBonFormState> = { projectId: id };
-                if (form.materialId) {
+                const nextLines = lines.map((line) => {
+                  if (!line.materialId) return line;
                   const stillValid = materials.some(
-                    (m) => m.id === form.materialId && m.active && (!id || m.projectId === id),
+                    (m) => m.id === line.materialId && m.active && (!id || m.projectId === id),
                   );
-                  if (!stillValid) {
-                    patch.materialId = "";
-                    patch.vehicleLabel = "";
-                  }
-                }
+                  if (stillValid) return line;
+                  return { ...line, materialId: "", vehicleLabel: "" };
+                });
+                patch.lines = nextLines;
+                patch.materialId = nextLines[0]?.materialId ?? "";
+                patch.vehicleLabel = nextLines[0]?.vehicleLabel ?? "";
                 onChange(patch);
               }}
               allowEmpty
@@ -141,7 +184,7 @@ export function FuelGasoilBonSortieForm({
       </div>
 
       <div className="overflow-x-auto touch-pan-x overscroll-x-contain">
-        <table className="w-full min-w-[520px] border-collapse text-left">
+        <table className="w-full min-w-[560px] border-collapse text-left">
           <thead>
             <tr>
               <th className={thCell}>
@@ -169,75 +212,121 @@ export function FuelGasoilBonSortieForm({
                 <br />
                 <span className="font-normal normal-case text-[var(--graphite)]/60">عدد اللترات</span>
               </th>
+              <th className={`${thCell} w-10`} aria-label="Actions" />
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td className={tdCell}>
-                <FrenchDateInput
-                  variant="inline"
-                  className={cellInput}
-                  value={form.bonDate}
-                  onChange={(bonDate) => onChange({ bonDate })}
-                />
-              </td>
-              <td className={tdCell}>
-                <div className="space-y-1">
-                  <MaterialSelect
-                    materials={materialsForBon}
-                    value={form.materialId}
-                    onChange={(id) => {
-                      const m = materialsForBon.find((x) => x.id === id);
-                      onChange({
-                        materialId: id,
-                        vehicleLabel: m?.matricule?.trim() || m?.reference?.trim() || form.vehicleLabel,
-                        vehicleCategory: m
-                          ? materialCategoryToGasoilCategory(m.materialCategory)
-                          : form.vehicleCategory,
-                      });
-                    }}
-                    label=""
-                    placeholder={form.projectId ? "— Matériel —" : "— Chantier d'abord —"}
-                    requireProjectFirst={!form.projectId}
-                    disabled={!form.projectId}
+            {lines.map((line) => (
+              <tr key={line.id}>
+                <td className={tdCell}>
+                  <FrenchDateInput
+                    variant="inline"
+                    className={cellInput}
+                    value={line.bonDate}
+                    onChange={(bonDate) => patchLine(line.id, { bonDate })}
                   />
-                  <MatriculeInput
-                    compact
-                    value={form.vehicleLabel}
-                    onChange={(vehicleLabel) => onChange({ vehicleLabel })}
+                </td>
+                <td className={tdCell}>
+                  <div className="space-y-1">
+                    <MaterialSelect
+                      materials={materialsForBon}
+                      value={line.materialId}
+                      onChange={(id) => {
+                        const m = materialsForBon.find((x) => x.id === id);
+                        const next = lines.map((row) =>
+                          row.id === line.id
+                            ? {
+                                ...row,
+                                materialId: id,
+                                vehicleLabel:
+                                  m?.matricule?.trim() || m?.reference?.trim() || row.vehicleLabel,
+                              }
+                            : row,
+                        );
+                        const primary = next[0];
+                        onChange({
+                          lines: next,
+                          bonDate: primary?.bonDate ?? form.bonDate,
+                          materialId: primary?.materialId ?? "",
+                          vehicleLabel: primary?.vehicleLabel ?? "",
+                          pumpMeter: primary?.pumpMeter ?? "",
+                          fuelTime: primary?.fuelTime ?? "",
+                          litres: sumGasoilBonLineLitres(next) || "",
+                          vehicleCategory: m
+                            ? materialCategoryToGasoilCategory(m.materialCategory)
+                            : form.vehicleCategory,
+                        });
+                      }}
+                      label=""
+                      placeholder={form.projectId ? "— Matériel —" : "— Chantier d'abord —"}
+                      requireProjectFirst={!form.projectId}
+                      disabled={!form.projectId}
+                    />
+                    <MatriculeInput
+                      compact
+                      value={line.vehicleLabel}
+                      onChange={(vehicleLabel) => patchLine(line.id, { vehicleLabel })}
+                    />
+                  </div>
+                </td>
+                <td className={tdCell}>
+                  <input
+                    type="number"
+                    className={cellInput}
+                    placeholder="H ou km"
+                    value={line.pumpMeter}
+                    onChange={(e) => patchLine(line.id, { pumpMeter: e.target.value })}
                   />
-                </div>
-              </td>
-              <td className={tdCell}>
-                <input
-                  type="number"
-                  className={cellInput}
-                  placeholder="H ou km"
-                  value={form.pumpMeter}
-                  onChange={(e) => onChange({ pumpMeter: e.target.value })}
-                />
-              </td>
-              <td className={tdCell}>
-                <FrenchTimeInput
-                  className={cellInput}
-                  value={form.fuelTime}
-                  onChange={(fuelTime) => onChange({ fuelTime })}
-                />
-              </td>
-              <td className={tdCell}>
-                <input
-                  type="number"
-                  className={`${cellInput} font-medium`}
-                  placeholder="L"
-                  value={form.litres}
-                  onChange={(e) =>
-                    onChange({ litres: e.target.value === "" ? "" : Number(e.target.value) || 0 })
-                  }
-                />
-              </td>
-            </tr>
+                </td>
+                <td className={tdCell}>
+                  <FrenchTimeInput
+                    className={cellInput}
+                    value={line.fuelTime}
+                    onChange={(fuelTime) => patchLine(line.id, { fuelTime })}
+                  />
+                </td>
+                <td className={tdCell}>
+                  <input
+                    type="number"
+                    className={`${cellInput} font-medium`}
+                    placeholder="L"
+                    value={line.litres}
+                    onChange={(e) =>
+                      patchLine(line.id, {
+                        litres: e.target.value === "" ? "" : Number(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </td>
+                <td className={`${tdCell} text-center`}>
+                  <button
+                    type="button"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded text-[var(--graphite)]/55 transition hover:bg-red-50 hover:text-red-700 disabled:opacity-30"
+                    disabled={lines.length <= 1}
+                    aria-label="Supprimer la ligne"
+                    onClick={() => removeLine(line.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--navy)] px-4 py-2">
+        <button
+          type="button"
+          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md border border-[var(--navy)]/25 bg-white px-3 text-xs font-medium text-[var(--navy)] transition hover:bg-[var(--background)]"
+          onClick={addLine}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Ajouter une ligne
+        </button>
+        <p className="text-[10px] text-[var(--graphite)]/55">
+          Comme sur le bon papier — plusieurs dates / litres sur le même N°
+        </p>
       </div>
 
       <div className="border-b-2 border-[var(--navy)] bg-[var(--background)]/40 px-4 py-3">
@@ -292,8 +381,13 @@ export function FuelGasoilBonSortieForm({
             )}
           </div>
           <div className="ml-auto text-right">
-            <p className="text-[10px] font-bold uppercase text-[var(--graphite)]/70">Montant gasoil</p>
-            <p className="mt-1 text-sm font-semibold tabular-nums text-[var(--navy)]">
+            <p className="text-[10px] font-bold uppercase text-[var(--graphite)]/70">Total litres</p>
+            <p className="mt-0.5 text-xs tabular-nums text-[var(--graphite)]/70">
+              {litres > 0 ? `${litres.toLocaleString("fr-MA")} L` : "—"}
+              {lines.length > 1 ? ` · ${lines.length} lignes` : ""}
+            </p>
+            <p className="mt-1 text-[10px] font-bold uppercase text-[var(--graphite)]/70">Montant gasoil</p>
+            <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--navy)]">
               {totalAmount > 0 ? formatMoney(totalAmount) : "—"}
             </p>
           </div>

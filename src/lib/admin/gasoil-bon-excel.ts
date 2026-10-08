@@ -30,6 +30,10 @@ function commandeRows(data: GasoilBonExportData) {
 }
 
 function sortieRows(data: GasoilBonExportData) {
+  const lineRows = data.lines.map(
+    (line) =>
+      `<Row>${cell(1, line.bonDate)}${cell(2, line.equipment)}${cell(3, line.pumpMeter)}${cell(4, line.fuelTime)}${cell(5, line.litres)}</Row>`,
+  );
   return [
     `<Row>${cell(1, "BON DE SORTIE GASOIL", true)}</Row>`,
     `<Row>${cell(1, "N°")}${cell(2, data.number)}</Row>`,
@@ -37,7 +41,8 @@ function sortieRows(data: GasoilBonExportData) {
     `<Row>${cell(1, "Chantier")}${cell(2, data.chantier)}</Row>`,
     `<Row></Row>`,
     `<Row>${cell(1, "Date", true)}${cell(2, "Équipement / Matricule", true)}${cell(3, "Compteur (H/km)", true)}${cell(4, "Heure", true)}${cell(5, "Litres", true)}</Row>`,
-    `<Row>${cell(1, data.bonDate)}${cell(2, data.equipment)}${cell(3, data.pumpMeter)}${cell(4, data.fuelTime)}${cell(5, data.litres)}</Row>`,
+    ...lineRows,
+    `<Row>${cell(1, "Total litres")}${cell(2, data.litres)}</Row>`,
     `<Row></Row>`,
     `<Row>${cell(1, "Conducteur", true)}${cell(2, "Pompiste", true)}${cell(3, "Responsable", true)}</Row>`,
     `<Row>${cell(1, data.driver)}${cell(2, data.pompiste)}${cell(3, data.supervisor)}</Row>`,

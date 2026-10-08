@@ -25,6 +25,8 @@ import { requireAdminUserId } from "@/lib/admin/require-admin";
 import { opsId } from "@/lib/admin/ops-id";
 import { resolveProjectFields } from "@/lib/admin/project-resolve";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { parseGasoilBonLineItems } from "@/lib/admin/gasoil-bon-lines";
+import type { GasoilBonLineItem } from "@/components/admin/operations-types";
 
 async function resolveGasoilContact(
   supabase: ReturnType<typeof getSupabaseAdminClient>,
@@ -49,6 +51,7 @@ async function resolveGasoilContact(
 }
 
 function mapRow(r: Record<string, unknown>) {
+  const lineItems = parseGasoilBonLineItems(r.line_items);
   return {
     id: r.id as string,
     number: r.number as string,
@@ -71,6 +74,7 @@ function mapRow(r: Record<string, unknown>) {
     deliveryNote: (r.delivery_note as string) || "",
     notes: (r.notes as string) || "",
     fuelEntryId: (r.fuel_entry_id as string) || null,
+    lineItems: lineItems.length ? lineItems : undefined,
     unitPrice: Number(r.unit_price ?? 0),
     totalAmount: Number(r.total_amount ?? 0),
     traitementId: (r.traitement_id as string) || null,
@@ -217,6 +221,7 @@ export async function POST(request: Request) {
     notes?: string;
     syncStock?: boolean;
     unitPricePerLitre?: number;
+    lineItems?: GasoilBonLineItem[];
   };
 
   if (!body.bonType || !GASOIL_BON_TYPES.includes(body.bonType)) {
@@ -343,35 +348,58 @@ export async function POST(request: Request) {
     const priceFields =
       appliedUnitPrice > 0 ? gasoilBonPriceFields(litres, appliedUnitPrice) : { unit_price: 0, total_amount: 0 };
 
-    const { data, error } = await supabase
+    const lineItems = !isAchat ? parseGasoilBonLineItems(body.lineItems) : [];
+
+    const insertBase = {
+      id: bonId,
+      user_id: userId,
+      organization_id: organizationId,
+      number,
+      bon_type: body.bonType,
+      vehicle_category: vehicleCategory,
+      project_id: project.project_id,
+      material_id: isAchat ? null : material.material_id,
+      equipment_id: isAchat ? null : body.equipmentId || null,
+      vehicle_label: vehicleLabel,
+      equipment_name: equipmentName,
+      site_name: project.site_name,
+      bon_date: bonDate,
+      litres,
+      pump_meter: pumpMeter,
+      supplier: supplierName,
+      beneficiary: driver.name,
+      driver_contact_id: driver.id,
+      pompiste_contact_id: pompisteContactId,
+      fuel_time: isAchat ? "" : body.fuelTime?.trim() || "",
+      delivery_note: isAchat ? "" : body.deliveryNote?.trim() || "",
+      notes: body.notes?.trim() || "",
+      ...priceFields,
+    };
+
+    let { data, error } = await supabase
       .from("admin_gasoil_bons")
-      .insert({
-        id: bonId,
-        user_id: userId,
-        organization_id: organizationId,
-        number,
-        bon_type: body.bonType,
-        vehicle_category: vehicleCategory,
-        project_id: project.project_id,
-        material_id: isAchat ? null : material.material_id,
-        equipment_id: isAchat ? null : body.equipmentId || null,
-        vehicle_label: vehicleLabel,
-        equipment_name: equipmentName,
-        site_name: project.site_name,
-        bon_date: bonDate,
-        litres,
-        pump_meter: pumpMeter,
-        supplier: supplierName,
-        beneficiary: driver.name,
-        driver_contact_id: driver.id,
-        pompiste_contact_id: pompisteContactId,
-        fuel_time: isAchat ? "" : body.fuelTime?.trim() || "",
-        delivery_note: isAchat ? "" : body.deliveryNote?.trim() || "",
-        notes: body.notes?.trim() || "",
-        ...priceFields,
-      })
+      .insert({ ...insertBase, line_items: lineItems })
       .select("*")
       .single();
+
+    // DB without migration 51 yet — retry without line_items.
+    if (
+      error &&
+      /line_items|schema cache|Could not find/i.test(error.message)
+    ) {
+      const retry = await supabase
+        .from("admin_gasoil_bons")
+        .insert(insertBase)
+        .select("*")
+        .single();
+      data = retry.data;
+      error = retry.error;
+      if (!error && lineItems.length > 1) {
+        console.warn(
+          "[gasoil-bons] Saved without line_items — run database/51-gasoil-bon-line-items.sql",
+        );
+      }
+    }
 
     if (error) {
       if (isAchat || syncStock) {
@@ -435,6 +463,7 @@ export async function PATCH(request: Request) {
     deliveryNote?: string;
     notes?: string;
     unitPricePerLitre?: number;
+    lineItems?: GasoilBonLineItem[];
   };
 
   if (!body.id?.trim()) {
@@ -615,33 +644,53 @@ export async function PATCH(request: Request) {
       ? gasoilBonPriceFields(litres, appliedUnitPrice)
       : { unit_price: Number(row.unit_price ?? 0), total_amount: Number(row.total_amount ?? 0) };
 
-  const { data, error } = await supabase
+  const updateBase = {
+    vehicle_category: vehicleCategory,
+    project_id: project.project_id,
+    material_id: isAchat ? null : material.material_id,
+    equipment_id: isAchat ? null : body.equipmentId ?? (row.equipment_id as string | null),
+    vehicle_label: vehicleLabel,
+    equipment_name: equipmentName,
+    site_name: project.site_name,
+    bon_date: bonDate,
+    litres,
+    pump_meter: pumpMeter,
+    supplier: supplierName,
+    beneficiary: driver.name,
+    driver_contact_id: driver.id,
+    pompiste_contact_id: pompisteContactId,
+    fuel_time: isAchat ? "" : (body.fuelTime?.trim() ?? (row.fuel_time as string) ?? ""),
+    delivery_note: isAchat ? "" : (body.deliveryNote?.trim() ?? (row.delivery_note as string) ?? ""),
+    notes: body.notes !== undefined ? body.notes.trim() : (row.notes as string) || "",
+    ...priceFields,
+    updated_at: new Date().toISOString(),
+  };
+
+  const nextLineItems = isAchat
+    ? []
+    : body.lineItems !== undefined
+      ? parseGasoilBonLineItems(body.lineItems)
+      : parseGasoilBonLineItems(row.line_items);
+
+  let { data, error } = await supabase
     .from("admin_gasoil_bons")
-    .update({
-      vehicle_category: vehicleCategory,
-      project_id: project.project_id,
-      material_id: isAchat ? null : material.material_id,
-      equipment_id: isAchat ? null : body.equipmentId ?? (row.equipment_id as string | null),
-      vehicle_label: vehicleLabel,
-      equipment_name: equipmentName,
-      site_name: project.site_name,
-      bon_date: bonDate,
-      litres,
-      pump_meter: pumpMeter,
-      supplier: supplierName,
-      beneficiary: driver.name,
-      driver_contact_id: driver.id,
-      pompiste_contact_id: pompisteContactId,
-      fuel_time: isAchat ? "" : (body.fuelTime?.trim() ?? (row.fuel_time as string) ?? ""),
-      delivery_note: isAchat ? "" : (body.deliveryNote?.trim() ?? (row.delivery_note as string) ?? ""),
-      notes: body.notes !== undefined ? body.notes.trim() : (row.notes as string) || "",
-      ...priceFields,
-      updated_at: new Date().toISOString(),
-    })
+    .update({ ...updateBase, line_items: nextLineItems })
     .eq("id", row.id)
     .eq("organization_id", organizationId)
     .select("*")
     .single();
+
+  if (error && /line_items|schema cache|Could not find/i.test(error.message)) {
+    const retry = await supabase
+      .from("admin_gasoil_bons")
+      .update(updateBase)
+      .eq("id", row.id)
+      .eq("organization_id", organizationId)
+      .select("*")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(mapRow(data as Record<string, unknown>));

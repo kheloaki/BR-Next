@@ -10,6 +10,7 @@ import {
   validateGasoilBonForm,
   type GasoilBonFormState,
 } from "@/components/admin/FuelGasoilBonForm";
+import { flattenGasoilBonLines } from "@/lib/admin/gasoil-bon-lines";
 import type {
   AdminProject,
   GasoilBon,
@@ -410,7 +411,15 @@ export function FuelGasoilBonPanel({
       }
     }
 
-    const L = typeof form.litres === "number" ? form.litres : Number(form.litres);
+    const flat =
+      !isCommande && form.lines.length > 0
+        ? flattenGasoilBonLines(form.lines)
+        : null;
+    const L = flat
+      ? flat.litres
+      : typeof form.litres === "number"
+        ? form.litres
+        : Number(form.litres);
 
     setSaving(true);
     const payload = {
@@ -418,16 +427,20 @@ export function FuelGasoilBonPanel({
       bonType: fixedBonType,
       vehicleCategory: isCommande ? "engin" : form.vehicleCategory,
       projectId: form.projectId,
-      materialId: isCommande ? undefined : form.materialId || undefined,
-      vehicleLabel: isCommande ? "" : form.vehicleLabel,
-      bonDate: form.bonDate,
+      materialId: isCommande ? undefined : (flat?.materialId || form.materialId || undefined),
+      vehicleLabel: isCommande ? "" : flat?.vehicleLabel || form.vehicleLabel,
+      bonDate: flat?.bonDate || form.bonDate,
       litres: L,
-      pumpMeter: form.pumpMeter.trim() ? Number(form.pumpMeter) : null,
+      pumpMeter: flat
+        ? flat.pumpMeter
+        : form.pumpMeter.trim()
+          ? Number(form.pumpMeter)
+          : null,
       supplier: isCommande ? form.supplier : form.pumpAttendant,
       beneficiary: isCommande ? "" : form.driverName,
       driverContactId: isCommande ? undefined : form.driverContactId || undefined,
       pompisteContactId: isCommande ? undefined : form.pompisteContactId || undefined,
-      fuelTime: isCommande ? "" : form.fuelTime,
+      fuelTime: isCommande ? "" : flat?.fuelTime || form.fuelTime,
       deliveryNote: "",
       notes: gasoilBonNotesFromForm(form),
       syncStock: form.syncStock,
@@ -435,6 +448,7 @@ export function FuelGasoilBonPanel({
         typeof form.unitPricePerLitre === "number" && form.unitPricePerLitre > 0
           ? form.unitPricePerLitre
           : undefined,
+      lineItems: isCommande ? undefined : flat?.lineItems,
     };
 
     const res = await fetch("/api/admin/fuel/bons", {

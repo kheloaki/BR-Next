@@ -22,13 +22,39 @@ export function getSupabaseAdminClient() {
   );
 }
 
-export async function ensureAdminUserRow(userId: string) {
+function isTransientFetchError(error: { message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+  return (
+    message.includes("fetch failed") ||
+    message.includes("network") ||
+    message.includes("timeout") ||
+    message.includes("econnreset") ||
+    message.includes("enotfound") ||
+    message.includes("socket")
+  );
+}
+
+async function upsertAdminUserWithRetry(userId: string) {
   const supabase = getSupabaseAdminClient();
-  const { error } = await supabase
-    .from("admin_users")
-    .upsert({ id: userId }, { onConflict: "id" });
-  if (error) {
-    throw new Error(error.message);
+  let lastError: { message: string } | null = null;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const { error } = await supabase.from("admin_users").upsert({ id: userId }, { onConflict: "id" });
+    if (!error) return;
+
+    lastError = error;
+    if (!isTransientFetchError(error) || attempt === 3) break;
+    await new Promise((resolve) => setTimeout(resolve, attempt * 250));
   }
+
+  throw new Error(
+    lastError?.message
+      ? `Supabase admin_users upsert failed: ${lastError.message}`
+      : "Supabase admin_users upsert failed",
+  );
+}
+
+export async function ensureAdminUserRow(userId: string) {
+  await upsertAdminUserWithRetry(userId);
   await ensureAdminOrganizationMembership(userId);
 }

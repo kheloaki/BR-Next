@@ -23,6 +23,7 @@ export function FrenchDateInput({
   placeholder = "jj/mm/aaaa",
   variant = "default",
 }: InputProps) {
+  const textRef = useRef<HTMLInputElement>(null);
   const pickerRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState(() => isoToFrDate(value));
   const isoValue = value?.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? "";
@@ -43,6 +44,20 @@ export function FrenchDateInput({
     }
   }
 
+  function closePicker() {
+    const el = pickerRef.current;
+    if (!el) return;
+    el.blur();
+    // Chromium can leave the native calendar open when the date input is hidden.
+    try {
+      el.type = "text";
+      el.type = "date";
+    } catch {
+      /* ignore */
+    }
+    textRef.current?.focus();
+  }
+
   function openPicker() {
     if (disabled) return;
     const el = pickerRef.current;
@@ -60,8 +75,11 @@ export function FrenchDateInput({
   }
 
   function onPickerChange(iso: string) {
+    if (!iso) return;
     onChange(iso);
     setDraft(isoToFrDate(iso));
+    // Close after paint so the value is committed first.
+    requestAnimationFrame(() => closePicker());
   }
 
   const fieldClass = className ?? inputClass;
@@ -70,6 +88,7 @@ export function FrenchDateInput({
   return (
     <div className="relative flex min-w-0 items-stretch">
       <input
+        ref={textRef}
         type="text"
         inputMode="numeric"
         lang="fr-FR"
@@ -90,32 +109,34 @@ export function FrenchDateInput({
             commitDraft();
           }
         }}
-        onClick={openPicker}
       />
-      <button
-        type="button"
-        tabIndex={-1}
-        disabled={disabled}
-        aria-label="Ouvrir le calendrier"
-        className={
-          inline
-            ? "inline-flex shrink-0 items-center justify-center px-0.5 text-[var(--navy)] disabled:opacity-50"
-            : "inline-flex shrink-0 items-center justify-center rounded-r-lg border border-l-0 border-border bg-[var(--background)] px-2 text-[var(--navy)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-        }
-        onClick={openPicker}
-      >
-        <Calendar className={inline ? "h-3.5 w-3.5" : "h-4 w-4"} aria-hidden />
-      </button>
-      <input
-        ref={pickerRef}
-        type="date"
-        tabIndex={-1}
-        aria-hidden
-        className="pointer-events-none absolute bottom-0 right-0 h-px w-px opacity-0"
-        value={isoValue}
-        disabled={disabled}
-        onChange={(e) => onPickerChange(e.target.value)}
-      />
+      <div className="relative shrink-0">
+        <button
+          type="button"
+          tabIndex={-1}
+          disabled={disabled}
+          aria-label="Ouvrir le calendrier"
+          className={
+            inline
+              ? "inline-flex h-full items-center justify-center px-0.5 text-[var(--navy)] disabled:opacity-50"
+              : "inline-flex h-full items-center justify-center rounded-r-lg border border-l-0 border-border bg-[var(--background)] px-2 text-[var(--navy)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+          }
+          onClick={openPicker}
+        >
+          <Calendar className={inline ? "h-3.5 w-3.5" : "h-4 w-4"} aria-hidden />
+        </button>
+        {/* Sized anchor over the icon — a 1×1px date input leaves Chrome’s calendar stuck open. */}
+        <input
+          ref={pickerRef}
+          type="date"
+          tabIndex={-1}
+          aria-hidden
+          className="absolute inset-0 z-10 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+          value={isoValue}
+          disabled={disabled}
+          onChange={(e) => onPickerChange(e.target.value)}
+        />
+      </div>
     </div>
   );
 }

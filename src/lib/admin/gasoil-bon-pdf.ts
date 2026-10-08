@@ -258,16 +258,19 @@ async function buildGasoilBonSortiePdf(data: GasoilBonExportData): Promise<jsPDF
     ["Heure d'alimentation", "ساعة التزويد"],
     ["Nombre de litres", "عدد اللترات"],
   ];
-  const values = [data.bonDate, data.equipment, data.pumpMeter, data.fuelTime, data.litres];
 
   for (let i = 0; i < 5; i++) {
     drawHeaderCell(doc, margin + i * colW, y, colW, headerH, headers[i][0], headers[i][1]);
   }
   y += headerH;
-  for (let i = 0; i < 5; i++) {
-    drawCell(doc, margin + i * colW, y, colW, rowH, values[i], { size: 8, align: "center" });
+  for (const line of data.lines) {
+    const values = [line.bonDate, line.equipment, line.pumpMeter, line.fuelTime, line.litres];
+    for (let i = 0; i < 5; i++) {
+      drawCell(doc, margin + i * colW, y, colW, rowH, values[i], { size: 8, align: "center" });
+    }
+    y += rowH;
   }
-  y += rowH + 8;
+  y += 8;
 
   const sigW = contentW / 3;
   const sigH = 28;

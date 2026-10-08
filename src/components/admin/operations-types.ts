@@ -310,6 +310,15 @@ export interface GasoilContact {
   projectIds: string[];
 }
 
+export interface GasoilBonLineItem {
+  bonDate: string;
+  materialId: string | null;
+  vehicleLabel: string;
+  pumpMeter: number | null;
+  fuelTime: string;
+  litres: number;
+}
+
 export interface GasoilBon {
   id: string;
   number: string;
@@ -332,6 +341,8 @@ export interface GasoilBon {
   deliveryNote: string;
   notes: string;
   fuelEntryId: string | null;
+  /** Lignes détail (plusieurs alimentations sur le même bon papier). */
+  lineItems?: GasoilBonLineItem[];
   unitPrice?: number;
   totalAmount?: number;
   traitementId?: string | null;

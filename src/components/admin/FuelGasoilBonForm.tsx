@@ -12,7 +12,16 @@ import { btnPrimary, btnSecondary } from "@/components/admin/admin-form-styles";
 import { FuelGasoilBonCommandeForm } from "@/components/admin/FuelGasoilBonCommandeForm";
 import { FuelGasoilBonSortieForm } from "@/components/admin/FuelGasoilBonSortieForm";
 import { GASOIL_BON_TYPE_LABELS, GASOIL_BON_TYPES, DEFAULT_GASOIL_SUPERVISOR } from "@/lib/admin/gasoil-bon";
+import {
+  emptyGasoilBonLine,
+  flattenGasoilBonLines,
+  linesFromGasoilBon,
+  sumGasoilBonLineLitres,
+  type GasoilBonLineForm,
+} from "@/lib/admin/gasoil-bon-lines";
 import type { GasoilUnitPriceInfo } from "@/lib/admin/gasoil-unit-price";
+
+export type { GasoilBonLineForm };
 
 export type GasoilBonFormState = {
   bonNumber: string;
@@ -25,6 +34,8 @@ export type GasoilBonFormState = {
   pumpMeter: string;
   fuelTime: string;
   litres: number | "";
+  /** Lignes du tableau (sortie). */
+  lines: GasoilBonLineForm[];
   driverContactId: string;
   driverName: string;
   pompisteContactId: string;
@@ -49,6 +60,7 @@ export const EMPTY_GASOIL_BON_FORM: GasoilBonFormState = {
   pumpMeter: "",
   fuelTime: "",
   litres: "",
+  lines: [emptyGasoilBonLine()],
   driverContactId: "",
   driverName: "",
   pompisteContactId: "",
@@ -81,11 +93,36 @@ type Props = {
 
 export function validateGasoilBonForm(form: GasoilBonFormState): string | null {
   if (!form.projectId) return "Sélectionnez un chantier.";
-  const L = typeof form.litres === "number" ? form.litres : Number(form.litres);
-  if (!L || L <= 0) return "Indiquez la quantité en litres.";
-  if (form.bonType === "achat") return null;
-  if (!form.materialId && !form.vehicleLabel.trim()) {
-    return "Sélectionnez un matériel ou saisissez le matricule.";
+  if (form.bonType === "achat") {
+    const L = typeof form.litres === "number" ? form.litres : Number(form.litres);
+    if (!L || L <= 0) return "Indiquez la quantité en litres.";
+    return null;
+  }
+
+  const workingLines =
+    form.lines.length > 0
+      ? form.lines
+      : [
+          emptyGasoilBonLine({
+            bonDate: form.bonDate,
+            materialId: form.materialId,
+            vehicleLabel: form.vehicleLabel,
+            pumpMeter: form.pumpMeter,
+            fuelTime: form.fuelTime,
+            litres: form.litres,
+          }),
+        ];
+  const flat = flattenGasoilBonLines(workingLines);
+  if (!flat) return "Ajoutez au moins une ligne avec des litres.";
+  if (!flat.materialId && !flat.vehicleLabel.trim()) {
+    return "Sélectionnez un matériel ou saisissez le matricule sur une ligne.";
+  }
+  for (let i = 0; i < workingLines.length; i++) {
+    const line = workingLines[i];
+    const L = typeof line.litres === "number" ? line.litres : Number(line.litres);
+    if (L > 0 && !line.materialId && !line.vehicleLabel.trim()) {
+      return `Ligne ${i + 1} : sélectionnez un matériel ou saisissez le matricule.`;
+    }
   }
   return null;
 }
@@ -115,19 +152,24 @@ export function gasoilBonRowToForm(row: {
   deliveryNote: string;
   notes: string;
   unitPrice?: number;
+  lineItems?: import("@/components/admin/operations-types").GasoilBonLineItem[];
 }): GasoilBonFormState {
   const supervisorMatch = row.notes.match(/^Responsable:\s*(.+)$/);
+  const lines = linesFromGasoilBon(row);
+  const litresTotal = sumGasoilBonLineLitres(lines);
+  const primary = lines[0] ?? emptyGasoilBonLine();
   return {
     bonNumber: row.number,
     bonType: row.bonType,
     vehicleCategory: row.vehicleCategory,
     projectId: row.projectId ?? "",
-    materialId: row.materialId ?? "",
-    vehicleLabel: row.vehicleLabel,
-    bonDate: row.bonDate,
-    pumpMeter: row.pumpMeter != null ? String(row.pumpMeter) : "",
-    fuelTime: row.fuelTime,
-    litres: row.litres,
+    materialId: primary.materialId || row.materialId || "",
+    vehicleLabel: primary.vehicleLabel || row.vehicleLabel,
+    bonDate: primary.bonDate || row.bonDate,
+    pumpMeter: primary.pumpMeter,
+    fuelTime: primary.fuelTime || row.fuelTime,
+    litres: litresTotal || row.litres,
+    lines,
     driverContactId: row.driverContactId ?? "",
     driverName: row.beneficiary,
     pompisteContactId: row.pompisteContactId ?? "",
@@ -157,21 +199,22 @@ export function FuelGasoilBonForm({
 }: Props) {
   const bonType = fixedBonType ?? form.bonType;
 
-  function setBonType(bonType: GasoilBonType) {
+  function setBonType(next: GasoilBonType) {
     onChange({
-      bonType,
+      bonType: next,
       materialId: "",
       vehicleLabel: "",
       driverContactId: "",
       driverName: "",
       pompisteContactId: "",
       pumpAttendant: "",
-      supervisor: bonType === "sortie" ? DEFAULT_GASOIL_SUPERVISOR : "",
+      supervisor: next === "sortie" ? DEFAULT_GASOIL_SUPERVISOR : "",
       fuelTime: "",
       supplier: "",
       supplierId: "",
       deliveryNote: "",
       notes: "",
+      lines: [emptyGasoilBonLine()],
     });
   }
 
